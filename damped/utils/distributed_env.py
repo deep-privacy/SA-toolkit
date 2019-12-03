@@ -6,7 +6,9 @@ import torch.distributed as dist
 logger = logging.getLogger("damped.utils")
 
 
-def init_distributedenv(rank: int, world_size=2, port=29500) -> None:
+def init_distributedenv(
+    rank: int, world_size: int = 2, ip: str = "0.0.0.0", port: int = 29500
+) -> None:
     """Initialize the distributed environment
 
     In other to enable weight sharing between main task and the domain task
@@ -24,7 +26,7 @@ def init_distributedenv(rank: int, world_size=2, port=29500) -> None:
 
     init_param = {
         "backend": "gloo",
-        "init_method": f"tcp://0.0.0.0:{port}",
+        "init_method": f"tcp://{ip}:{port}",
         # The machine with rank 0 will be used to set up all connections
         "rank": rank,
         "world_size": world_size,
