@@ -25,7 +25,7 @@ setup(
     license="TODO",
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires=["torch>=1.0.1", "mypy_extensions>=0.4.3"],
+    install_requires=["torch>=1.0.1"],
     #   no scripts in this example
     #   scripts=['bin/a-script'],
     include_package_data=True,
