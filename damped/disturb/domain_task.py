@@ -41,20 +41,12 @@ class DomainTask(object):
                     B: batch size
                     Tmax: Utterance
                     D: f-bank features
+        Returns:
+            A distributed request object. (call ``wait()`` to block the process
+            until the operation is finished)
 
         """
         if tensor.is_cuda:
             logger.error("isend only support tensor that are allocated on the CPU!")
 
-        #  shape = tensor.size()
-        #  share the number of dimensions in the tensor (3 in B x Tmax x D)
-        #  dist.send(torch.tensor(len(shape), dtype=torch.int), dst=self.to_rank)
-        # send the tensor shape for correct a memory allocation on the worker side
-        # can be (B x Tmax x D)
-        #  dist.send(torch.tensor(shape, dtype=torch.int), dst=self.to_rank)
-        self.send_req = dist.isend(tensor, self.to_rank)
-
-    def wait(self):
-        """Blocks the process until the operation previous isend is finished. """
-        pass
-        self.send_req.wait()
+        return dist.isend(tensor, self.to_rank)

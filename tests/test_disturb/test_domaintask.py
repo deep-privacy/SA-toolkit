@@ -18,8 +18,8 @@ def test_domaintask_sharetensor():
         if rank == task.to_rank:  # process disturb-ed
             disturb.init(port=12121)
             for _ in range(10):
-                task.isend(torch.zeros(size))
-                task.wait()
+                req = task.isend(torch.zeros(size))
+                req.wait()
 
         else:  # Some server task running on another node
             utils.init_distributedenv(1, port=12121)
