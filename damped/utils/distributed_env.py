@@ -2,8 +2,11 @@ import logging
 from pprint import pformat
 
 import torch.distributed as dist
+from .log import log_handler
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
 
 
 def init_distributedenv(
@@ -31,6 +34,6 @@ def init_distributedenv(
         "rank": rank,
         "world_size": world_size,
     }
-    logger.info(f"Initialization of distributed env:\n{pformat(init_param)}")
+    logger.info(f"Initialization of distributed env...\n{pformat(init_param)}")
     dist.init_process_group(**init_param)
     logger.info("Distributed env inited!")

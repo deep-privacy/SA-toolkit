@@ -3,6 +3,12 @@ from dataclasses import dataclass
 import torch
 import torch.distributed as dist
 
+import logging
+from damped.utils import log_handler
+logger = logging.getLogger(__name__)
+logger.propagate = False
+logger.addHandler(log_handler)
+
 
 @dataclass
 class DomainTask(object):
@@ -37,14 +43,18 @@ class DomainTask(object):
                     D: f-bank features
 
         """
-        shape = tensor.size()
+        if tensor.is_cuda:
+            logger.error("isend only support tensor that are allocated on the CPU!")
+
+        #  shape = tensor.size()
         #  share the number of dimensions in the tensor (3 in B x Tmax x D)
-        dist.send(torch.tensor(len(shape), dtype=torch.int), dst=self.to_rank)
+        #  dist.send(torch.tensor(len(shape), dtype=torch.int), dst=self.to_rank)
         # send the tensor shape for correct a memory allocation on the worker side
         # can be (B x Tmax x D)
-        dist.send(torch.tensor(shape, dtype=torch.int), dst=self.to_rank)
+        #  dist.send(torch.tensor(shape, dtype=torch.int), dst=self.to_rank)
         self.send_req = dist.isend(tensor, self.to_rank)
 
     def wait(self):
         """Blocks the process until the operation previous isend is finished. """
+        pass
         self.send_req.wait()
