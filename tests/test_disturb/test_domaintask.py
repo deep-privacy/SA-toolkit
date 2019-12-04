@@ -16,25 +16,17 @@ def test_domaintask_sharetensor():
 
     def run(rank, size):
         if rank == task.to_rank:  # process disturb-ed
-            disturb.init()
+            disturb.init(port=12121)
             for _ in range(10):
                 task.isend(torch.zeros(size))
                 task.wait()
 
         else:  # Some server task running on another node
-            utils.init_distributedenv(1)
+            utils.init_distributedenv(1, port=12121)
 
             for _ in range(10):
-                exchange_dimensions = torch.zeros(1, dtype=torch.int)  # dimensions (3)
-                dist.recv(exchange_dimensions, src=0)
-
-                exchange_size = torch.zeros(  # shape of (B x Tmax X D)
-                    exchange_dimensions, dtype=torch.int
-                )
-                dist.recv(exchange_size, src=0)
-
                 recv_buff = torch.empty(  # value of (B x Tmax x D)
-                    tuple(map(lambda x: int(x), exchange_size.tolist()))
+                    tuple(map(lambda x: int(x), size))
                 )  # random value in tensor
                 dist.recv(recv_buff, src=0)
 
