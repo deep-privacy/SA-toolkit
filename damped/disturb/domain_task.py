@@ -33,7 +33,9 @@ class DomainTask(object):
     def isend(self, tensor: torch.Tensor):
         """Sends a tensor asynchronously.
 
-        Usually used to send batch of padded hidden state sequences.
+        Used to send batch of padded hidden state sequences.
+        Internally makes sure the sent Tensor isn't modified by backpropagation
+        before the communication is completed.
 
         Args:
             tensor (torch.Tensor): Tensor to send to the task worker (B x Tmax x D).
@@ -49,4 +51,12 @@ class DomainTask(object):
         if tensor.is_cuda:
             logger.error("isend only support tensor that are allocated on the CPU!")
 
-        return dist.isend(tensor, self.to_rank)
+        req = dist.isend(tensor, self.to_rank)
+
+        # Registers a backward hook
+        if tensor.requires_grad:
+            def _wait(_grad):
+                req.wait()
+            tensor.register_hook(_wait)
+
+        return req
