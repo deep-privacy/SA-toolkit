@@ -1,4 +1,5 @@
-from .distributed_env import init_distributedenv
+from .distributed_init import init_distributedenv
+from .distributed_recv import recv, from_fork
 from .log import log_handler
 
 # if somebody does "from somepackage import *", this is what they will
@@ -6,4 +7,6 @@ from .log import log_handler
 __all__ = [
     "init_distributedenv",
     "log_handler",
+    "recv",
+    "from_fork",
 ]
