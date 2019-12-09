@@ -3,7 +3,7 @@ import torch.distributed as dist
 from typing import Tuple
 
 
-def from_fork(rank: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def fork_recv(rank: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """Get label and feature from forked task
 
     Args:

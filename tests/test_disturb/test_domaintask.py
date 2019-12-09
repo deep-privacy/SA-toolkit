@@ -51,7 +51,7 @@ def test_domaintask_fork_detach():
             utils.init_distributedenv(1, port=12123)
 
             for _ in range(10):
-                recv_buff_feat, recv_buff_label = utils.from_fork(rank=0)
+                recv_buff_feat, recv_buff_label = utils.fork_recv(rank=0)
                 assert torch.all(torch.eq(recv_buff_feat, torch.zeros(size)))
                 assert torch.all(torch.eq(recv_buff_label, torch.zeros(size) + 1))
 

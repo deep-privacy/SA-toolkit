@@ -1,5 +1,4 @@
 import logging
-from pprint import pformat
 
 import torch.distributed as dist
 from .log import log_handler
@@ -34,6 +33,8 @@ def init_distributedenv(
         "rank": rank,
         "world_size": world_size,
     }
-    logger.info(f"Initialization of distributed env...\n{pformat(init_param)}")
+    logger.info(
+        f"Initialization of distributed env... [init: {init_param['init_method']}, rank: {init_param['rank']}, world_size: {init_param['world_size']}]"  # noqa
+    )
     dist.init_process_group(**init_param)
     logger.info("Distributed env inited!")

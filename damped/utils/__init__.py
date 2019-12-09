@@ -1,5 +1,5 @@
 from .distributed_init import init_distributedenv
-from .distributed_recv import recv, from_fork
+from .distributed_recv import recv, fork_recv
 from .log import log_handler
 
 # if somebody does "from somepackage import *", this is what they will
@@ -8,5 +8,5 @@ __all__ = [
     "init_distributedenv",
     "log_handler",
     "recv",
-    "from_fork",
+    "fork_recv",
 ]
