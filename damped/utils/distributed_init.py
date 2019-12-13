@@ -20,9 +20,12 @@ def init_distributedenv(
     Only gloo backend is supported.
         Refer to https://pytorch.org/docs/stable/distributed.html#module-torch.distributed
 
+    This function must be called on the main thread. (in the if-main)
+
     Args:
         rank (int): unique identifier for a DomainTask (0 if )
         expected_domain_tasks (int): The number of expected domain task.
+        ip (str): The ipv4 or ipv6 cluster node address
         port (int): port on which the the tensor will be exchanged
     """
 

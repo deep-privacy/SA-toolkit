@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple, Optional
 
 import torch
 import torch.distributed as dist
@@ -35,7 +36,15 @@ class DomainTask(object):
     def __post_init__(self):
         self._mutex_fork = Lock()
 
-    def fork_detach(self, hidden_tensor: torch.Tensor, domain_label: torch.Tensor):
+    def fork_detach(
+        self,
+        hidden_tensor: torch.Tensor,
+        domain_label: torch.Tensor,
+        dtype: Optional[Tuple[torch.dtype, torch.dtype]] = (
+            torch.float32,
+            torch.float32,
+        ),
+    ):
         """Sends a tensor with a target label for a DomainTask trainer to learn
 
         Handles threading
@@ -43,28 +52,33 @@ class DomainTask(object):
         Args:
             hidden_tensor (torch.Tensor): tensor of features
             domain_label (torch.Tensor): tensor of y label
+            dtype (Tuple(torch.dtype, torch.dtype), optional): the desired data
+                type of sent tensor. The first dtype if for the feature, the
+                second if for the label.
 
         Returns:
             A distributed request object. (call ``wait()`` to block the process
             until the operation is finished)
         """
         with self._mutex_fork:
-            self.isend(domain_label).wait()
-            req = self.isend(hidden_tensor)
+            self.isend(domain_label, dtype=dtype[1]).wait()
+            req = self.isend(hidden_tensor, dtype=dtype[0])
 
         return req
 
-    def isend(self, tensor: torch.Tensor):
+    def isend(self, tensor: torch.Tensor, dtype: torch.dtype = torch.float32):
         """Sends a tensor asynchronously.
 
         Used to send batch of padded hidden state sequences.
 
         Args:
-            tensor (torch.Tensor): Tensor to send to the task worker (B x Tmax x D).
+            tensor (torch.Tensor): Tensor to send to the task worker.
+            Example: (B x Tmax x D).
                 In speech field:
                     B: batch size
                     Tmax: Utterance
                     D: f-bank features
+            dtype (torch.dtype, optional): the desired data type of sent tensor
         Returns:
             A distributed request object. (call ``wait()`` to block the process
             until the operation is finished)
@@ -79,5 +93,5 @@ class DomainTask(object):
         # send the tensor shape for correct a memory allocation on the worker side
         # can be (B x Tmax x D)
         dist.send(torch.tensor(shape, dtype=torch.int), dst=self.to_rank)
-        req = dist.isend(tensor, self.to_rank)
+        req = dist.isend(tensor.to(dtype), self.to_rank)
         return req

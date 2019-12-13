@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 from damped import utils
+from damped.utils import log_handler
+from .managed_service import ManagedMemory
 
 import logging
-from damped.utils import log_handler
 logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(log_handler)
@@ -18,3 +19,6 @@ def init(expected_domain_tasks=1, port=29500) -> None:
     """
     logger.warning("Waiting for domain-task trainer connection")
     utils.init_distributedenv(0, world_size=expected_domain_tasks + 1, port=port)
+
+    # init ManagedMemory
+    ManagedMemory()

@@ -1,11 +1,13 @@
 from __future__ import annotations
 from typing import Optional
+from .managed_service import ManagedMemory
 
 import torch
 
 
-class SingletonMeta(type):
+class SingletonMetaDomain(type):
     """
+    Internal metaclass
     The Singleton metaclass for DomainLabelMapper
     """
 
@@ -17,20 +19,20 @@ class SingletonMeta(type):
         return self._instance
 
 
-class DomainLabelMapper(metaclass=SingletonMeta):
+class DomainLabelMapper(metaclass=SingletonMetaDomain):
     """
-    DomainLabelMapper used to pass information between a toolkit source code
+    DomainLabelMapper is used to pass information between a toolkit source code
     without having to change functions signature
     """
 
     def __init__(self):
-        self.map = {}
+        self.map = ManagedMemory().domain_label_map # must be init beforehand
 
     def add(self, key: torch.Tensor, class_value):
         # neither torch.Tensor or list are hashable, using tuple as key
         self.map[tuple(key.tolist())] = class_value
 
-    def get(self, key: torch.Tensor):
+    def get(self, key: torch.Tensor, default="-1"):
         """Save a tensor class value Y associated with a key tensor
 
         Args:
@@ -43,6 +45,5 @@ class DomainLabelMapper(metaclass=SingletonMeta):
         Args:
             key (torch.Tensor): The same key used in DomainLabelMapper().add()
         """
-        class_value = self.map[tuple(key.tolist())]
-        del self.map[tuple(key.tolist())]
-        return class_value
+        key = tuple(key.tolist())
+        return self.map.pop(key, default)
