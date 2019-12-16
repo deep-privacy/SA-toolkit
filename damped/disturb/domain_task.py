@@ -64,7 +64,7 @@ class DomainTask(object):
             self.isend(domain_label, dtype=dtype[1]).wait()
             req = self.isend(hidden_tensor, dtype=dtype[0])
 
-        return req
+        return work(req)
 
     def isend(self, tensor: torch.Tensor, dtype: torch.dtype = torch.float32):
         """Sends a tensor asynchronously.
@@ -95,3 +95,22 @@ class DomainTask(object):
         dist.send(torch.tensor(shape, dtype=torch.int), dst=self.to_rank)
         req = dist.isend(tensor.to(dtype), self.to_rank)
         return req
+
+
+class work(object):
+    """
+    work overshadow torch.distributed.Work
+    https://github.com/pytorch/pytorch/blob/master/torch/lib/c10d/ProcessGroup.hpp
+    """
+
+    _work: Optional[torch.distributed.Work]
+
+    def __init__(self, work: Optional[torch.distributed.Work]):
+        self._work = work
+
+    def wait(self):
+        """
+        Waits until request completes. Blocking operation.
+        """
+        if self._work is not None:
+            self._work.wait()

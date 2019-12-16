@@ -10,7 +10,7 @@ def test_domain_y_storage():
     key_y = torch.tensor(ys_pad[0][:2], dtype=torch.float)
     key = torch.cat((key_x, key_y))
 
-    disturb.DomainLabelMapper().add(key, "TEST")
+    disturb.DomainLabelMapper("test task").add(key, "TEST")
 
-    assert disturb.DomainLabelMapper().get(key) == "TEST"
-    assert len(disturb.DomainLabelMapper().map) == 0
+    assert disturb.DomainLabelMapper("test task").get(key) == "TEST"
+    assert len(disturb.DomainLabelMapper("test task").map) == 0

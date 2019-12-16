@@ -31,3 +31,4 @@ class ManagedMemory(metaclass=SingletonMetaManaged):
         This function must be called on the main thread.
         """
         self.domain_label_map = multiprocessing.Manager().dict()
+        self.domain_label_mappers = multiprocessing.Manager().dict()
