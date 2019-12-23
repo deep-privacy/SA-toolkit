@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
 import os
-import sys
 from damped import nets
 from damped.utils import gender_mapper
 import torch
 import torch.nn as nn
-import configargparse
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
@@ -18,21 +16,15 @@ device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 # - `optimizer`
 # - `mapper` to map the distirb y label to the domain task y label
 
-parser = configargparse.ArgumentParser()
-parser.add("--tdnn-in", dest="tdnn_in", type=int, default=1024)
-args = parser.parse_args()
-
 
 # Assuming 1024 dim per frame (T)
-frame1 = nets.TDNN(input_dim=args.tdnn_in, output_dim=512, context_size=5, dilation=1)
+frame1 = nets.TDNN(input_dim=1024, output_dim=512, context_size=5, dilation=1)
 frame2 = nets.TDNN(input_dim=512, output_dim=512, context_size=3, dilation=2)
 frame3 = nets.TDNN(input_dim=512, output_dim=512, context_size=3, dilation=3)
 frame4 = nets.TDNN(input_dim=512, output_dim=512, context_size=1, dilation=1)
 frame5 = nets.TDNN(input_dim=512, output_dim=1500, context_size=1, dilation=1)
 # Input to frame1 is of shape (batch_size, T, 24)
 # Output of frame5 will be (batch_size, T-14, 1500)
-
-print(sys.argv[1:])
 
 net = nn.Sequential(
     frame1,
