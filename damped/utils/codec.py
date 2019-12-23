@@ -1,4 +1,4 @@
-class StrIntEncoder:
+class str_int_encoder:
     """
     Used to convert a string to an int.
     Is reversible, the operation can be done the other way around.

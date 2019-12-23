@@ -5,7 +5,6 @@ from damped import utils
 
 import configargparse
 import importlib.util
-import sys
 
 
 def get_parser(parser=None):
@@ -21,12 +20,12 @@ def get_parser(parser=None):
     return parser
 
 
-def main(cmd_args):
+def main():
     """Run the main training function."""
     parser = get_parser()
     args = parser.parse_args()
 
-    # load the conf (net & criterion)
+    # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)
     config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config)
@@ -53,4 +52,4 @@ def main(cmd_args):
 
 if __name__ == "__main__":
     utils.init_distributedenv(rank=1)
-    main(sys.argv[1:])
+    main()
