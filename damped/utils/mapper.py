@@ -20,7 +20,9 @@ def gender_mapper(dir_path):
         for line in open(os.path.join(dir_path, "..", "data", "spk2gender"))
     ]
     spk2gender = dict(map(lambda x: (x[0], x[1]), spk2gender_lines))
-    print("Config: spk2gender: ", spk2gender)
+    print("spk2gender: ")
+    for k, v in list(spk2gender.items())[:5]:
+        print(f"  spk: {k} -> gender {v}")
 
     # sent y_mapper (from damped.disturb) to y label (for branch task training)
     def mapper(y_mapper):

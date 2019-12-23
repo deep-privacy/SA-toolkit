@@ -6,8 +6,6 @@ from damped.utils import gender_mapper
 import torch
 import torch.nn as nn
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-
 # This file will be used to define the domain branch.
 
 # The folowing variable MUST be defined, it will be imported by trainer.py!
@@ -36,7 +34,7 @@ net = nn.Sequential(
     nets.DenseEmbedding(in_dim=3000, mid_dim=512, out_dim=512),
     nets.DenseReLU(512, 2),
     nn.Softmax(dim=1),
-).to(device)
+)
 
 #  Binary Cross Entropy
 criterion = nn.BCELoss(reduction="mean")

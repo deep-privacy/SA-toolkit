@@ -5,16 +5,11 @@ class DenseReLU(nn.Module):
     def __init__(self, in_dim, out_dim):
         super(DenseReLU, self).__init__()
         self.fc = nn.Linear(in_dim, out_dim)
-        self.bn = nn.BatchNorm1d(out_dim)
         self.nl = nn.ReLU()
 
     def forward(self, x):
         x = self.fc(x)
         x = self.nl(x)
-        if len(x.shape) > 2:
-            x = self.bn(x.transpose(1, 2)).transpose(1, 2)
-        else:
-            x = self.bn(x)
         return x
 
 

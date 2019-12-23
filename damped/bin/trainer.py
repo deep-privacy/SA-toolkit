@@ -6,6 +6,7 @@ from damped import utils
 import configargparse
 import importlib.util
 
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 def get_parser(parser=None):
     """Get default arguments."""
@@ -31,14 +32,20 @@ def main():
     spec.loader.exec_module(config)
 
     optimizer = config.optimizer
-    net = config.net
+    net = config.net.to(device)
     criterion = config.criterion
 
     while True:
         features, y_mapper = utils.fork_recv(rank=0, dtype=(torch.float32, torch.long))
 
+        features = features.to(device)
         label = config.mapper(y_mapper)
+        label = label.to(device)
+
         y_pred = net(features)
+
+        # TODO
+        #  print(net.frame1.weight.grad)
 
         if torch.any(torch.isnan(y_pred)):
             print(features)
