@@ -8,6 +8,7 @@ import importlib.util
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
+
 def get_parser(parser=None):
     """Get default arguments."""
     if parser is None:
@@ -38,21 +39,11 @@ def main():
     while True:
         features, y_mapper = utils.fork_recv(rank=0, dtype=(torch.float32, torch.long))
 
-        features = features.to(device)
         label = config.mapper(y_mapper)
-        label = label.to(device)
 
-        y_pred = net(features)
-
-        # TODO
-        #  print(net.frame1.weight.grad)
-
-        if torch.any(torch.isnan(y_pred)):
-            print(features)
-            print("ERROR: ignoring this batch, prediction is NaN")
-            continue
-
-        loss = criterion(y_pred, label)
+        optimizer.zero_grad()
+        y_pred = net(features.to(device))
+        loss = criterion(y_pred, label.to(device))
         loss.backward()
         optimizer.step()
 

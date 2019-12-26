@@ -16,7 +16,7 @@ import torch.nn as nn
 
 
 # Assuming 1024 dim per frame (T)
-frame1 = nets.TDNN(input_dim=1024, output_dim=512, context_size=5, dilation=1)
+frame1 = nets.TDNN(input_dim=50, output_dim=512, context_size=5, dilation=1)
 frame2 = nets.TDNN(input_dim=512, output_dim=512, context_size=3, dilation=2)
 frame3 = nets.TDNN(input_dim=512, output_dim=512, context_size=3, dilation=3)
 frame4 = nets.TDNN(input_dim=512, output_dim=512, context_size=1, dilation=1)
@@ -32,12 +32,12 @@ net = nn.Sequential(
     frame5,
     nets.StatsPooling(),  # mean + std (out_dim = 2x in_dim = 3000) over frame5
     nets.DenseEmbedding(in_dim=3000, mid_dim=512, out_dim=512),
-    nets.DenseReLU(512, 2),
+    nn.Linear(512, 2),
     nn.Softmax(dim=1),
 )
 
 #  Binary Cross Entropy
-criterion = nn.BCELoss(reduction="mean")
+criterion = nn.CrossEntropyLoss()
 
 # Optim
 optimizer = torch.optim.Adam(net.parameters())

@@ -32,10 +32,13 @@ def gender_mapper(dir_path):
                 y_mapper.tolist(),
             )
         )
-        label = torch.zeros((len(y_mapper), 2))  # gender 'f' for female, 'm' for male
+        label = torch.zeros(
+            len(y_mapper), dtype=torch.long
+        )  # gender 'f' for female, 'm' for male
         for i, x in enumerate(decoded_y_mapped_label):
             indice = {"f": 0, "m": 1}
-            label[i][indice[spk2gender[x]]] = 1
+            label[i] = indice[spk2gender[x]]
+
         return label
 
     return mapper
