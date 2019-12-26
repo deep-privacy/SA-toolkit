@@ -33,7 +33,7 @@ net = nn.Sequential(
     nets.StatsPooling(),  # mean + std (out_dim = 2x in_dim = 3000) over frame5
     nets.DenseEmbedding(in_dim=3000, mid_dim=512, out_dim=512),
     nn.Linear(512, 2),
-    nn.Softmax(dim=1),
+    #  nn.Softmax(dim=1),
 )
 
 #  Binary Cross Entropy

@@ -36,16 +36,32 @@ def main():
     net = config.net.to(device)
     criterion = config.criterion
 
+    accuracy = 0.0
     while True:
         features, y_mapper = utils.fork_recv(rank=0, dtype=(torch.float32, torch.long))
 
-        label = config.mapper(y_mapper)
+        target = config.mapper(y_mapper)
 
         optimizer.zero_grad()
         y_pred = net(features.to(device))
-        loss = criterion(y_pred, label.to(device))
+
+        if torch.any(torch.isnan(y_pred)):
+            print(features)
+            print("ERROR: ignoring this batch, prediction is NaN")
+            continue
+
+        loss = criterion(y_pred, target.to(device))
         loss.backward()
         optimizer.step()
+
+        accuracy += (torch.argmax(y_pred.data, 1) == target.to(device)).sum()
+        epoch = 1
+        batch_idx = 1
+        print(
+            "Train Epoch: {} \tLoss: {:.6f}\tAccuracy: {:.3f}".format(
+                epoch, batch_idx + 1, loss.item(), 100.0 * accuracy.item(),
+            )
+        )
 
 
 if __name__ == "__main__":
