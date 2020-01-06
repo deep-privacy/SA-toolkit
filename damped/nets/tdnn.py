@@ -15,7 +15,7 @@ class TDNN(nn.Module):
         context_size=5,
         stride=1,
         dilation=1,
-        batch_norm=True,
+        batch_norm=False,
         dropout_p=0.0,
     ):
         """
