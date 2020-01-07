@@ -16,7 +16,7 @@ import torch.nn as nn
 
 
 # Assuming 1024 dim per frame (T)
-frame1 = nets.TDNN(input_dim=50, output_dim=512, context_size=5, dilation=1)
+frame1 = nets.TDNN(input_dim=1024, output_dim=512, context_size=5, dilation=1)
 frame2 = nets.TDNN(input_dim=512, output_dim=512, context_size=3, dilation=2)
 frame3 = nets.TDNN(input_dim=512, output_dim=512, context_size=3, dilation=3)
 frame4 = nets.TDNN(input_dim=512, output_dim=512, context_size=1, dilation=1)

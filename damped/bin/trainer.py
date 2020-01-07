@@ -54,7 +54,7 @@ def main():
         loss.backward()
         optimizer.step()
 
-        accuracy += (torch.argmax(y_pred.data, 1) == target.to(device)).sum()
+        accuracy = (torch.argmax(y_pred.data, 1) == target.to(device)).sum()
         epoch = 1
         batch_idx = 1
         print(
