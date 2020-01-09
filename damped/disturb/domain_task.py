@@ -3,11 +3,10 @@ from typing import Tuple, Optional
 
 import torch
 import torch.distributed as dist
+from threading import Lock
 
 import logging
 from damped.utils import log_handler
-from threading import Lock
-
 logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(log_handler)
