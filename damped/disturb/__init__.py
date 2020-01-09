@@ -1,5 +1,5 @@
 from .domain_task import DomainTask
-from .disturb import init
+from .disturb import init, stop, eval, train
 from .domain_y_mapper import DomainLabelMapper
 
 """
@@ -11,6 +11,9 @@ onto existing architecture or toolkit.
 # be able to access:
 __all__ = [
     "init",
+    "stop",
+    "eval",
+    "train",
     "DomainTask",
     "DomainLabelMapper",
 ]

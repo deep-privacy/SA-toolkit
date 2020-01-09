@@ -25,14 +25,14 @@ setup(
     license="TODO",
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires=["torch>=1.0.1"],
+    install_requires=["torch>=1.0.1", "scikit-learn>=0.20.1", "pandas>=0.23.4"],
     #   no scripts in this example
     #   scripts=['bin/a-script'],
     include_package_data=True,
     classifiers=[
         "Operating System :: Linux",
-        "Intended Audience :: Science/Research",
+        "Intended Audience :: Audio Science/Research",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.6",
     ],
 )

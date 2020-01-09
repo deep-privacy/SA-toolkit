@@ -44,7 +44,7 @@ class DomainLabelMapper(metaclass=SingletonMetaDomain):
 
         Args:
             key (torch.Tensor): must me unique for the class_value (i.e.
-            first 3 values of a X tensor + the first value of a task-Y tensor)
+            first 3 values of a X tensor)
             class_value (any): the domain target value
         """
         # neither torch.Tensor or list are hashable, using tuple as key
