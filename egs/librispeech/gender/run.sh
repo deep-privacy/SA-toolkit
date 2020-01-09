@@ -3,7 +3,7 @@
 . ./path.sh || exit 1;
 
 # configuration
-stage=2
+stage=2 # start at stabe 0 to Download Meta-Data
 stop_stage=100
 
 # misc
