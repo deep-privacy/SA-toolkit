@@ -23,7 +23,7 @@ class GenderNet(nn.Module):
         super(GenderNet, self).__init__()
         self.eproj = 50
         self.hidden_size = 512
-        self.num_layers = 1
+        self.num_layers = 2
 
         self.lstm = nn.LSTM(
             self.eproj,
@@ -50,7 +50,7 @@ class GenderNet(nn.Module):
 
         out_lstm, (h_0, c_0) = self.lstm(hs_pad, (h_0, c_0))
 
-        h_0 = h_0[0]  # only one layer*direction
+        h_0 = h_0[self.num_layers - 1]  # Take the last layer of the LSTM
 
         out_fc1 = self.fc1(h_0)
 

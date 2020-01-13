@@ -6,19 +6,23 @@
 stage=2 # start at stabe 0 to Download Meta-Data
 stop_stage=100
 
-# misc
-log_interval=300
-
-# model parameters
+# model/trainer conf
 conf=conf.py
 
+# misc
+log_interval=300
+log_path=$(pwd)/exp/$conf
+
 # eval
-snapshot=$conf/snapshot.ep.35
+snapshot=snapshot.ep.4
+
+# task related
 label="0 1"
 label_name="Female Male"
 
 # The 'to_rank' value to provide to damped.disturb.DomainTask
 task_rank=1
+gpu_device=0
 
 . utils/parse_options.sh || exit 1;
 
@@ -41,12 +45,13 @@ fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   echo "stage 2: Training the '$(basename `pwd`)' branch"
+  mkdir -p $log_path
   trainer.py \
     --config $(pwd)/conf/$conf \
     --task-rank $task_rank \
-    --label $label \
-    --label-name $label_name \
-    --log-interval $log_interval
+    --log-interval $log_interval \
+    --gpu-device $gpu_device \
+    | tee $log_path/train.log
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
@@ -56,5 +61,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     --task-rank $task_rank \
     --label $label \
     --label-name $label_name \
-    --snapshot $(pwd)/exp/$snapshot
+    --snapshot $log_path/$snapshot \
+    --gpu-device $gpu_device \
+    | tee $log_path/eval.log
 fi

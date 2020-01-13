@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(log_handler)
 
+# TODO(drakirus): support toolkit that already have distributed env
+#                 Currently not compatible with tool that already use distributed env
+
 
 def init(expected_domain_tasks=1, port=29500) -> None:
     """Initialize the damped distributed environment

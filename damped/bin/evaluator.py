@@ -61,6 +61,15 @@ def get_parser(parser=None):
         nargs="+",
     )
 
+    parser.add(
+        "--gpu-device",
+        dest="gpu_device",
+        help="If the node has GPU accelerator, select the GPU to use",
+        required=False,
+        type=int,
+        default=0,
+    )
+
     return parser
 
 
@@ -68,6 +77,10 @@ def main():
     """Run the main training function."""
     parser = get_parser()
     args = parser.parse_args()
+
+    device = torch.device(
+        f"cuda:{args.gpu_device}" if torch.cuda.is_available() else "cpu"
+    )
 
     assert len(args.label) == len(
         args.label_name

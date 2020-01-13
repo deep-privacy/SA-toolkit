@@ -24,7 +24,7 @@ def test_domaintask_sharetensor():
             utils.init_distributedenv(1, port=12121)
 
             for _ in range(10):
-                recv_buff = utils.recv(rank=0)
+                recv_buff, _ = utils.recv(rank=0)
                 assert torch.all(torch.eq(recv_buff, torch.zeros(size)))
 
     processes = []
@@ -52,7 +52,7 @@ def test_domaintask_fork_detach():
             utils.init_distributedenv(1, port=12123)
 
             for _ in range(10):
-                recv_buff_feat, recv_buff_label = utils.fork_recv(rank=0)
+                recv_buff_feat, recv_buff_label, _ = utils.fork_recv(rank=0)
                 assert torch.all(torch.eq(recv_buff_feat, torch.zeros(size)))
                 assert torch.all(torch.eq(recv_buff_label, torch.zeros(size) + 1))
 
@@ -85,7 +85,7 @@ def test_domaintask_fork_detach_type():
             utils.init_distributedenv(1, port=12123)
 
             for _ in range(10):
-                recv_buff_feat, recv_buff_label = utils.fork_recv(
+                recv_buff_feat, recv_buff_label, _ = utils.fork_recv(
                     rank=0, dtype=(torch.float32, torch.uint8)
                 )
                 assert torch.all(
