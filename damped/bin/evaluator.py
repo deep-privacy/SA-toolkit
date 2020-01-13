@@ -98,7 +98,7 @@ def main():
     net = config.net.to(device)
 
     # load the snapshot
-    net.load_state_dict(torch.load(args.snapshot))
+    net.load_state_dict(torch.load(args.snapshot)["model"])
 
     net.eval()
     total_labels = torch.LongTensor([])

@@ -8,13 +8,15 @@ stop_stage=100
 
 # model/trainer conf
 conf=conf.py
+resume=
+# resume=$(pwd)/exp/$conf/GenderNet.best.acc.ckpt
 
 # misc
 log_interval=300
 log_path=$(pwd)/exp/$conf
 
 # eval
-snapshot=snapshot.ep.4
+snapshot=$(pwd)/exp/$conf/GenderNet.best.acc.ckpt
 
 # task related
 label="0 1"
@@ -51,6 +53,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     --task-rank $task_rank \
     --log-interval $log_interval \
     --gpu-device $gpu_device \
+    --resume $resume \
     | tee $log_path/train.log
 fi
 
@@ -61,7 +64,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     --task-rank $task_rank \
     --label $label \
     --label-name $label_name \
-    --snapshot $log_path/$snapshot \
+    --snapshot $snapshot \
     --gpu-device $gpu_device \
     | tee $log_path/eval.log
 fi

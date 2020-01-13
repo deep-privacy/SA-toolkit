@@ -21,7 +21,7 @@ class GenderNet(nn.Module):
 
     def __init__(self):
         super(GenderNet, self).__init__()
-        self.eproj = 50
+        self.eproj = 1024
         self.hidden_size = 512
         self.num_layers = 2
 

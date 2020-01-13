@@ -4,23 +4,11 @@ import torch
 from damped import utils
 from damped.disturb import const
 from sklearn.metrics import accuracy_score
-from pytorchcheckpoint.checkpoint import CheckpointHandler
 
 import configargparse
 import importlib.util
 import os
-
-checkpoint_handler = CheckpointHandler()
-
-
-def save_model(model: torch.nn.Module, name: str, epoch: int):
-    exp_dir = os.path.join("exp/", name)
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
-    torch.save(model.state_dict(), os.path.join(exp_dir, f"snapshot.ep.{epoch}"))
-    f = open(os.path.join("exp/", name, "model.summary"), "w")
-    f.write(str(model))
-    f.close()
+import time
 
 
 def get_parser(parser=None):
@@ -36,6 +24,7 @@ def get_parser(parser=None):
         dest="log_interval",
         type=int,
         help="Log training accuracy every X batch",
+        nargs="?",
         required=False,
         default=10,
     )
@@ -47,12 +36,31 @@ def get_parser(parser=None):
         required=True,
     )
     parser.add(
+        "--n-checkpoint",
+        dest="n_checkpoints",
+        type=int,
+        help="The number of checkpoints to keep (checkpoint frequency defined by log-interval)",
+        nargs="?",
+        required=False,
+        default=3,
+    )
+    parser.add(
         "--gpu-device",
         dest="gpu_device",
         help="If the node has GPU accelerator, select the GPU to use",
+        nargs="?",
         required=False,
         type=int,
         default=0,
+    )
+    parser.add(
+        "--resume",
+        dest="resume",
+        help="Resume the training from a checkpoint",
+        default="",
+        nargs="?",
+        required=False,
+        type=str,
     )
 
     return parser
@@ -83,7 +91,22 @@ def main():
     # keep track of some values while training
     total_correct = 0
     total_target = 0
-    iteration_idx = 0
+
+    monitor = utils.Monitor(
+        save_path=os.path.join("exp/", os.path.basename(args.config)),
+        exp_id=net.__class__.__name__,
+        model=net,
+        eval_metrics="acc, loss",  # First metric is considered to be early-stopping metric
+        save_best_metrics=True,
+        n_checkpoints=args.n_checkpoints,
+    )
+    monitor.set_optimizer(optimizer)
+    monitor.save_model_summary()
+
+    if args.resume:
+        print("resumed from %s" % args.resume, flush=True)
+        # load last checkpoint
+        monitor.load_checkpoint(args.resume)
 
     # Eval related
     eval_mode = False
@@ -91,7 +114,8 @@ def main():
     total_pred = torch.LongTensor([])
     loss_batches = 0
     loss_batches_count = 0
-    val_idx = 1
+
+    print("Training started on %s" % time.strftime("%d-%m-%Y %H:%M"), flush=True)
 
     while True:
         features, y_mapper, is_meta_data = utils.fork_recv(
@@ -116,45 +140,25 @@ def main():
                     )
                     * 100
                 )
-                print(
-                    "Validation batch \tLoss: {:.6f}\tVal Accuracy: {:.3f}".format(
-                        loss_batches / loss_batches_count, accuracy,
-                    ),
-                    flush=True,
-                )
 
-                checkpoint_handler.store_running_var_with_header(
-                    header="valid",
-                    var_name="loss",
-                    iteration=val_idx,
-                    value=loss_batches / loss_batches_count,
+                monitor.update_scores(
+                    [
+                        utils.Metric("acc", accuracy),
+                        utils.Metric(
+                            "loss",
+                            (loss_batches / loss_batches_count),
+                            higher_better=False,
+                        ),
+                    ]
                 )
-                checkpoint_handler.store_running_var_with_header(
-                    header="valid",
-                    var_name="accuracy",
-                    iteration=val_idx,
-                    value=accuracy,
-                )
+                monitor.save_models()
+                monitor.vctr += 1
 
                 # clear for next eval
                 total_labels = torch.LongTensor([])
                 total_pred = torch.LongTensor([])
                 loss_batches = 0
                 loss_batches_count = 0
-
-                exp_dir = os.path.join("exp/", os.path.basename(args.config))
-                checkpoint_path = checkpoint_handler.generate_checkpoint_path(
-                    path2save=exp_dir
-                )
-                checkpoint_handler.save_checkpoint(
-                    checkpoint_path=checkpoint_path,
-                    iteration=val_idx,
-                    model=net,
-                    optimizer=optimizer,
-                )
-
-                #  save_model(net, os.path.basename(args.config), val_idx)
-                val_idx += 1
 
             # When meta_data is shared, no features/label are sent
             continue
@@ -192,30 +196,23 @@ def main():
         total_correct += correct
         total_target += target.size(0)
 
-        iteration_idx += 1
-        if iteration_idx % args.log_interval == 0:
+        monitor.train_loss.append(loss.item())
+
+        monitor.uctr += 1
+        if monitor.uctr % args.log_interval == 0:
             accuracy = (total_correct / total_target) * 100
             print(
                 "Train batch [{}]\tLoss: {:.6f}\tTrain Accuracy: {:.3f}".format(
-                    iteration_idx, loss.item(), accuracy,
+                    monitor.uctr, loss.item(), accuracy,
                 ),
                 flush=True,
             )
             total_correct = 0
             total_target = 0
 
-            checkpoint_handler.store_running_var_with_header(
-                header="train",
-                var_name="loss",
-                iteration=iteration_idx,
-                value=loss.item(),
-            )
-            checkpoint_handler.store_running_var_with_header(
-                header="train",
-                var_name="accuracy",
-                iteration=iteration_idx,
-                value=accuracy,
-            )
+            monitor.save_checkpoint()
+
+    print("Training finished on %s" % time.strftime("%d-%m-%Y %H:%M"))
 
 
 if __name__ == "__main__":
