@@ -7,7 +7,7 @@ stage=2 # start at stabe 0 to Download Meta-Data
 stop_stage=100
 
 # misc
-log_interval=5
+log_interval=300
 
 # model parameters
 conf=conf.py

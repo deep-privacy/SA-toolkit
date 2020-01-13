@@ -94,6 +94,7 @@ def main():
     total_pred = torch.LongTensor([])
     loss_batches = 0
     loss_batches_count = 0
+    val_idx = 1
 
     while True:
         features, y_mapper, is_meta_data = utils.fork_recv(
@@ -134,6 +135,9 @@ def main():
                     total_pred = torch.LongTensor([])
                     loss_batches = 0
                     loss_batches_count = 0
+
+                    save_model(net, os.path.basename(args.config), val_idx)
+                    val_idx += 1
 
             # When meta_data is shared, no features/label are sent
             continue
@@ -180,7 +184,6 @@ def main():
             )
             total_correct = 0
             total_target = 0
-            save_model(net, os.path.basename(args.config), batch_idx)
 
 
 if __name__ == "__main__":
