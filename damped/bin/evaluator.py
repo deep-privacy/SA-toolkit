@@ -9,9 +9,6 @@ import importlib.util
 import os
 
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-
-
 def save_model(model: torch.nn.Module, name: str, epoch: int):
     exp_dir = os.path.join("exp/", name)
     if not os.path.exists(exp_dir):
