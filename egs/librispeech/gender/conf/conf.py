@@ -13,6 +13,10 @@ import torch.nn as nn
 # - `optimizer`
 # - `mapper` to map the distirb y label to the domain task y label
 
+# parse args injected by damped
+argsparser.add("--eproj", default=1024, type=int)  # noqa
+args = argsparser.parse_args()  # noqa
+
 
 # Assuming 1024 dim per frame (T) (encoder projection)
 class GenderNet(nn.Module):
@@ -21,15 +25,12 @@ class GenderNet(nn.Module):
 
     def __init__(self):
         super(GenderNet, self).__init__()
-        self.eproj = 1024
+        self.eproj = args.eproj
         self.hidden_size = 782
         self.num_layers = 1
 
         self.lstm = nn.LSTM(
-            self.eproj,
-            self.hidden_size,
-            self.num_layers,
-            batch_first=True,
+            self.eproj, self.hidden_size, self.num_layers, batch_first=True,
         )
         self.fc1 = nn.Linear(self.hidden_size, 2)
         self.softmax = nn.Softmax(dim=1)

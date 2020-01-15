@@ -57,13 +57,17 @@ while true; do
     # If the first command-line argument begins with "--" (e.g. --foo-bar),
     # then work out the variable name as $name, which will equal "foo_bar".
     --*) name=`echo "$1" | sed s/^--// | sed s/-/_/g`;
-      # Next we test whether the variable in question is undefned-- if so it's
+      # Next we test whether the variable in question is undefined-- if so it's
       # an invalid option and we die.  Note: $0 evaluates to the name of the
       # enclosing script.
       # The test [ -z ${foo_bar+xxx} ] will return true if the variable foo_bar
       # is undefined.  We then have to wrap this test inside "eval" because
       # foo_bar is itself inside a variable ($name).
-      eval '[ -z "${'$name'+xxx}" ]' && echo "$0: invalid option $1" 1>&2 && exit 1;
+      if eval '[ -z "${'$name'+xxx}" ]';then
+        echo "$0: option $1 added to \$other" 1>&2
+        # Set the variable 'other' this undefined args
+        other+="$1 $2";
+      fi
 
       oldval="`eval echo \\$$name`";
       # Work out whether we seem to be expecting a Boolean argument.

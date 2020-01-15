@@ -73,7 +73,7 @@ def get_parser(parser=None):
 def main():
     """Run the main training function."""
     parser = get_parser()
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     device = torch.device(
         f"cuda:{args.gpu_device}" if torch.cuda.is_available() else "cpu"
@@ -89,6 +89,9 @@ def main():
     # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)
     config = importlib.util.module_from_spec(spec)
+    config.argsparser = (
+        parser  # Share the configargparse.ArgumentParser with the user defined module
+    )
     spec.loader.exec_module(config)
 
     # create the net

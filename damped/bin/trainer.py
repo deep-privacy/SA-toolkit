@@ -29,6 +29,13 @@ def get_parser(parser=None):
         default=10,
     )
     parser.add(
+        "--exp-path",
+        dest="exp_path",
+        help="Path to save the exp model/results",
+        required=True,
+        type=str,
+    )
+    parser.add(
         "--task-rank",
         dest="task_rank",
         type=int,
@@ -69,7 +76,7 @@ def get_parser(parser=None):
 def main():
     """Run the main training function."""
     parser = get_parser()
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     device = torch.device(
         f"cuda:{args.gpu_device}" if torch.cuda.is_available() else "cpu"
@@ -81,6 +88,9 @@ def main():
     # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)
     config = importlib.util.module_from_spec(spec)
+    config.argsparser = (
+        parser  # Share the configargparse.ArgumentParser with the user defined module
+    )
     spec.loader.exec_module(config)
 
     # create the net and training optim/criterion
@@ -93,7 +103,7 @@ def main():
     total_target = 0
 
     monitor = utils.Monitor(
-        save_path=os.path.join("exp/", os.path.basename(args.config)),
+        save_path=os.path.join("exp/", args.exp_path),
         exp_id=net.__class__.__name__,
         model=net,
         eval_metrics="acc, loss",  # First metric is considered to be early-stopping metric
