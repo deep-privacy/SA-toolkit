@@ -24,7 +24,7 @@ label_name="Female Male"
 
 # The 'to_rank' value to provide to damped.disturb.DomainTask
 task_rank=1
-gpu_device=0
+gpu_device=1
 
 . utils/parse_options.sh || exit 1;
 
@@ -66,5 +66,5 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     --label-name $label_name \
     --snapshot $snapshot \
     --gpu-device $gpu_device \
-    | tee $log_path/eval.log
+    | tee -a $log_path/eval.log
 fi
