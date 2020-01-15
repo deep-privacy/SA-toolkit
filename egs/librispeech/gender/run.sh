@@ -2,6 +2,9 @@
 
 . ./path.sh || exit 1;
 
+# exp tag
+tag="gender_reco_lstm_eproj_no_back"
+
 # configuration
 stage=2 # start at stabe 0 to Download Meta-Data
 stop_stage=100
@@ -9,14 +12,14 @@ stop_stage=100
 # model/trainer conf
 conf=conf.py
 resume=
-# resume=$(pwd)/exp/$conf/GenderNet.best.acc.ckpt
+# resume=$(pwd)/exp/$tag/GenderNet.best.acc.ckpt
 
 # misc
 log_interval=300
-log_path=$(pwd)/exp/$conf
+log_path=$(pwd)/exp/$tag
 
 # eval
-snapshot=$(pwd)/exp/$conf/GenderNet.best.acc.ckpt
+snapshot=$(pwd)/exp/$tag/GenderNet.best.acc.ckpt
 
 # task related
 label="0 1"

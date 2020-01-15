@@ -2,6 +2,13 @@ import damped
 import torch
 import os
 
+import logging
+from damped.utils import log_handler
+
+logger = logging.getLogger(__name__)
+logger.propagate = False
+logger.addHandler(log_handler)
+
 """
 Mappers for different task.
 A damped.disturb domain task may use task independent y label.
@@ -32,14 +39,12 @@ def gender_mapper(dir_path):
                 y_mapper.tolist(),
             )
         )
-        label = torch.zeros(
-            len(y_mapper), dtype=torch.long
-        )
+        label = torch.zeros(len(y_mapper), dtype=torch.long)
         # gender 'f' for female, 'm' for male
         indice = {"f": 0, "m": 1}
         for i, x in enumerate(decoded_y_mapped_label):
             if x == "-1":
-                print("Warn: y_mapper not found")
+                logger.warning("Warn: y_mapper not found")
                 continue
             label[i] = indice[spk2gender[x]]
 
