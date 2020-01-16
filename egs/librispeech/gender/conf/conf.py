@@ -18,6 +18,7 @@ argsparser.add("--eproj", default=1024, type=int)  # noqa
 args = argsparser.parse_args()  # noqa
 
 
+# input: Batch x Tmax X D
 # Assuming 1024 dim per frame (T) (encoder projection)
 class GenderNet(nn.Module):
     """ Gender classification net

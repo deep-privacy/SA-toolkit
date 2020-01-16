@@ -38,9 +38,13 @@ class Xtractor(nn.Module):
 
     def produce_embeddings(self, x):
         """
+        Generate embedding as defined by http://www.danielpovey.com/files/2017_interspeech_embeddings.pdf
 
-        :param x:
-        :return:
+        Args:
+            x (torch.Tensor): (batch_size x seq_len x input_size)
+
+        Returns:
+            torch.Tensor: the first embedding after StatsPooling
         """
         frame_emb_0 = self.norm0(self.activation(self.frame_conv0(x)))
         frame_emb_1 = self.norm1(self.activation(self.frame_conv1(frame_emb_0)))
@@ -58,9 +62,18 @@ class Xtractor(nn.Module):
     def forward(self, x):
         """
 
-        :param x:
-        :return:
+        Computate the network forward pass
+
+        Args:
+            x (torch.Tensor): (batch_size x seq_len x input_size)
+
+        Returns:
+            torch.Tensor: classification result
         """
+
+        # Turn (batch_size x seq_len x input_size) into (batch_size x input_size x seq_len) for CNN
+        x = x.transpose(1, 2)
+
         seg_emb_0 = self.produce_embeddings(x)
         # batch-normalisation after this layer
         seg_emb_1 = self.norm6(self.activation(seg_emb_0))
@@ -76,8 +89,8 @@ class Xtractor(nn.Module):
         """
         Extract x-vector given an input sequence of features
 
-        :param x:
-        :return:
+        Returns:
+            torch.Tensor: the first and second embedding as defined by the x-vector paper
         """
         embedding_a = self.produce_embeddings(x)
         embedding_b = self.seg_lin1(self.norm6(self.activation(embedding_a)))

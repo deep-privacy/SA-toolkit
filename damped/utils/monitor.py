@@ -109,12 +109,12 @@ class Monitor:
         # Also create a symbolic link to the above checkpoint for the metric
         if metric and do_symlink:
             symlink = "{}.best.{}.ckpt".format(self.exp_id, metric.name.lower())
-            symlink = os.path.join(self.save_path, symlink)
-            if os.path.exists(symlink):
-                old_ckpt = Path(symlink).resolve()
-                os.unlink(old_ckpt)
-                os.unlink(symlink)
-            os.symlink(os.path.basename(fname), symlink)
+            symlink = Path(self.save_path) / Path(symlink)
+            if symlink.exists():
+                old_ckpt = symlink.resolve()
+                symlink.unlink()
+                old_ckpt.unlink()
+            symlink.symlink_to(fname)
 
         return fname
 

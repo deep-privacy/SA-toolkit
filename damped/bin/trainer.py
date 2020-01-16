@@ -69,6 +69,20 @@ def get_parser(parser=None):
         required=False,
         type=str,
     )
+    parser.add(
+        "--world-size",
+        dest="world_size",
+        help="The number of expected TOTAL domain task (might be more than one)",
+        required=True,
+        type=int,
+    )
+    parser.add(
+        "--master-ip",
+        dest="master_ip",
+        help="The ipv4 or ipv6 address of the master node. (The one that was damped.disturb-ed)",
+        required=True,
+        type=str,
+    )
 
     return parser
 
@@ -83,7 +97,9 @@ def main():
     )
 
     # init the rank of this task
-    utils.init_distributedenv(rank=args.task_rank)
+    utils.init_distributedenv(
+        rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
+    )
 
     # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)
@@ -151,14 +167,14 @@ def main():
                     * 100
                 )
 
+                loss = 0
+                if loss_batches_count != 0:
+                    loss = loss_batches / loss_batches_count
+
                 monitor.update_scores(
                     [
                         utils.Metric("acc", accuracy),
-                        utils.Metric(
-                            "loss",
-                            (loss_batches / loss_batches_count),
-                            higher_better=False,
-                        ),
+                        utils.Metric("loss", loss, higher_better=False,),
                     ]
                 )
                 monitor.save_models()

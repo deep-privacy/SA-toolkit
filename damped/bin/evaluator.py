@@ -57,7 +57,6 @@ def get_parser(parser=None):
         type=str,
         nargs="+",
     )
-
     parser.add(
         "--gpu-device",
         dest="gpu_device",
@@ -65,6 +64,20 @@ def get_parser(parser=None):
         required=False,
         type=int,
         default=0,
+    )
+    parser.add(
+        "--world-size",
+        dest="world_size",
+        help="The number of expected TOTAL domain task (might be more than one)",
+        required=True,
+        type=int,
+    )
+    parser.add(
+        "--master-ip",
+        dest="master_ip",
+        help="The ipv4 or ipv6 address of the master node. (The one that was damped.disturb-ed)",
+        required=True,
+        type=str,
     )
 
     return parser
@@ -84,7 +97,9 @@ def main():
     ), "The size of '--label' must be the same as the size of '--label-name'"
 
     # init the rank of this task
-    utils.init_distributedenv(rank=args.task_rank)
+    utils.init_distributedenv(
+        rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
+    )
 
     # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)

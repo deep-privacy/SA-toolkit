@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 from damped import utils
 from damped.utils import log_handler
 from .managed_service import ManagedMemory
@@ -18,7 +19,9 @@ logger.addHandler(log_handler)
 #                 Currently not compatible with tool that already use distributed env
 
 
-def init(expected_domain_tasks=1, port=29500) -> None:
+def init(
+    expected_domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1)), port=29500
+) -> None:
     """Initialize the damped distributed environment
 
     Args:
@@ -32,7 +35,7 @@ def init(expected_domain_tasks=1, port=29500) -> None:
     ManagedMemory()
 
 
-def stop(domain_tasks: int) -> None:
+def stop(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     """
     Send a stop signal to all domain tasks
 
@@ -47,7 +50,7 @@ def stop(domain_tasks: int) -> None:
         dist.send(stop_signal(), dst=t)
 
 
-def eval(domain_tasks: int) -> None:
+def eval(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     """
     Put the trainer into evaluation mode
 
@@ -61,7 +64,7 @@ def eval(domain_tasks: int) -> None:
         dist.send(eval_signal(), dst=t)
 
 
-def train(domain_tasks: int) -> None:
+def train(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     """
     Put the trainer into training mode
 

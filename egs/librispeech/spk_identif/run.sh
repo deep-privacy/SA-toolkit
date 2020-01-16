@@ -8,7 +8,7 @@ _all_args="$@"
 ####
 
 # exp tag
-tag="gender_reco_lstm_eproj_no_back"
+tag="spk_iden_reco_lstm_eproj_no_back"
 
 # configuration
 stage=2 # start at stabe 0 to Download Meta-Data
@@ -17,20 +17,20 @@ stop_stage=100
 # model/trainer conf (net archi, task related)
 conf=conf.py
 resume=
-# resume=GenderNet.best.acc.ckpt
+# resume=Xtractor.best.acc.ckpt
 
 # misc
 log_interval=300
 
 # eval
-snapshot=GenderNet.best.acc.ckpt
+snapshot=Xtractor.best.acc.ckpt
 
 # task related
-label="0 1"
-label_name="Female Male"
+label="$(cat data/spk2id | awk '{ print $2 }' | tr '\n' ' ')"
+label_name="$label"
 
 # The 'task_rank' value to provide to damped.disturb.DomainTask
-task_rank=1
+task_rank=2
 gpu_device=1
 world_size=2 # MUST be incremented to match the number of damped.disturb.DomainTask + master!
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed

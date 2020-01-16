@@ -51,7 +51,11 @@ class DomainLabelMapper(metaclass=SingletonMetaDomain):
         self.map[tuple(key.tolist())] = class_value
 
     def get(
-        self, key: torch.Tensor, default="-1", codec: Optional[Callable] = None
+        self,
+        key: torch.Tensor,
+        default="-1",
+        codec: Optional[Callable] = None,
+        delete=True,
     ) -> any:
         """Get class label y from a key
 
@@ -59,9 +63,15 @@ class DomainLabelMapper(metaclass=SingletonMetaDomain):
             key (torch.Tensor): The same key used in DomainLabelMapper.add()
             default (any, optional): The default value to use if the tensor isn't found in the map
             codec (Callable, optional): apply a transformation on the value found in the map
+            delete (bool, optional): defualt True, remove value from hashable
         """
         key = tuple(key.tolist())
-        y = self.map.pop(key, default)
-        if codec is not None:
-            y = codec(y)
-        return y
+        if key in self.map:
+            y = self.map[key]
+            if delete:
+                del self.map[key]
+            if codec is not None:
+                y = codec(y)
+            return y
+
+        return default

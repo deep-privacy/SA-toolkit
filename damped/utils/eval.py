@@ -15,9 +15,6 @@ def display_evaluation_result(args, total_labels, total_pred):
     Print average Accuracy
     """
 
-    cm = confusion_matrix(total_labels, total_pred, labels=args.label)
-    print_confusion_matrix(cm, args.label_name)
-
     print("Accuracy:  {:.4f}".format(accuracy_score(total_labels, total_pred)))
 
     # compute per-label precisions, recalls, F1-scores, and supports
@@ -33,3 +30,6 @@ def display_evaluation_result(args, total_labels, total_pred):
     )
     df = df.drop(["support"], axis=0)
     print(df.T)
+
+    cm = confusion_matrix(total_labels, total_pred, labels=args.label)
+    print_confusion_matrix(cm, args.label_name)

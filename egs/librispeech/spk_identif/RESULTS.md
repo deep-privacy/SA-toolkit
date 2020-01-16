@@ -18,8 +18,8 @@ branch was used as a indicator on how much Gender information is hidden in a
 classic ASR encoder.
 
 ## Environments 
+**Using forked version of ESPnet with damped weights sharing functions.**
 
-##### `damped`:
 - date: `Wed Jan 15 12:08:01 CET 2020`
 - python version: `3.7.3 (default, Mar 27 2019, 22:11:17)  [GCC 7.3.0]`
 - pytorch version: `pytorch 1.0.1.post2`
@@ -66,7 +66,6 @@ Male     0.769906  0.926889  0.841135
 ## Environments 
 **Using forked version of ESPnet with damped weights sharing functions.**
 
-##### `ESPnet`:
 - date: `Wed Jan 15 12:08:01 CET 2020`
 - python version: `3.7.3 (default, Mar 27 2019, 22:11:17)  [GCC 7.3.0]`
 - espnet version: `espnet 0.5.4`

@@ -51,3 +51,33 @@ def gender_mapper(dir_path):
         return label
 
     return mapper
+
+
+def spkid_mapper(dir_path):
+    # Domain label
+    spk2gender_lines = [
+        line.rstrip("\n").split(" ")
+        for line in open(os.path.join(dir_path, "..", "data", "spk2id"))
+    ]
+    spk2id = dict(map(lambda x: (x[0], x[1]), spk2gender_lines))
+    spk_number = len(spk2id.items())
+    print(f"Total speaker: {spk_number}")
+
+    # sent y_mapper (from damped.disturb) to y label (for branch task training)
+    def mapper(y_mapper):
+        decoded_y_mapped_label = list(
+            map(
+                lambda x: damped.utils.codec.str_int_encoder.decode(x),
+                y_mapper.tolist(),
+            )
+        )
+        label = torch.zeros(len(y_mapper), dtype=torch.long)
+        for i, x in enumerate(decoded_y_mapped_label):
+            if x == "-1":
+                logger.warning("Warn: y_mapper not found")
+                continue
+            label[i] = int(spk2id[x])
+
+        return label
+
+    return mapper, spk_number
