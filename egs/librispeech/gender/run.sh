@@ -70,6 +70,7 @@ fi
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   echo "stage 1: Data preparation"
   bash local/data_prep.sh
+  exit 1
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
