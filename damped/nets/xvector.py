@@ -26,14 +26,6 @@ class Xtractor(nn.Module):
         self.dropout_lin1 = nn.Dropout(p=dropout)
         self.seg_lin2 = nn.Linear(512, spk_number)
         #
-        self.norm0 = nn.BatchNorm1d(512)
-        self.norm1 = nn.BatchNorm1d(512)
-        self.norm2 = nn.BatchNorm1d(512)
-        self.norm3 = nn.BatchNorm1d(512)
-        self.norm4 = nn.BatchNorm1d(3 * 512)
-        self.norm6 = nn.BatchNorm1d(512)
-        self.norm7 = nn.BatchNorm1d(512)
-        #
         self.activation = nn.LeakyReLU(0.2)
 
     def produce_embeddings(self, x):
@@ -46,11 +38,11 @@ class Xtractor(nn.Module):
         Returns:
             torch.Tensor: the first embedding after StatsPooling
         """
-        frame_emb_0 = self.norm0(self.activation(self.frame_conv0(x)))
-        frame_emb_1 = self.norm1(self.activation(self.frame_conv1(frame_emb_0)))
-        frame_emb_2 = self.norm2(self.activation(self.frame_conv2(frame_emb_1)))
-        frame_emb_3 = self.norm3(self.activation(self.frame_conv3(frame_emb_2)))
-        frame_emb_4 = self.norm4(self.activation(self.frame_conv4(frame_emb_3)))
+        frame_emb_0 = self.activation(self.frame_conv0(x))
+        frame_emb_1 = self.activation(self.frame_conv1(frame_emb_0))
+        frame_emb_2 = self.activation(self.frame_conv2(frame_emb_1))
+        frame_emb_3 = self.activation(self.frame_conv3(frame_emb_2))
+        frame_emb_4 = self.activation(self.frame_conv4(frame_emb_3))
 
         mean = torch.mean(frame_emb_4, dim=2)
         std = torch.std(frame_emb_4, dim=2)
@@ -75,13 +67,8 @@ class Xtractor(nn.Module):
         x = x.transpose(1, 2)
 
         seg_emb_0 = self.produce_embeddings(x)
-        # batch-normalisation after this layer
-        seg_emb_1 = self.norm6(self.activation(seg_emb_0))
-        # new layer with batch Normalization
-        seg_emb_2 = self.norm7(
-            self.activation(self.seg_lin1(self.dropout_lin1(seg_emb_1)))
-        )
-        # No batch-normalisation after this layer
+        seg_emb_1 = self.activation(seg_emb_0)
+        seg_emb_2 = self.activation(self.seg_lin1(self.dropout_lin1(seg_emb_1)))
         result = self.activation(self.seg_lin2(seg_emb_2))
         return result
 
@@ -93,7 +80,7 @@ class Xtractor(nn.Module):
             torch.Tensor: the first and second embedding as defined by the x-vector paper
         """
         embedding_a = self.produce_embeddings(x)
-        embedding_b = self.seg_lin1(self.norm6(self.activation(embedding_a)))
+        embedding_b = self.seg_lin1(self.activation(embedding_a))
 
         return embedding_a, embedding_b
 

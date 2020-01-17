@@ -4,6 +4,12 @@ from .managed_service import ManagedMemory
 
 import torch
 
+import logging
+from damped.utils import log_handler
+logger = logging.getLogger(__name__)
+logger.propagate = False
+logger.addHandler(log_handler)
+
 
 class SingletonMetaDomain(type):
     """
@@ -73,5 +79,5 @@ class DomainLabelMapper(metaclass=SingletonMetaDomain):
             if codec is not None:
                 y = codec(y)
             return y
-
+        logging.warning("Label not found for key!")
         return default

@@ -12,7 +12,7 @@ elayers=1
 world_size=$((4 + 1))
 # Out VGG2L -> 2688 D (in p/rnn/encoders.py)
 # Out LSTM_l3-tanh-fc -> 1024 D (in p/2e_asr.py)
-eprojs=( 2688 100 100 100 50 )
+eprojs=( 2688 1024 )
 
 stage=2
 stop_stage=100

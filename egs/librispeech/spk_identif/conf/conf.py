@@ -17,8 +17,8 @@ import torch.nn as nn
 # parse args injected by damped
 argsparser.add("--eproj", default=1024, type=int)  # noqa
 argsparser.add("--dropout", default=0.2, type=float)  # noqa
-argsparser.add("--spk-number", defualt=2338, type=int)  # noqa
-# spk-number = 2338 comes from the splitjson_spk.py
+argsparser.add("--spk-number", default=2338, type=int)  # noqa
+# spk-number = 2338 comes the total spkrs in train-960
 args = argsparser.parse_args()  # noqa
 
 # input: Batch x Tmax X D
