@@ -114,6 +114,8 @@ class Monitor:
                 old_ckpt = symlink.resolve()
                 symlink.unlink()
                 old_ckpt.unlink()
+            if symlink.is_symlink():
+                symlink.unlink()
             symlink.symlink_to(fname)
 
         return fname

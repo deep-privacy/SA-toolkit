@@ -7,13 +7,13 @@ set -e
 set -u
 set -o pipefail
 
-elayers=3
+# study only the first layer of vggblstm
+elayers=1
+world_size=$((4 + 1))
 # Out VGG2L -> 2688 D (in p/rnn/encoders.py)
-# Out LSTM_l1 -> 50 D
-# Out LSTM_l2 -> 50 D
-# Out LSTM_l3 -> 50 D (in p/2e_asr.py)
-eprojs=( 2688 50 50 50 )
-world_size=9
+# Out LSTM_l3-tanh-fc -> 1024 D (in p/2e_asr.py)
+eprojs=( 2688 100 100 100 50 )
+
 stage=2
 stop_stage=100
 
@@ -24,7 +24,7 @@ pids=() # initialize pids
 # !WARNN carefully crafted for vggblstm with 3 encoder layers
 # same offsets are also defined in espnet/nets/chainer_backend/rnn/encoders.py
 offset_gender=3
-offset_spk=6
+offset_spk=4
 
 # Gender
 for (( i = 0; i < $elayers; i++ )); do

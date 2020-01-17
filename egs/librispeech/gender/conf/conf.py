@@ -15,6 +15,7 @@ import torch.nn as nn
 
 # parse args injected by damped
 argsparser.add("--eproj", default=1024, type=int)  # noqa
+argsparser.add("--dropout", default=0.5, type=float)  # noqa
 args = argsparser.parse_args()  # noqa
 
 
@@ -27,13 +28,19 @@ class GenderNet(nn.Module):
     def __init__(self):
         super(GenderNet, self).__init__()
         self.eproj = args.eproj
-        self.hidden_size = 782
+        self.hidden_size = 1024
         self.num_layers = 1
 
         self.lstm = nn.LSTM(
             self.eproj, self.hidden_size, self.num_layers, batch_first=True,
         )
-        self.fc1 = nn.Linear(self.hidden_size, 2)
+        self.fc1 = nn.Linear(self.hidden_size, 512)
+        self.fc2 = nn.Linear(512, 512)
+        self.fc3 = nn.Linear(512, 512)
+        self.fc4 = nn.Linear(512, 2)
+
+        self.dropout = nn.Dropout(p=args.dropout)
+        self.activation = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
 
     def zero_state(self, hs_pad):
@@ -53,9 +60,12 @@ class GenderNet(nn.Module):
 
         h_0 = h_0[0]  # Take the last layer of the LSTM
 
-        out_fc1 = self.fc1(h_0)
+        out_fc1 = self.dropout(self.activation(self.fc1(h_0)))
+        out_fc2 = self.dropout(self.activation(self.fc2(out_fc1)))
+        out_fc3 = self.dropout(self.activation(self.fc3(out_fc2)))
+        out_fc4 = self.fc4(out_fc3)
 
-        out = self.softmax(out_fc1)
+        out = self.softmax(out_fc4)
 
         return out
 

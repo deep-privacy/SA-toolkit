@@ -80,4 +80,4 @@ def spkid_mapper(dir_path):
 
         return label
 
-    return mapper, spk_number
+    return mapper
