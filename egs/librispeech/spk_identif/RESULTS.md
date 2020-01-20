@@ -10,69 +10,52 @@
 | train-clean-100 | 125          | 126        | 251         |
 | train-960       | 1128         | 1210       | 2338        |
 
-## trained on train_960
+## trained on 60% of train-clean-100 (see ../README.md)
 
-## Gender
-**The Gender branch wasn't used in the ESPnet computation graph.** The Gender
-branch was used as a indicator on how much Gender information is hidden in a
+## SPK identif
+**The SPK branch wasn't used in the ESPnet computation graph.** The Speaker
+branch was used as a indicator on how much speaker information is hidden in a
 classic ASR encoder.
 
 ## Environments 
-**Using forked version of ESPnet with damped weights sharing functions.**
 
-- date: `Wed Jan 15 12:08:01 CET 2020`
+##### `damped`:
+- date: `Mon Jan 20 10:20:40 2020 +0100`
 - python version: `3.7.3 (default, Mar 27 2019, 22:11:17)  [GCC 7.3.0]`
 - pytorch version: `pytorch 1.0.1.post2`
-- Git hash: `7a278a22c68930b63109f9847ee61896cd5f8d5c`
-  - Commit date: `Wed Jan 15 12:13:09 2020 +0100`
+- Git hash: `10733370339d72a1ea931b643de3e9e7824e8d29`
+  - Commit date: `Mon Jan 20 10:20:40 2020 +0100`
 
 
 ## Baseline on a trained ESPnet (No modification made to backpropagation)
 ```log
-GenderNet(
-  (lstm): LSTM(1024, 782, batch_first=True)
-  (fc1): Linear(in_features=782, out_features=2, bias=True)
-  (softmax): Softmax()
+BrijSpeakerXvector(
+  (advnet): LSTM(1024, 512, num_layers=3, batch_first=True, dropout=0.2)
+  (segment6): Linear(in_features=512, out_features=512, bias=True)
+  (segment7): Linear(in_features=512, out_features=512, bias=True)
+  (segment8): Linear(in_features=1024, out_features=1024, bias=True)
+  (bn2): BatchNorm1d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (output): Linear(in_features=1024, out_features=2, bias=True)
 )
 ```
 
-### Test Other
+### 20% of train-clean-100
 ```log
-          Predicted
-     True  Female   Male
-    Female    0.8    0.2
-      Male    0.2    0.8
-
-Accuracy:  0.8054
-        Precision    Recall    Fscore
-Female   0.800746  0.778665  0.789551
-Male     0.809256  0.828956  0.818987
-```
-
-### Test Clean
-```log
-          Predicted
-     True  Female   Male
-    Female    0.8    0.2
-      Male    0.1    0.9
-
-Accuracy:  0.8355
-        Precision    Recall    Fscore
-Female   0.920914  0.754500  0.829442
-Male     0.769906  0.926889  0.841135
+Accuracy:  0.4303
 ```
 
 ## ASR
 ## Environments 
 **Using forked version of ESPnet with damped weights sharing functions.**
 
-- date: `Wed Jan 15 12:08:01 CET 2020`
+##### `ESPnet`:
+- date: `Mon Jan 20 10:33:17 CET 2020`
 - python version: `3.7.3 (default, Mar 27 2019, 22:11:17)  [GCC 7.3.0]`
 - espnet version: `espnet 0.5.4`
 - chainer version: `chainer 6.0.0`
 - pytorch version: `pytorch 1.0.1.post2`
-- Git hash: `e53e1718d0943b9efeeec45ce8ae0e15367f2fdf`
-  - Commit date: `Wed Jan 15 12:07:51 2020 +0100`
+- Git hash: `696e2e2cfeaa6f586666120752e0080607d80362`
+  - Commit date: `Mon Jan 20 10:21:42 2020 +0100`
 
 **ESPnet was modified according to this [diff](https://github.com/espnet/espnet/compare/e88a477cb72be7e5a03595ead5c233f8d211f6b6...deep-privacy:e53e1718d0943b9efeeec45ce8ae0e15367f2fdf)**
 
