@@ -17,13 +17,13 @@ stop_stage=100
 # model/trainer conf (net archi, task related)
 conf=conf.py
 resume=
-# resume=Xtractor.best.acc.ckpt
+resume=BrijSpeakerXvector.best.acc.ckpt
 
 # misc
 log_interval=300
 
 # eval
-snapshot=Xtractor.best.acc.ckpt
+snapshot=BrijSpeakerXvector.best.acc.ckpt
 
 # task related
 label="$(cat data/spk2id | awk '{ print $2 }' | tr '\n' ' ')"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional
+from threading import Lock
 
 import multiprocessing
 import torch
@@ -32,3 +33,6 @@ class ManagedMemory(metaclass=SingletonMetaManaged):
         """
         self.domain_label_map = multiprocessing.Manager().dict()
         self.domain_label_mappers = multiprocessing.Manager().dict()
+        self.call_number = multiprocessing.Manager().Value('wait_number', 0)
+        self.wait_time = multiprocessing.Manager().Value('wait_time', 0)
+        self.wait_mutex = Lock()

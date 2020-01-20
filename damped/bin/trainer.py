@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import torch
 from damped import utils
@@ -96,11 +96,6 @@ def main():
         f"cuda:{args.gpu_device}" if torch.cuda.is_available() else "cpu"
     )
 
-    # init the rank of this task
-    utils.init_distributedenv(
-        rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
-    )
-
     # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)
     config = importlib.util.module_from_spec(spec)
@@ -141,6 +136,11 @@ def main():
     loss_batches = 0
     loss_batches_count = 0
 
+    # init the rank of this task
+    utils.init_distributedenv(
+        rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
+    )
+
     print("Training started on %s" % time.strftime("%d-%m-%Y %H:%M"), flush=True)
 
     while True:
@@ -157,8 +157,14 @@ def main():
             last_eval = eval_mode
             eval_mode = const.is_eval(meta_data)
 
+            # detect changes from train to eval
+            if eval_mode and not last_eval:
+                print("Running evaluation on dev..", flush=True)
+                net.eval()
+
             # detect changes from eval to train
             if not eval_mode and last_eval:
+                net.train()
                 # display validation metics
                 accuracy = (
                     accuracy_score(

@@ -2,6 +2,7 @@
 
 import os
 from damped.utils import gender_mapper
+from damped.nets import BrijSpeakerXvector
 import torch
 import torch.nn as nn
 
@@ -15,7 +16,9 @@ import torch.nn as nn
 
 # parse args injected by damped
 argsparser.add("--eproj", default=1024, type=int)  # noqa
-argsparser.add("--dropout", default=0.5, type=float)  # noqa
+argsparser.add("--dropout", default=0.2, type=float)  # noqa
+argsparser.add("--hidden-units", default=512, type=int)  # noqa
+argsparser.add("--rnn-layers", default=3, type=int)  # noqa
 args = argsparser.parse_args()  # noqa
 
 
@@ -28,20 +31,20 @@ class GenderNet(nn.Module):
     def __init__(self):
         super(GenderNet, self).__init__()
         self.eproj = args.eproj
-        self.hidden_size = 1024
-        self.num_layers = 1
+        self.hidden_size = args.hidden_units
+        self.num_layers = args.rnn_layers
 
         self.lstm = nn.LSTM(
             self.eproj, self.hidden_size, self.num_layers, batch_first=True,
+            dropout=args.dropout,
+            bidirectional=False,
         )
         self.fc1 = nn.Linear(self.hidden_size, 512)
         self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 512)
-        self.fc4 = nn.Linear(512, 2)
+        self.fc3 = nn.Linear(512, 2)
 
         self.dropout = nn.Dropout(p=args.dropout)
         self.activation = nn.ReLU()
-        self.softmax = nn.Softmax(dim=1)
 
     def zero_state(self, hs_pad):
         return hs_pad.new_zeros(self.num_layers, hs_pad.size(0), self.hidden_size)
@@ -56,21 +59,18 @@ class GenderNet(nn.Module):
 
         self.lstm.flatten_parameters()  # Memory: compact weights
 
-        out_lstm, (h_0, c_0) = self.lstm(hs_pad, (h_0, c_0))
+        print(hs_pad.shape)
+        out_lstm, (h_n, c_n) = self.lstm(hs_pad, (h_0, c_0))
+        print(out_lstm.shape)
 
-        h_0 = h_0[0]  # Take the last layer of the LSTM
-
-        out_fc1 = self.dropout(self.activation(self.fc1(h_0)))
-        out_fc2 = self.dropout(self.activation(self.fc2(out_fc1)))
-        out_fc3 = self.dropout(self.activation(self.fc3(out_fc2)))
-        out_fc4 = self.fc4(out_fc3)
-
-        out = self.softmax(out_fc4)
-
-        return out
+        out_fc1 = self.dropout(self.activation(self.fc1(out_lstm)))
+        out_fc2 = self.activation(self.fc2(out_fc1))
+        out_fc3 = self.fc3(out_fc2)
+        return out_fc3
 
 
-net = GenderNet()
+#  net = GenderNet()
+net = BrijSpeakerXvector(2, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
 
 
 #  Binary Cross Entropy

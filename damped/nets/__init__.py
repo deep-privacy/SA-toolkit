@@ -1,4 +1,5 @@
 from .xvector import Xtractor
+from .brij_xvector import BrijSpeakerXvector
 
 """
 ``damped.nets `` provides a sets of building block to create custom neural net
@@ -9,4 +10,5 @@ architecture.
 # be able to access:
 _all__ = [
     "Xtractor",
+    "BrijSpeakerXvector",
 ]

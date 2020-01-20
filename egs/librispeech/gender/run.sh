@@ -17,13 +17,13 @@ stop_stage=100
 # model/trainer conf (net archi, task related)
 conf=conf.py
 resume=
-# resume=GenderNet.best.acc.ckpt
+# resume=BrijSpeakerXvector.best.acc.ckpt
 
 # misc
 log_interval=300
 
 # eval
-snapshot=GenderNet.best.acc.ckpt
+snapshot=BrijSpeakerXvector.best.acc.ckpt
 
 # task related
 label="0 1"

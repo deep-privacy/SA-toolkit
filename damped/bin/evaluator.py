@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import torch
 from damped import utils
@@ -7,16 +7,6 @@ from damped.disturb import const
 import configargparse
 import importlib.util
 import os
-
-
-def save_model(model: torch.nn.Module, name: str, epoch: int):
-    exp_dir = os.path.join("exp/", name)
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
-    torch.save(model.state_dict(), os.path.join(exp_dir, f"snapshot.ep.{epoch}"))
-    f = open(os.path.join("exp/", name, "model.summary"), "w")
-    f.write(str(model))
-    f.close()
 
 
 def get_parser(parser=None):
@@ -96,11 +86,6 @@ def main():
         args.label_name
     ), "The size of '--label' must be the same as the size of '--label-name'"
 
-    # init the rank of this task
-    utils.init_distributedenv(
-        rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
-    )
-
     # load the conf
     spec = importlib.util.spec_from_file_location("config", args.config)
     config = importlib.util.module_from_spec(spec)
@@ -114,6 +99,11 @@ def main():
 
     # load the snapshot
     net.load_state_dict(torch.load(args.snapshot)["model"])
+
+    # init the rank of this task
+    utils.init_distributedenv(
+        rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
+    )
 
     net.eval()
     total_labels = torch.LongTensor([])

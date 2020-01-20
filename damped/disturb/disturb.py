@@ -10,7 +10,7 @@ import torch
 import torch.distributed as dist
 
 import logging
-
+from damped.utils import log_handler
 logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(log_handler)
@@ -43,11 +43,13 @@ def stop(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
         domain_tasks (int): the number of domain_tasks used
 
     """
+    logger.warning(f"Stop the domain tasks")
     for t in range(1, domain_tasks + 1):
         dist.send(
             torch.tensor(-1, dtype=torch.int), dst=t
         )  # indicate for meta-data exchange
         dist.send(stop_signal(), dst=t)
+
 
 
 def eval(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
@@ -57,6 +59,7 @@ def eval(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     Args:
         domain_tasks (int): the number of domain_tasks used
     """
+    logger.warning(f"Evaluating on dev the domain tasks")
     for t in range(1, domain_tasks + 1):
         dist.send(
             torch.tensor(-1, dtype=torch.int), dst=t
@@ -71,6 +74,7 @@ def train(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     Args:
         domain_tasks (int): the number of domain_tasks used
     """
+    logger.warning(f"Train on the domain tasks")
     for t in range(1, domain_tasks + 1):
         dist.send(
             torch.tensor(-1, dtype=torch.int), dst=t

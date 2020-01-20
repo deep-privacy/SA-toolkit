@@ -2,7 +2,7 @@
 
 import os
 from damped.utils import spkid_mapper
-from damped.nets import Xtractor
+from damped.nets import BrijSpeakerXvector
 import torch
 import torch.nn as nn
 
@@ -15,15 +15,16 @@ import torch.nn as nn
 # - `mapper` to map the distirb y label to the domain task y label
 
 # parse args injected by damped
+argsparser.add("--spk-number", default=251, type=int)  # noqa
 argsparser.add("--eproj", default=1024, type=int)  # noqa
+argsparser.add("--hidden-units", default=512, type=int)  # noqa
+argsparser.add("--rnn-layers", default=3, type=int)  # noqa
 argsparser.add("--dropout", default=0.2, type=float)  # noqa
-argsparser.add("--spk-number", default=2338, type=int)  # noqa
-# spk-number = 2338 comes the total spkrs in train-960
 args = argsparser.parse_args()  # noqa
 
 # input: Batch x Tmax X D
 # Assuming 1024 dim per frame (T) (encoder projection)
-net = Xtractor(args.spk_number, args.dropout, args.eproj)
+net = BrijSpeakerXvector(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
 
 #  Binary Cross Entropy
 criterion = nn.CrossEntropyLoss()

@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from typing import Tuple, Optional
+import time
+from threading import Lock
 
 import torch
+import datetime
 import torch.distributed as dist
-from threading import Lock
 
 import logging
 from damped.utils import log_handler
@@ -11,6 +13,10 @@ logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(log_handler)
 
+INTERVAL_LOG_WAIT_TIME = 4000
+
+
+from .managed_service import ManagedMemory
 
 @dataclass
 class DomainTask(object):
@@ -59,10 +65,14 @@ class DomainTask(object):
             A distributed request object. (call ``wait()`` to block the process
             until the operation is finished)
         """
+        ManagedMemory().call_number.value += 1
+        start_time = time.time()
+
         with self._mutex_fork:
             self.isend(domain_label, dtype=dtype[1]).wait()
             req = self.isend(hidden_tensor, dtype=dtype[0])
 
+        ManagedMemory().wait_time.value += (time.time() - start_time)
         return work(req)
 
     def isend(self, tensor: torch.Tensor, dtype: torch.dtype = torch.float32):
@@ -107,9 +117,21 @@ class work(object):
     def __init__(self, work: Optional[torch.distributed.Work]):
         self._work = work
 
+
     def wait(self):
         """
         Waits until request completes. Blocking operation.
         """
+
+        with ManagedMemory().wait_mutex:
+            if ManagedMemory().call_number.value % INTERVAL_LOG_WAIT_TIME == 1 and ManagedMemory().call_number.value != 0:
+                wait_time = str(datetime.timedelta(seconds=ManagedMemory().wait_time.value / ManagedMemory().call_number.value))
+                logger.warning(f"Waited {wait_time} per fork")
+                ManagedMemory().call_number.value = 0
+                ManagedMemory().wait_time.value = 0
+
         if self._work is not None:
+            ManagedMemory().call_number.value += 1
+            start_time = time.time()
             self._work.wait()
+            ManagedMemory().wait_time.value += (time.time() - start_time)
