@@ -82,7 +82,7 @@ class DomainTask(object):
                 dist.send(wait_backward(), dst=self.to_rank)
             self._send_back_grad = False  # for fork_detach don't notify meta-data (fake)
             req = self.fork_detach(hidden_tensor, domain_label, dtype=dtype)
-            self._send_back_grad = True  # back to normal state
+            self._send_back_grad = True
             req.wait()
 
             recv_buff, meta_data = damped.utils.recv(rank=self.to_rank)

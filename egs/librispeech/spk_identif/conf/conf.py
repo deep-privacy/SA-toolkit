@@ -32,6 +32,7 @@ if args.grad_reverse:
         def __init__(self, odim, eprojs, hidden_size, rnn_layers, dropout_rate=0.2):
             super().__init__(odim, eprojs, hidden_size, rnn_layers, dropout_rate=0.2)
             self.scale = 0.1
+            print("Gradient reversed!")
 
         def forward(self, hs_pad):
             x = grad_reverse(hs_pad, scale=self.scale)

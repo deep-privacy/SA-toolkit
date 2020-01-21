@@ -31,6 +31,7 @@ log_interval=1200
 
 . gender/utils/parse_options.sh || exit 1; # ! Using gender utils !
 
+NC=`tput sgr0`
 pids=() # initialize pids
 
 for (( i = 0; i < ${#branches[@]}; i++ )); do
@@ -46,7 +47,7 @@ for (( i = 0; i < ${#branches[@]}; i++ )); do
       --master-ip $master_ip \
       --task-rank ${branches_rank[i]} \
       ${branches_conf_args[i]} \
-    | sed "s/^/[${branches_rank[i]} - ${branches[i]}] /"
+      | sed "s/^/`tput setaf $i`[${branches_rank[i]} - ${branches[i]}]${NC} /"
   ) &
   pids+=($!) # store background pids
 done

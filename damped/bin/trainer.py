@@ -147,6 +147,7 @@ def main():
 
     print("Training started on %s" % time.strftime("%d-%m-%Y %H:%M"), flush=True)
 
+    # TODO(pchampio) refactor this training loop into sub-functions
     while True:
         features, y_mapper, is_meta_data = utils.fork_recv(
             rank=0, dtype=(torch.float32, torch.long)
@@ -209,9 +210,17 @@ def main():
 
         target = config.mapper(y_mapper)
 
+        input = features.to(device)
+        input.requires_grad = True
+
         # Eval
         if eval_mode:
-            y_pred = net(features.to(device))
+            y_pred = net(input)
+
+            # send back the gradient if needed
+            if send_backward_grad:
+                 # backward will not be applied (eval), send 0 grad
+                damped.disturb.DomainTask._isend(0, torch.zeros(*input.size())).wait()
 
             _, predicted = torch.max(y_pred.data, dim=1)
 
@@ -225,8 +234,6 @@ def main():
             continue
 
         optimizer.zero_grad()
-        input = features.to(device)
-        input.requires_grad = True
         y_pred = net(input)
 
         if torch.any(torch.isnan(y_pred)):
@@ -239,7 +246,6 @@ def main():
         # send back the gradient if needed
         req = None
         if send_backward_grad:
-            print("SEND backward grad", input.grad.data.cpu()[0][0][0])
             req = damped.disturb.DomainTask._isend(0, input.grad.data.cpu())
         optimizer.step()
 

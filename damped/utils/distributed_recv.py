@@ -52,7 +52,7 @@ def recv(
     dist.recv(exchange_size, src=rank)
 
     recv_buff = torch.empty(  # value of (eg: B x Tmax x D)
-        tuple(map(lambda x: int(x), exchange_size.tolist())), dtype=dtype,
+        *exchange_size.tolist(), dtype=dtype,
     )  # random value in tensor
     dist.recv(recv_buff, src=rank)
     return recv_buff, False
