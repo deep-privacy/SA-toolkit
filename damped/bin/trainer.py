@@ -200,8 +200,11 @@ def main():
                     ]
                 )
                 monitor.save_models()
+                monitor.tensorboard_writter.add_scalar(
+                    "/eval/accuracy", accuracy, monitor.vctr
+                )
+                monitor.tensorboard_writter.add_scalar("/eval/loss", loss, monitor.vctr)
                 monitor.vctr += 1
-
                 # clear for next eval
                 total_labels = torch.LongTensor([])
                 total_pred = torch.LongTensor([])
@@ -270,6 +273,12 @@ def main():
                     monitor.uctr, loss.item(), accuracy,
                 ),
                 flush=True,
+            )
+            monitor.tensorboard_writter.add_scalar(
+                "/train/accuracy", accuracy, monitor.uctr
+            )
+            monitor.tensorboard_writter.add_scalar(
+                "/train/loss", loss.item(), monitor.uctr
             )
             total_correct = 0
             total_target = 0

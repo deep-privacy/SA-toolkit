@@ -20,7 +20,7 @@ branches_rank=( 1 2 3 )
 branches_gpu=( 2 3 1 )
 branches_conf_args=(
   "--tag spk_identif_2"
-  "--tag gender_reco_2  --grad-reverse true --resume BrijSpeakerXvector.best.acc.ckpt"
+  "--tag gender_reco_2  --grad-reverse true" #" --resume BrijSpeakerXvector.best.acc.ckpt"
   "--tag gender_reco_2"
 )
 

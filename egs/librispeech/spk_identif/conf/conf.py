@@ -2,7 +2,7 @@
 
 import os
 from damped.utils import spkid_mapper
-from damped.nets import BrijSpeakerXvector, grad_reverse
+from damped.nets import BrijSpeakerXvector, grad_reverse_net
 import torch
 import torch.nn as nn
 
@@ -23,22 +23,12 @@ argsparser.add("--dropout", default=0.2, type=float)  # noqa
 argsparser.add("--grad-reverse", default=False, type=bool)  # noqa
 args = argsparser.parse_args()  # noqa
 
-# input: Batch x Tmax X D
-# Assuming 1024 dim per frame (T) (encoder projection)
-net = BrijSpeakerXvector(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
 
+Net = BrijSpeakerXvector
 if args.grad_reverse:
-    class BrijSpeakerXvectorGradRev(BrijSpeakerXvector):
-        def __init__(self, odim, eprojs, hidden_size, rnn_layers, dropout_rate=0.2):
-            super().__init__(odim, eprojs, hidden_size, rnn_layers, dropout_rate)
-            self.scale = 2.0
-            print("Gradient reversed!")
+    Net = grad_reverse_net(Net)
 
-        def forward(self, hs_pad):
-            x = grad_reverse(hs_pad, scale=self.scale)
-            return super().forward(x)
-
-    net = BrijSpeakerXvectorGradRev(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
+net = Net(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
 
 #  Binary Cross Entropy
 criterion = nn.CrossEntropyLoss()

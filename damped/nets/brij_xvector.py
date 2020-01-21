@@ -7,6 +7,7 @@ The author would like to thank Brij Mohan Lal Srivastava (https://brijmohan.gith
 for sharing his xvector implementation.
 """
 
+
 class BrijSpeakerXvector(nn.Module):
     """ Speaker adversarial module
     """
@@ -44,7 +45,7 @@ class BrijSpeakerXvector(nn.Module):
         h_0 = self.zero_state(hs_pad)
         c_0 = self.zero_state(hs_pad)
 
-        self.advnet.flatten_parameters()   # Memory: compact weights
+        self.advnet.flatten_parameters()  # Memory: compact weights
         out_x, (h_0, c_0) = self.advnet(hs_pad, (h_0, c_0))
 
         out_x = F.dropout(F.relu(self.segment6(out_x)), p=self.dropout_rate)
@@ -58,6 +59,8 @@ class BrijSpeakerXvector(nn.Module):
         # Take only the last output
         # xv = out_x[:, -1, :]
 
-        y_hat = self.segment8(xv) if hs_pad.size(0) == 1 else self.bn2(self.segment8(xv))
+        y_hat = (
+            self.segment8(xv) if hs_pad.size(0) == 1 else self.bn2(self.segment8(xv))
+        )
         y_hat = self.output(y_hat)
         return y_hat
