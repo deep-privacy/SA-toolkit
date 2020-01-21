@@ -35,7 +35,7 @@ class BrijSpeakerXvector(nn.Module):
         return hs_pad.new_zeros(self.rnn_layers, hs_pad.size(0), self.hidden_size)
 
     def forward(self, hs_pad):
-        """Adversarial branch forward
+        """Speaker branch forward
 
         Args:
             hs_pad (torch.Tensor): batch of padded hidden state sequences (B, Tmax, D)

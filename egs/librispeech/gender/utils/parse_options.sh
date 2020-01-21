@@ -68,6 +68,9 @@ while true; do
       if eval '[ -z "${'$name'+xxx}" ]';then
         echo "$0: option $1 added to \$other" 1>&2
         # Set the variable 'other' this undefined args
+        if [ ! -z "$other" ];then
+          other+=" "
+        fi
         other+="$1 $2";
       fi
 

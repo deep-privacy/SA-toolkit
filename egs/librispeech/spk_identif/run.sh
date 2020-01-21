@@ -69,8 +69,7 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   echo "stage 1: Data preparation"
-  # Only on 'train' subset!
-  bash local/data_prep.sh
+  bash local/data_prep.sh "train-clean-100"
   exit 1
 fi
 

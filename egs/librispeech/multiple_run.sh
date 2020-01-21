@@ -7,12 +7,19 @@ set -e
 set -u
 set -o pipefail
 
-# study only the first layer of vggblstm
-elayers=0
-world_size=$((2 + 1))
-# Out VGG2L -> 2688 D (in p/rnn/encoders.py)
-# Out LSTM_l3-tanh-fc -> 1024 D (in p/2e_asr.py)
-eprojs=( 2688 1024 )
+# WARN: Don't forget to have the right DAMPED_N_DOMAIN venv in ESPnet (run.sh)
+# branches type
+branches=( "gender" "spk_identif" "spk_identif" )
+# input dimensions of each above branches
+branches_eproj=( 1024 1024 1024 )
+# branches task rank of each above branches
+# Carefully crafted value also defined in ESPnet
+branches_rank=( 1 2 3 )
+# on which GPUs to run branches
+branches_gpu=( 2 3 1 )
+branches_conf_args=( "" "--grad-reverse true" "" )
+
+world_size=$((${#branches[@]} + 1))
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed
 # master_ip="172.16.64.9"
 
@@ -22,90 +29,27 @@ stop_stage=100
 # misc
 log_interval=1200
 
-. gender/utils/parse_options.sh || exit 1; # ! using gender utils !
+. gender/utils/parse_options.sh || exit 1; # ! Using gender utils !
 
 pids=() # initialize pids
 
-# !WARNN carefully crafted for vggblstm with 3 encoder layers
-# same offsets are also defined in espnet/nets/chainer_backend/rnn/encoders.py
-offset_gender=3
-offset_spk=4
-
-gpu_device=0
-
-# Gender
-for (( i = 0; i < $elayers; i++ )); do
+for (( i = 0; i < ${#branches[@]}; i++ )); do
   (
-    cd ./gender/
+    cd ./${branches[i]}/
     ./run.sh \
       --stage $stage \
       --stop-stage $stop_stage \
       --log-interval $log_interval \
-      --eproj ${eprojs[i]}   \
-      --gpu-device $gpu_device \
+      --eproj ${branches_eproj[i]}   \
+      --gpu-device ${branches_gpu[i]} \
       --world-size $world_size \
       --master-ip $master_ip \
-      --task-rank $((offset_gender + i)) \
-    | sed "s/^/[$((offset_gender + i)) - gender] /"
+      --task-rank ${branches_rank[i]} \
+      ${branches_conf_args[i]} \
+    | sed "s/^/[${branches_rank[i]} - ${branches[i]}] /"
   ) &
   pids+=($!) # store background pids
 done
-
-gpu_device=1
-
-# spk_identif
-for (( i = 0; i < $elayers; i++ )); do
-  (
-    cd ./spk_identif/
-    ./run.sh \
-      --stage $stage \
-      --stop-stage $stop_stage \
-      --log-interval $log_interval \
-      --eproj ${eprojs[i]}   \
-      --gpu-device $gpu_device \
-      --world-size $world_size \
-      --master-ip $master_ip \
-      --task-rank $((offset_spk + i)) \
-    | sed "s/^/[$((offset_spk + i)) - spk_identif] /"
-  ) &
-  pids+=($!) # store background pids
-done
-
-# The two last layers are placed outside of the encoder (rank 1->gen and 2->spk)
-# They share the same input features as the output of the last layer of the encoder.
-
-gpu_device=2
-
-(
-  cd ./gender/
-  ./run.sh \
-    --stage $stage \
-    --stop-stage $stop_stage \
-    --log-interval $log_interval \
-    --eproj ${eprojs[-1]}   \
-    --gpu-device $gpu_device \
-    --world-size $world_size \
-    --master-ip $master_ip \
-    --task-rank 1 \
-    | sed "s/^/[1 - gender] /"
-) &
-pids+=($!) # store background pids
-
-gpu_device=3
-
-(
-  cd ./spk_identif/
-  ./run.sh \
-    --stage $stage \
-    --stop-stage $stop_stage \
-    --log-interval $log_interval \
-    --eproj ${eprojs[-1]}   \
-    --gpu-device $gpu_device \
-    --world-size $world_size \
-    --master-ip $master_ip \
-    --task-rank 2 \
-    | sed "s/^/[2 - spk_identif] /"
-) &
 
 i=0; for pid in "${pids[@]}"; do wait ${pid} || ((++i)); done
 [ ${i} -gt 0 ] && echo "$0: ${i} background jobs are failed." && false

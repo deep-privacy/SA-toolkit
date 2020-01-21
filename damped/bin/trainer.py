@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import damped
 from damped import utils
 from damped.disturb import const
 from sklearn.metrics import accuracy_score
@@ -136,6 +137,9 @@ def main():
     loss_batches = 0
     loss_batches_count = 0
 
+    # indicate if damped.disturb-ed toolkit wants the gradient form the DomainTask
+    send_backward_grad = False
+
     # init the rank of this task
     utils.init_distributedenv(
         rank=args.task_rank, world_size=args.world_size, ip=args.master_ip
@@ -153,6 +157,14 @@ def main():
 
             if const.should_stop(meta_data):
                 break
+
+            if const.is_no_wait_backward(meta_data):
+                print("Switch to NOT sending backward gradient", flush=True)
+                send_backward_grad = False
+
+            if const.is_wait_backward(meta_data):
+                print("Switch to sending backward gradient", flush=True)
+                send_backward_grad = True
 
             last_eval = eval_mode
             eval_mode = const.is_eval(meta_data)
@@ -213,7 +225,9 @@ def main():
             continue
 
         optimizer.zero_grad()
-        y_pred = net(features.to(device))
+        input = features.to(device)
+        input.requires_grad = True
+        y_pred = net(input)
 
         if torch.any(torch.isnan(y_pred)):
             print(features)
@@ -222,6 +236,11 @@ def main():
 
         loss = criterion(y_pred, target.to(device))
         loss.backward()
+        # send back the gradient if needed
+        req = None
+        if send_backward_grad:
+            print("SEND backward grad", input.grad.data.cpu()[0][0][0])
+            req = damped.disturb.DomainTask._isend(0, input.grad.data.cpu())
         optimizer.step()
 
         correct = (torch.argmax(y_pred.data, 1) == target.to(device)).sum().item()
@@ -229,6 +248,10 @@ def main():
         total_target += target.size(0)
 
         monitor.train_loss.append(loss.item())
+
+        # wait back the gradient if needed
+        if send_backward_grad:
+            req.wait()
 
         monitor.uctr += 1
         if monitor.uctr % args.log_interval == 0:

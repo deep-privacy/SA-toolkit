@@ -79,7 +79,7 @@ Male     0.983471  0.944444  0.963563
 - Git hash: `696e2e2cfeaa6f586666120752e0080607d80362`
   - Commit date: `Mon Jan 20 10:21:42 2020 +0100`
 
-**ESPnet was modified according to this [diff](https://github.com/espnet/espnet/compare/e88a477cb72be7e5a03595ead5c233f8d211f6b6...deep-privacy:e53e1718d0943b9efeeec45ce8ae0e15367f2fdf)**
+**ESPnet was modified according to this [diff](https://github.com/espnet/espnet/compare/8de7321f6c6dd14d6dfb4a6fdda97df5069c38a1...deep-privacy:3f3e49d1dc22c36acaaaf99c79391d25b2ce36ce)**
 
 ### WER
 

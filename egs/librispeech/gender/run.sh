@@ -17,7 +17,7 @@ stop_stage=100
 # model/trainer conf (net archi, task related)
 conf=conf.py
 resume=
-# resume=BrijSpeakerXvector.best.acc.ckpt
+resume=BrijSpeakerXvector.best.acc.ckpt
 
 # misc
 log_interval=300
