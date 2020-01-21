@@ -9,7 +9,7 @@ set -o pipefail
 
 # WARN: Don't forget to have the right DAMPED_N_DOMAIN venv in ESPnet (run.sh)
 # branches type
-branches=( "gender" "spk_identif" "gender" )
+branches=( "spk_identif" "gender" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 1024 )
 branches_eproj=( 50 50 50 )
@@ -19,8 +19,8 @@ branches_rank=( 1 2 3 )
 # on which GPUs to run branches
 branches_gpu=( 2 3 1 )
 branches_conf_args=(
-  "--tag gender_reco_2 --grad-reverse true"
   "--tag spk_identif_2"
+  "--tag gender_reco_2  --grad-reverse true --resume BrijSpeakerXvector.best.acc.ckpt"
   "--tag gender_reco_2"
 )
 
