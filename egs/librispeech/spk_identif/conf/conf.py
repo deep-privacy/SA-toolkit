@@ -30,8 +30,8 @@ net = BrijSpeakerXvector(args.spk_number, args.eproj, args.hidden_units, args.rn
 if args.grad_reverse:
     class BrijSpeakerXvectorGradRev(BrijSpeakerXvector):
         def __init__(self, odim, eprojs, hidden_size, rnn_layers, dropout_rate=0.2):
-            super().__init__(odim, eprojs, hidden_size, rnn_layers, dropout_rate=0.2)
-            self.scale = 0.1
+            super().__init__(odim, eprojs, hidden_size, rnn_layers, dropout_rate)
+            self.scale = 2.0
             print("Gradient reversed!")
 
         def forward(self, hs_pad):

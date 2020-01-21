@@ -9,7 +9,7 @@ set -o pipefail
 
 # WARN: Don't forget to have the right DAMPED_N_DOMAIN venv in ESPnet (run.sh)
 # branches type
-branches=( "gender" "spk_identif" "spk_identif" )
+branches=( "gender" "spk_identif" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 1024 )
 # branches task rank of each above branches
@@ -17,7 +17,7 @@ branches_eproj=( 1024 1024 1024 )
 branches_rank=( 1 2 3 )
 # on which GPUs to run branches
 branches_gpu=( 2 3 1 )
-branches_conf_args=( "" "--grad-reverse true" "" )
+branches_conf_args=( "--tag gender_reco_lstm_eproj_no_back_2 --grad-reverse true --resume BrijSpeakerXvector.best.acc.ckpt" "--tag spk_iden_reco_lstm_eproj_no_back_2" "--tag gender_reco_lstm_eproj_no_back_2" )
 
 world_size=$((${#branches[@]} + 1))
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed

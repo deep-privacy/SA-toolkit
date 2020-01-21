@@ -16,62 +16,27 @@ import torch.nn as nn
 
 # parse args injected by damped
 argsparser.add("--eproj", default=1024, type=int)  # noqa
-argsparser.add("--dropout", default=0.2, type=float)  # noqa
 argsparser.add("--hidden-units", default=512, type=int)  # noqa
 argsparser.add("--rnn-layers", default=3, type=int)  # noqa
+argsparser.add("--dropout", default=0.2, type=float)  # noqa
+argsparser.add("--grad-reverse", default=False, type=bool)  # noqa
 args = argsparser.parse_args()  # noqa
 
 
-# input: Batch x Tmax X D
-# Assuming 1024 dim per frame (T) (encoder projection)
-class GenderNet(nn.Module):
-    """ Gender classification net
-    """
+if args.grad_reverse:
+    class BrijSpeakerXvectorGradRev(BrijSpeakerXvector):
+        def __init__(self, odim, eprojs, hidden_size, rnn_layers, dropout_rate=0.2):
+            super().__init__(odim, eprojs, hidden_size, rnn_layers, dropout_rate)
+            self.scale = 2.0
+            print("Gradient reversed!")
 
-    def __init__(self):
-        super(GenderNet, self).__init__()
-        self.eproj = args.eproj
-        self.hidden_size = args.hidden_units
-        self.num_layers = args.rnn_layers
+        def forward(self, hs_pad):
+            x = grad_reverse(hs_pad, scale=self.scale)
+            return super().forward(x)
 
-        self.lstm = nn.LSTM(
-            self.eproj, self.hidden_size, self.num_layers, batch_first=True,
-            dropout=args.dropout,
-            bidirectional=False,
-        )
-        self.fc1 = nn.Linear(self.hidden_size, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 2)
+    net = BrijSpeakerXvectorGradRev(2, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
 
-        self.dropout = nn.Dropout(p=args.dropout)
-        self.activation = nn.ReLU()
-
-    def zero_state(self, hs_pad):
-        return hs_pad.new_zeros(self.num_layers, hs_pad.size(0), self.hidden_size)
-
-    def forward(self, hs_pad):
-        """Gender branch forward
-        Args:
-            hs_pad (torch.Tensor): batch of padded hidden state sequences (B, Tmax, D)
-        """
-        h_0 = self.zero_state(hs_pad)
-        c_0 = self.zero_state(hs_pad)
-
-        self.lstm.flatten_parameters()  # Memory: compact weights
-
-        print(hs_pad.shape)
-        out_lstm, (h_n, c_n) = self.lstm(hs_pad, (h_0, c_0))
-        print(out_lstm.shape)
-
-        out_fc1 = self.dropout(self.activation(self.fc1(out_lstm)))
-        out_fc2 = self.activation(self.fc2(out_fc1))
-        out_fc3 = self.fc3(out_fc2)
-        return out_fc3
-
-
-#  net = GenderNet()
 net = BrijSpeakerXvector(2, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
-
 
 #  Binary Cross Entropy
 criterion = nn.CrossEntropyLoss()
