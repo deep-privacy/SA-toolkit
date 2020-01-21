@@ -12,12 +12,17 @@ set -o pipefail
 branches=( "gender" "spk_identif" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 1024 )
+branches_eproj=( 50 50 50 )
 # branches task rank of each above branches
 # Carefully crafted value also defined in ESPnet
 branches_rank=( 1 2 3 )
 # on which GPUs to run branches
 branches_gpu=( 2 3 1 )
-branches_conf_args=( "--tag gender_reco_lstm_eproj_no_back_2 --grad-reverse true --resume BrijSpeakerXvector.best.acc.ckpt" "--tag spk_iden_reco_lstm_eproj_no_back_2" "--tag gender_reco_lstm_eproj_no_back_2" )
+branches_conf_args=(
+  "--tag gender_reco_2 --grad-reverse true"
+  "--tag spk_identif_2"
+  "--tag gender_reco_2"
+)
 
 world_size=$((${#branches[@]} + 1))
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed

@@ -123,7 +123,7 @@ def main():
         model=net,
         eval_metrics="acc, loss",  # First metric is considered to be early-stopping metric
         save_best_metrics=True,
-        n_checkpoints=args.n_checkpoints,
+        n_checkpoints=args.n_checkpoint,
     )
     monitor.set_optimizer(optimizer)
     monitor.save_model_summary()

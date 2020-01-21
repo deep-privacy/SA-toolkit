@@ -8,7 +8,7 @@ _all_args="$@"
 ####
 
 # exp tag
-tag="gender_reco_lstm_eproj_no_back"
+tag="gender_reco"
 
 # configuration
 stage=2 # start at stabe 0 to Download Meta-Data
