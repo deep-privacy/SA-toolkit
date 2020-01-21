@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import torch
+from tensorboardX import SummaryWriter
 
 
 class Monitor:
@@ -22,6 +23,7 @@ class Monitor:
 
     def __init__(
         self,
+        tensorboard_dir,
         save_path,
         exp_id,
         model,
@@ -30,6 +32,7 @@ class Monitor:
         save_best_metrics=False,
         n_checkpoints=3,
     ):
+        self.tensorboard_writter = SummaryWriter(tensorboard_dir)
         self.save_path = save_path
         self.exp_id = exp_id
         self.model = model
