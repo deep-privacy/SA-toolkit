@@ -28,7 +28,7 @@ def init(
         expected_domain_tasks (int): The number of expected domain task.
         port (int): port on which the the tensor will be exchanged
     """
-    logger.warning("Waiting for domain-task trainer connection")
+    logger.info("Waiting for domain-task trainer connection")
     utils.init_distributedenv(0, world_size=expected_domain_tasks + 1, port=port)
 
     # init ManagedMemory
@@ -43,7 +43,7 @@ def stop(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
         domain_tasks (int): the number of domain_tasks used
 
     """
-    logger.warning(f"Stop the domain tasks")
+    logger.info(f"Stop the domain tasks")
     for t in range(1, domain_tasks + 1):
         dist.send(
             torch.tensor(-1, dtype=torch.int), dst=t
@@ -59,7 +59,7 @@ def eval(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     Args:
         domain_tasks (int): the number of domain_tasks used
     """
-    logger.warning(f"Evaluating on dev the domain tasks")
+    logger.info(f"Evaluating on dev the domain tasks")
     for t in range(1, domain_tasks + 1):
         dist.send(
             torch.tensor(-1, dtype=torch.int), dst=t
@@ -74,7 +74,7 @@ def train(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1))) -> None:
     Args:
         domain_tasks (int): the number of domain_tasks used
     """
-    logger.warning(f"Train on the domain tasks")
+    logger.info(f"Train on the domain tasks")
     for t in range(1, domain_tasks + 1):
         dist.send(
             torch.tensor(-1, dtype=torch.int), dst=t

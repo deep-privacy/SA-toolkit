@@ -189,7 +189,7 @@ class work(object):
         with ManagedMemory().wait_mutex:
             if ManagedMemory().call_number.value % INTERVAL_LOG_WAIT_TIME == 1 and ManagedMemory().call_number.value != 0:
                 wait_time = str(datetime.timedelta(seconds=ManagedMemory().wait_time.value / ManagedMemory().call_number.value))
-                logger.warning(f"Waited {wait_time} per fork")
+                logger.info(f"Waited {wait_time} per fork")
                 ManagedMemory().call_number.value = 0
                 ManagedMemory().wait_time.value = 0
 
