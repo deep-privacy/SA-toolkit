@@ -17,12 +17,9 @@ def get_parser(parser=None):
     if parser is None:
         parser = configargparse.ArgumentParser(description="Train an domain branch")
 
-    parser.add(
-        "--config", dest="config", type=str, help="config file path", required=True
-    )
+    parser.add("--config", type=str, help="config file path", required=True)
     parser.add(
         "--log-interval",
-        dest="log_interval",
         type=int,
         help="Log training accuracy every X batch",
         nargs="?",
@@ -31,21 +28,18 @@ def get_parser(parser=None):
     )
     parser.add(
         "--exp-path",
-        dest="exp_path",
         help="Path to save the exp model/results",
         required=True,
         type=str,
     )
     parser.add(
         "--task-rank",
-        dest="task_rank",
         type=int,
         help="The rank of this task (torch.distributed)",
         required=True,
     )
     parser.add(
         "--n-checkpoint",
-        dest="n_checkpoints",
         type=int,
         help="The number of checkpoints to keep (checkpoint frequency defined by log-interval)",
         nargs="?",
@@ -54,7 +48,6 @@ def get_parser(parser=None):
     )
     parser.add(
         "--gpu-device",
-        dest="gpu_device",
         help="If the node has GPU accelerator, select the GPU to use",
         nargs="?",
         required=False,
@@ -63,7 +56,6 @@ def get_parser(parser=None):
     )
     parser.add(
         "--resume",
-        dest="resume",
         help="Resume the training from a checkpoint",
         default="",
         nargs="?",
@@ -72,16 +64,22 @@ def get_parser(parser=None):
     )
     parser.add(
         "--world-size",
-        dest="world_size",
         help="The number of expected TOTAL domain task (might be more than one)",
         required=True,
         type=int,
     )
     parser.add(
         "--master-ip",
-        dest="master_ip",
         help="The ipv4 or ipv6 address of the master node. (The one that was damped.disturb-ed)",
         required=True,
+        type=str,
+    )
+    parser.add(
+        "--tensorboard-dir",
+        help="Tensorboard log dir path",
+        default="",
+        nargs="?",
+        required=False,
         type=str,
     )
 
@@ -114,13 +112,18 @@ def main():
     total_correct = 0
     total_target = 0
 
+    tensorboard_dir = args.tensorboard_dir
+    if args.tensorboard_dir == "":
+        tensorboard_dir = os.path.join("exp/", args.exp_path, "tensorboard")
+
     monitor = utils.Monitor(
+        tensorboard_dir=tensorboard_dir,
         save_path=os.path.join("exp/", args.exp_path),
         exp_id=net.__class__.__name__,
         model=net,
         eval_metrics="acc, loss",  # First metric is considered to be early-stopping metric
         save_best_metrics=True,
-        n_checkpoints=args.n_checkpoints,
+        n_checkpoints=args.n_checkpoint,
     )
     monitor.set_optimizer(optimizer)
     monitor.save_model_summary()
@@ -197,8 +200,11 @@ def main():
                     ]
                 )
                 monitor.save_models()
+                monitor.tensorboard_writter.add_scalar(
+                    "/eval/accuracy", accuracy, monitor.vctr
+                )
+                monitor.tensorboard_writter.add_scalar("/eval/loss", loss, monitor.vctr)
                 monitor.vctr += 1
-
                 # clear for next eval
                 total_labels = torch.LongTensor([])
                 total_pred = torch.LongTensor([])
@@ -219,7 +225,7 @@ def main():
 
             # send back the gradient if needed
             if send_backward_grad:
-                 # backward will not be applied (eval), send 0 grad
+                # backward will not be applied (eval), send 0 grad
                 damped.disturb.DomainTask._isend(0, torch.zeros(*input.size())).wait()
 
             _, predicted = torch.max(y_pred.data, dim=1)
@@ -267,6 +273,12 @@ def main():
                     monitor.uctr, loss.item(), accuracy,
                 ),
                 flush=True,
+            )
+            monitor.tensorboard_writter.add_scalar(
+                "/train/accuracy", accuracy, monitor.uctr
+            )
+            monitor.tensorboard_writter.add_scalar(
+                "/train/loss", loss.item(), monitor.uctr
             )
             total_correct = 0
             total_target = 0

@@ -14,26 +14,21 @@ def get_parser(parser=None):
     if parser is None:
         parser = configargparse.ArgumentParser(description="Train an domain branch")
 
-    parser.add(
-        "--config", dest="config", type=str, help="config file path", required=True
-    )
+    parser.add("--config", type=str, help="config file path", required=True)
     parser.add(
         "--task-rank",
-        dest="task_rank",
         type=int,
         help="The rank of this task (torch.distributed)",
         required=True,
     )
     parser.add(
         "--snapshot",
-        dest="snapshot",
         type=str,
         help="The model parameters to use for eval",
         required=True,
     )
     parser.add(
         "--label",
-        dest="label",
         help="The label outputted by the net (0,1 in case of gender classification)",
         required=True,
         type=int,
@@ -41,7 +36,6 @@ def get_parser(parser=None):
     )
     parser.add(
         "--label-name",
-        dest="label_name",
         help="The class name corresponding to the label of '--label'",
         required=True,
         type=str,
@@ -49,7 +43,6 @@ def get_parser(parser=None):
     )
     parser.add(
         "--gpu-device",
-        dest="gpu_device",
         help="If the node has GPU accelerator, select the GPU to use",
         required=False,
         type=int,
@@ -57,14 +50,12 @@ def get_parser(parser=None):
     )
     parser.add(
         "--world-size",
-        dest="world_size",
         help="The number of expected TOTAL domain task (might be more than one)",
         required=True,
         type=int,
     )
     parser.add(
         "--master-ip",
-        dest="master_ip",
         help="The ipv4 or ipv6 address of the master node. (The one that was damped.disturb-ed)",
         required=True,
         type=str,

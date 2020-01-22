@@ -8,7 +8,7 @@ _all_args="$@"
 ####
 
 # exp tag
-tag="spk_iden_reco_lstm_eproj_no_back"
+tag="spk_identif"
 
 # configuration
 stage=2 # start at stabe 0 to Download Meta-Data

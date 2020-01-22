@@ -12,6 +12,7 @@ set -o pipefail
 branches=( "spk_identif" "gender" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 1024 )
+branches_eproj=( 50 50 50 )
 # branches task rank of each above branches
 # Carefully crafted value also defined in ESPnet
 branches_rank=( 1 2 3 )
@@ -22,7 +23,6 @@ branches_conf_args=(
   "--tag gender_reco_2  --grad-reverse true --resume BrijSpeakerXvector-update153600.ckpt"
   "--tag gender_reco_2 --resume BrijSpeakerXvector-update79200.ckpt"
 )
-
 
 world_size=$((${#branches[@]} + 1))
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed
