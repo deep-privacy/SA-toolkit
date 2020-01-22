@@ -18,12 +18,15 @@ class GradientReverse(torch.autograd.Function):
         return GradientReverse.scale * grad_output.neg()
 
 
-def grad_reverse_net(net: torch.nn.Module):
+def grad_reverse_net(net: type):
     """
     create a new module where the first Function applied to the input feature
     of the forward function is ``grad_reverse``.
 
     This function doesn't changes how the nn.Module is serialized/unserialized.
+
+    Args:
+        net (type[torch.nn.Module]): The class name (not the initialized) object.
     """
 
     class GradientReverseProxy(net):
