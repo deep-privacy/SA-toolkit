@@ -12,16 +12,25 @@ set -o pipefail
 branches=( "spk_identif" "gender" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 1024 )
-branches_eproj=( 50 50 50 )
 # branches task rank of each above branches
 # Carefully crafted value also defined in ESPnet
 branches_rank=( 1 2 3 )
 # on which GPUs to run branches
 branches_gpu=( 2 3 1 )
+
+# hide gender (2) retrain gender (3) and spk (1)
 branches_conf_args=(
   "--tag spk_identif_2 --resume BrijSpeakerXvector-update79200.ckpt"
   "--tag gender_reco_2  --grad-reverse true --resume BrijSpeakerXvector-update153600.ckpt"
   "--tag gender_reco_2 --resume BrijSpeakerXvector-update79200.ckpt"
+)
+
+# hide spk (2) retrain gender (3) and spk (1)
+branches=( "gender" "spk_identif" "spk_identif" )
+branches_conf_args=(
+  "--tag gender_reco_lstm_eproj_no_back --resume BrijSpeakerXvector.best.acc.ckpt"
+  "--tag spk_iden_reco_lstm_eproj_no_back  --grad-reverse true --resume BrijSpeakerXvectorGradRev-update280800.ckpt"
+  "--tag spk_iden_reco_lstm_eproj_no_back --resume BrijSpeakerXvector-update79200.ckpt"
 )
 
 world_size=$((${#branches[@]} + 1))
