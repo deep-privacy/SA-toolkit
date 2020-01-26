@@ -7,7 +7,7 @@ class GradientReverse(torch.autograd.Function):
     but reverse the gradient during backwards
     """
 
-    scale = 0.1
+    scale = 1.0
 
     @staticmethod
     def forward(ctx, x):
@@ -38,7 +38,7 @@ def grad_reverse_net(net: type):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.__class__.__name__ = "GradientReverse-" + net.__name__
-            self.scale = 10
+            self.scale = 1.0
             print("Gradient reversed!")
 
         def forward(self, hs_pad):

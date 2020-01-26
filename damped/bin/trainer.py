@@ -203,9 +203,7 @@ def main():
                 monitor.tensorboard_writter.add_scalar(
                     "/dev/accuracy", accuracy, monitor.vctr
                 )
-                monitor.tensorboard_writter.add_scalar(
-                    "/dev/loss", loss, monitor.vctr
-                )
+                monitor.tensorboard_writter.add_scalar("/dev/loss", loss, monitor.vctr)
                 monitor.vctr += 1
                 # clear for next eval
                 total_labels = torch.LongTensor([])
@@ -254,8 +252,7 @@ def main():
 
         # send back the gradient if asked
         if send_backward_grad:
-            print(input.grad.data[0][0][0])
-            req = damped.disturb.DomainTask._isend(0, input.grad.data.cpu()).wait()
+            damped.disturb.DomainTask._isend(0, input.grad.data.cpu()).wait()
 
         optimizer.step()
 

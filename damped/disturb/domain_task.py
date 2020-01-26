@@ -11,16 +11,17 @@ import damped
 
 import logging
 from damped.utils import log_handler
+
+from .const import wait_backward, no_wait_backward
+from .managed_service import ManagedMemory
+
 logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(log_handler)
 
-from .const import wait_backward, no_wait_backward
 
 INTERVAL_LOG_WAIT_TIME = 4000
 
-
-from .managed_service import ManagedMemory
 
 @dataclass
 class DomainTask(object):
@@ -80,13 +81,15 @@ class DomainTask(object):
                     torch.tensor(-1, dtype=torch.int), dst=self.to_rank
                 )  # indicate for meta-data exchange
                 dist.send(wait_backward(), dst=self.to_rank)
-            self._send_back_grad = False  # for fork_detach don't notify meta-data (fake)
+            self._send_back_grad = (
+                False  # for fork_detach don't notify meta-data (fake)
+            )
             req = self.fork_detach(hidden_tensor, domain_label, dtype=dtype)
             self._send_back_grad = True
             req.wait()
 
             recv_buff, meta_data = damped.utils.recv(rank=self.to_rank)
-            assert meta_data == False, "fork_recv_grad is not expected to receive meta_data"
+            assert not meta_data, "fork_recv_grad is not expected to receive meta_data"
             return recv_buff
 
     def fork_detach(
@@ -126,7 +129,7 @@ class DomainTask(object):
             self.isend(domain_label, dtype=dtype[1]).wait()
             req = self.isend(hidden_tensor, dtype=dtype[0])
 
-        ManagedMemory().wait_time.value += (time.time() - start_time)
+        ManagedMemory().wait_time.value += time.time() - start_time
         return work(req)
 
     def isend(self, tensor: torch.Tensor, dtype: torch.dtype = torch.float32):
@@ -180,15 +183,22 @@ class work(object):
     def __init__(self, work: Optional[torch.distributed.Work]):
         self._work = work
 
-
     def wait(self):
         """
         Waits until request completes. Blocking operation.
         """
 
         with ManagedMemory().wait_mutex:
-            if ManagedMemory().call_number.value % INTERVAL_LOG_WAIT_TIME == 1 and ManagedMemory().call_number.value != 0:
-                wait_time = str(datetime.timedelta(seconds=ManagedMemory().wait_time.value / ManagedMemory().call_number.value))
+            if (
+                ManagedMemory().call_number.value % INTERVAL_LOG_WAIT_TIME == 1
+                and ManagedMemory().call_number.value != 0
+            ):
+                wait_time = str(
+                    datetime.timedelta(
+                        seconds=ManagedMemory().wait_time.value
+                        / ManagedMemory().call_number.value
+                    )
+                )
                 logger.info(f"Waited {wait_time} per fork")
                 ManagedMemory().call_number.value = 0
                 ManagedMemory().wait_time.value = 0
@@ -197,4 +207,4 @@ class work(object):
             ManagedMemory().call_number.value += 1
             start_time = time.time()
             self._work.wait()
-            ManagedMemory().wait_time.value += (time.time() - start_time)
+            ManagedMemory().wait_time.value += time.time() - start_time

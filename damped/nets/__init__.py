@@ -1,6 +1,6 @@
 from .xvector import Xtractor
 from .brij_xvector import BrijSpeakerXvector
-from .gradient_reverse import grad_reverse_net
+from .gradient_reverse import grad_reverse_net, GradientReverse
 
 """
 ``damped.nets `` provides a sets of building block to create custom neural net
@@ -13,4 +13,5 @@ _all__ = [
     "Xtractor",
     "BrijSpeakerXvector",
     "grad_reverse_net",
+    "GradientReverse",
 ]

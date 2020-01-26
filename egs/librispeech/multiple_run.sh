@@ -12,6 +12,7 @@ set -o pipefail
 branches=( "spk_identif" "gender" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 1024 )
+branches_eproj=( 50 50 50 )
 # branches task rank of each above branches
 # Carefully crafted value also defined in ESPnet
 branches_rank=( 1 2 3 )
@@ -20,16 +21,15 @@ branches_gpu=( 2 3 1 )
 
 # hide gender (2) retrain gender (3) and spk (1)
 branches_conf_args=(
-  "--tag spk_identif_2 --resume BrijSpeakerXvector-update79200.ckpt"
-  "--tag gender_reco_2  --grad-reverse true --resume BrijSpeakerXvector-update153600.ckpt"
-  "--tag gender_reco_2 --resume BrijSpeakerXvector-update79200.ckpt"
+  "--tag spk_identif_2"
+  "--tag gender_reco_2  --grad-reverse true "
+  "--tag gender_reco_2 "
 )
 
 # hide spk (2) retrain gender (3) and spk (1)
-branches=( "gender" "spk_identif" "spk_identif" )
+branches=( "gender" "spk_identif" )
 branches_conf_args=(
   "--tag gender_reco_lstm_eproj_no_back"
-  "--tag spk_iden_reco_lstm_eproj_no_back  --grad-reverse true --resume BrijSpeakerXvectorGradRev.best.acc.ckpt"
   "--tag spk_iden_reco_lstm_eproj_no_back"
 )
 
@@ -68,3 +68,4 @@ done
 
 i=0; for pid in "${pids[@]}"; do wait ${pid} || ((++i)); done
 [ ${i} -gt 0 ] && echo "$0: ${i} background jobs are failed." && false
+exit 0
