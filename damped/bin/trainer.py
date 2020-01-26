@@ -201,10 +201,10 @@ def main():
                 )
                 monitor.save_models()
                 monitor.tensorboard_writter.add_scalar(
-                    f"/{monitor.save_path}/accuracy", accuracy, monitor.vctr
+                    "/dev/accuracy", accuracy, monitor.vctr
                 )
                 monitor.tensorboard_writter.add_scalar(
-                    f"/{monitor.save_path}/loss", loss, monitor.vctr
+                    "/dev/loss", loss, monitor.vctr
                 )
                 monitor.vctr += 1
                 # clear for next eval
@@ -251,10 +251,12 @@ def main():
 
         loss = criterion(y_pred, target.to(device))
         loss.backward()
-        # send back the gradient if needed
-        req = None
+
+        # send back the gradient if asked
         if send_backward_grad:
-            req = damped.disturb.DomainTask._isend(0, input.grad.data.cpu())
+            print(input.grad.data[0][0][0])
+            req = damped.disturb.DomainTask._isend(0, input.grad.data.cpu()).wait()
+
         optimizer.step()
 
         correct = (torch.argmax(y_pred.data, 1) == target.to(device)).sum().item()
@@ -262,10 +264,6 @@ def main():
         total_target += target.size(0)
 
         monitor.train_loss.append(loss.item())
-
-        # wait back the gradient if needed
-        if send_backward_grad:
-            req.wait()
 
         monitor.uctr += 1
         if monitor.uctr % args.log_interval == 0:
@@ -277,10 +275,10 @@ def main():
                 flush=True,
             )
             monitor.tensorboard_writter.add_scalar(
-                f"/{monitor.save_path}/accuracy", accuracy, monitor.uctr
+                "/train/accuracy", accuracy, monitor.uctr
             )
             monitor.tensorboard_writter.add_scalar(
-                f"/{monitor.save_path}/loss", loss.item(), monitor.uctr
+                "/train/loss", loss.item(), monitor.uctr
             )
             total_correct = 0
             total_target = 0

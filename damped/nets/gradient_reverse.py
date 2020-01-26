@@ -38,7 +38,7 @@ def grad_reverse_net(net: type):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.__class__.__name__ = "GradientReverse-" + net.__name__
-            self.scale = 2.0
+            self.scale = 10
             print("Gradient reversed!")
 
         def forward(self, hs_pad):

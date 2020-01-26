@@ -28,9 +28,9 @@ branches_conf_args=(
 # hide spk (2) retrain gender (3) and spk (1)
 branches=( "gender" "spk_identif" "spk_identif" )
 branches_conf_args=(
-  "--tag gender_reco_lstm_eproj_no_back --resume BrijSpeakerXvector.best.acc.ckpt"
-  "--tag spk_iden_reco_lstm_eproj_no_back  --grad-reverse true --resume BrijSpeakerXvectorGradRev-update280800.ckpt"
-  "--tag spk_iden_reco_lstm_eproj_no_back --resume BrijSpeakerXvector-update79200.ckpt"
+  "--tag gender_reco_lstm_eproj_no_back"
+  "--tag spk_iden_reco_lstm_eproj_no_back  --grad-reverse true --resume BrijSpeakerXvectorGradRev.best.acc.ckpt"
+  "--tag spk_iden_reco_lstm_eproj_no_back"
 )
 
 world_size=$((${#branches[@]} + 1))
