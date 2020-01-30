@@ -44,7 +44,7 @@ def get_parser(parser=None):
         help="The number of checkpoints to keep (checkpoint frequency defined by log-interval)",
         nargs="?",
         required=False,
-        default=3,
+        default=30,
     )
     parser.add(
         "--gpu-device",
@@ -199,6 +199,9 @@ def main():
                         utils.Metric("loss", loss, higher_better=False,),
                     ]
                 )
+
+
+                monitor.save_checkpoint()
                 monitor.save_models()
                 monitor.tensorboard_writter.add_scalar(
                     "/dev/accuracy", accuracy, monitor.vctr
@@ -279,8 +282,6 @@ def main():
             )
             total_correct = 0
             total_target = 0
-
-            monitor.save_checkpoint()
 
     print("Training finished on %s" % time.strftime("%d-%m-%Y %H:%M"))
 

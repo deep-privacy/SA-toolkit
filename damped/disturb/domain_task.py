@@ -199,7 +199,7 @@ class work(object):
                         / ManagedMemory().call_number.value
                     )
                 )
-                logger.info(f"Waited {wait_time} per fork")
+                logger.debug(f"Waited {wait_time} per fork")
                 ManagedMemory().call_number.value = 0
                 ManagedMemory().wait_time.value = 0
 

@@ -34,7 +34,7 @@ net = Net(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.
 criterion = nn.CrossEntropyLoss()
 
 # Optim
-optimizer = torch.optim.Adam(net.parameters())
+optimizer = torch.optim.Adam(net.parameters(), lr=0.00025)
 
 # mapper used for ../data/spk2id
 dir_path = os.path.dirname(os.path.realpath(__file__))

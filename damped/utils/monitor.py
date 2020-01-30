@@ -77,7 +77,7 @@ class Monitor:
 
     def save_checkpoint(self):
         """Saves a checkpoint by keeping track of file rotation."""
-        self.checkpoints.push(self.save_model(suffix="update{}".format(self.uctr)))
+        self.checkpoints.push(self.save_model(suffix="update{}-val{}".format(self.uctr, self.vctr)))
 
     def save_model_summary(self):
         f = open(os.path.join(self.save_path, "model.summary"), "w")
@@ -114,9 +114,9 @@ class Monitor:
             symlink = "{}.best.{}.ckpt".format(self.exp_id, metric.name.lower())
             symlink = Path(self.save_path) / Path(symlink)
             if symlink.exists():
-                old_ckpt = symlink.resolve()
+                #  old_ckpt = symlink.resolve()
                 symlink.unlink()
-                old_ckpt.unlink()
+                #  old_ckpt.unlink()
             if symlink.is_symlink():
                 symlink.unlink()
             symlink.symlink_to(fname)
