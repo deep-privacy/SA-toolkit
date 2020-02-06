@@ -9,20 +9,20 @@ set -o pipefail
 
 # WARN: Don't forget to have the right DAMPED_N_DOMAIN venv in ESPnet (run.sh)
 # branches type
-# branches=( "gender" "spk_identif" )
-branches=( "gender" "gender" )
+branches=( "gender" "spk_identif" )
+# branches=( "gender" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 )
 # branches task rank of each above branches
 # Carefully crafted value also defined in ESPnet
 branches_rank=( 1 2 )
 # on which GPUs to run branches
-branches_gpu=( 2 3 )
+branches_gpu=( 0 1 )
 
 branches_conf_args=(
-  "--tag d-gen-gender_reco_ADV"
-  "--tag dummy"
-  # "--tag d-gen-spk_identif_ADV --snapshot BrijSpeakerXvector-val017.best.acc_59.562.ckpt"
+  "--tag baseline --resume BrijSpeakerXvector.best.acc.ckpt"
+  "--tag baseline --resume BrijSpeakerXvector.best.acc.ckpt"
+  # "--tag dummy  --resume BrijSpeakerXvector.best.acc.ckpt"
 )
 
 world_size=$((${#branches[@]} + 1))

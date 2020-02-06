@@ -32,7 +32,8 @@ net = Net(2, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
 criterion = nn.CrossEntropyLoss()
 
 # Optim
-optimizer = torch.optim.Adam(net.parameters(), lr=0.00025)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.0000025)
+#  optimizer = torch.optim.Adam(net.parameters())
 
 # mapper used for ../data/spk2gender
 dir_path = os.path.dirname(os.path.realpath(__file__))

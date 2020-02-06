@@ -89,7 +89,7 @@ def main():
     net = config.net.to(device)
 
     # load the snapshot
-    net.load_state_dict(torch.load(args.snapshot)["model"])
+    net.load_state_dict(torch.load(args.snapshot, map_location=device)["model"])
 
     # init the rank of this task
     utils.init_distributedenv(
