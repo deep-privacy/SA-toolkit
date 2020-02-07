@@ -30,7 +30,7 @@ label="$(cat data/spk2id | awk '{ print $2 }' | tr '\n' ' ')"
 label_name="$label"
 
 # The 'task_rank' value to provide to damped.disturb.DomainTask
-task_rank=2
+task_rank=1
 gpu_device=1
 world_size=2 # MUST be incremented to match the number of damped.disturb.DomainTask + master!
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed
