@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Tuple, Optional
 import time
 from threading import Lock
+import os
 
 import torch
 import datetime
@@ -75,6 +76,9 @@ class DomainTask(object):
             The hidden_tensor.grad.data processed by the DomainTask() trainer.py
         """
 
+        if int(os.getenv("DAMPED_N_DOMAIN", 1)) < self.to_rank:
+            return work(None)
+
         with self._mutex_fork_backward:
             if not self._send_back_grad:
                 dist.send(
@@ -118,6 +122,9 @@ class DomainTask(object):
         """
         ManagedMemory().call_number.value += 1
         start_time = time.time()
+
+        if int(os.getenv("DAMPED_N_DOMAIN", 1)) < self.to_rank:
+            return work(None)
 
         with self._mutex_fork:
             if self._send_back_grad:

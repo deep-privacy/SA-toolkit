@@ -30,9 +30,11 @@ def gender_mapper(dir_path):
     print("spk2gender: ")
     for k, v in list(spk2gender.items())[:5]:
         print(f"  spk: {k} -> gender {v}")
+    log_once = False
 
     # sent y_mapper (from damped.disturb) to y label (for branch task training)
     def mapper(y_mapper):
+        nonlocal log_once
         decoded_y_mapped_label = list(
             map(
                 lambda x: damped.utils.codec.str_int_encoder.decode(x),
@@ -46,6 +48,12 @@ def gender_mapper(dir_path):
             if x == "-1":
                 logger.warning("Warn: y_mapper not found")
                 continue
+            if x not in spk2gender:
+                if not log_once:
+                    logger.error(f"spk2gender not found in {os.path.join(dir_path, '..', 'data', 'spk2gender')} spk2gender ignored error ignored for the rest of the run")
+                log_once = True
+                continue
+
             label[i] = indice[spk2gender[x]]
 
         return label
@@ -62,9 +70,12 @@ def spkid_mapper(dir_path):
     spk2id = dict(map(lambda x: (x[0], x[1]), spk2gender_lines))
     spk_number = len(spk2id.items())
     print(f"Total speaker: {spk_number}")
+    
+    log_once = False
 
     # sent y_mapper (from damped.disturb) to y label (for branch task training)
     def mapper(y_mapper):
+        nonlocal log_once
         decoded_y_mapped_label = list(
             map(
                 lambda x: damped.utils.codec.str_int_encoder.decode(x),
@@ -76,6 +87,12 @@ def spkid_mapper(dir_path):
             if x == "-1":
                 logger.warning("Warn: y_mapper not found")
                 continue
+            if x not in spk2id:
+                if not log_once:
+                    logger.error(f"spk2id not found in {os.path.join(dir_path, '..', 'data', 'spk2id')} spk2id ignored error ignored for the rest of the run")
+                log_once = True
+                continue
+
             label[i] = int(spk2id[x])
 
         return label

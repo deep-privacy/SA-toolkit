@@ -34,7 +34,7 @@ net = Net(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.
 criterion = nn.CrossEntropyLoss()
 
 # Optim
-optimizer = torch.optim.Adam(net.parameters(), lr=0.0000025)
+optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
 #  optimizer = torch.optim.Adam(net.parameters())
 
 # mapper used for ../data/spk2id

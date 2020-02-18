@@ -22,7 +22,6 @@ branches_gpu=( 0 1 )
 branches_conf_args=(
   "--tag baseline --resume BrijSpeakerXvector.best.acc.ckpt"
   "--tag baseline --resume BrijSpeakerXvector.best.acc.ckpt"
-  # "--tag dummy  --resume BrijSpeakerXvector.best.acc.ckpt"
 )
 
 world_size=$((${#branches[@]} + 1))

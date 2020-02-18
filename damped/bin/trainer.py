@@ -44,7 +44,7 @@ def get_parser(parser=None):
         help="The number of checkpoints to keep (checkpoint frequency defined by log-interval)",
         nargs="?",
         required=False,
-        default=30,
+        default=5,
     )
     parser.add(
         "--gpu-device",
@@ -121,7 +121,8 @@ def main():
         save_path=os.path.join("exp/", args.exp_path),
         exp_id=net.__class__.__name__,
         model=net,
-        eval_metrics="acc, loss",  # First metric is considered to be early-stopping metric
+        eval_metrics="acc, loss",
+        early_metric="acc",
         save_best_metrics=True,
         n_checkpoints=args.n_checkpoint,
     )
@@ -193,20 +194,14 @@ def main():
                 if loss_batches_count != 0:
                     loss = loss_batches / loss_batches_count
 
-                monitor.update_scores(
+                monitor.update_dev_scores(
                     [
                         utils.Metric("acc", accuracy),
                         utils.Metric("loss", loss, higher_better=False,),
                     ]
                 )
 
-
-                monitor.save_checkpoint()
                 monitor.save_models()
-                monitor.tensorboard_writter.add_scalar(
-                    "/dev/accuracy", accuracy, monitor.vctr
-                )
-                monitor.tensorboard_writter.add_scalar("/dev/loss", loss, monitor.vctr)
                 monitor.vctr += 1
                 # clear for next eval
                 total_labels = torch.LongTensor([])
