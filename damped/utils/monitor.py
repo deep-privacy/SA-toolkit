@@ -33,7 +33,7 @@ class Monitor:
         save_best_metrics=False,
         n_checkpoints=5,
     ):
-        self.tensorboard_writter = SummaryWriter(tensorboard_dir)
+        self.tensorboard_writter = SummaryWriter(tensorboard_dir, flush_secs=10, max_queue=1)
         self.save_path = save_path
         self.exp_id = exp_id
         self.model = model
@@ -54,14 +54,12 @@ class Monitor:
         self.train_loss = history.pop("train_loss", [])
         self.val_scores = history.pop("val_scores", defaultdict(list))
 
+        self.early_metric = early_metric.lower()
+        self.cur_bests = {}
+
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
 
-        if len(self.eval_metrics) > 0:
-            # To keep current best metric validation id and score
-            self.cur_bests = {}
-
-            self.early_metric = early_metric.lower()
 
     @staticmethod
     def best_score(scores):
@@ -136,7 +134,7 @@ class Monitor:
     def update_dev_scores(self, results):
         """Updates score lists and current bests."""
         for metric in results:
-            print("Validation {} -> {}".format(self.vctr, metric), flush=True)
+            print("Validation {} -> {} | lr: {}".format(self.vctr, metric, self.optimizer.param_groups[0]['lr']), flush=True)
             self.val_scores[metric.name].append(metric)
             self.cur_bests[metric.name] = self.best_score(self.val_scores[metric.name])
 
@@ -174,14 +172,15 @@ class Monitor:
                         self._save_model(metric=metric, do_symlink=True)
                     )
 
-    def load_checkpoint(self, fname):
+    def load_checkpoint(self, fname, load_opti=True):
         data = self.load_pt_file(fname)
         self.model.load_state_dict(data["model"], strict=True)
-        if "optimizer" in data and self.optimizer:
+        if "optimizer" in data and self.optimizer and load_opti:
             self.optimizer.load_state_dict(data["optimizer"])
-
-        if "optimizer_scheduler" in data and self.opti_scheduler:
-            self.opti_scheduler.load_state_dict(data["optimizer_scheduler"])
+            if "optimizer_scheduler" in data and self.opti_scheduler:
+                self.opti_scheduler.load_state_dict(data["optimizer_scheduler"])
+        else:
+            print("not loading the optimizer", flush=True)
 
         for k in self.VARS:
             if k in data["history"]:

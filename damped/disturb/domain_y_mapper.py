@@ -80,4 +80,6 @@ class DomainLabelMapper(metaclass=SingletonMetaDomain):
                 y = codec(y)
             return y
         logging.warning("Label not found for key!")
+        if codec is not None:
+            return codec(default)
         return default

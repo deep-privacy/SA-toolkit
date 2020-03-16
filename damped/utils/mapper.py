@@ -50,7 +50,7 @@ def gender_mapper(dir_path):
                 continue
             if x not in spk2gender:
                 if not log_once:
-                    logger.error(f"spk2gender not found in {os.path.join(dir_path, '..', 'data', 'spk2gender')} spk2gender ignored error ignored for the rest of the run")
+                    logger.error(f"spk2gender not found in {os.path.join(dir_path, '..', 'data', 'spk2gender')}, error ignored for the rest of the run")
                 log_once = True
                 continue
 
@@ -89,7 +89,7 @@ def spkid_mapper(dir_path):
                 continue
             if x not in spk2id:
                 if not log_once:
-                    logger.error(f"spk2id not found in {os.path.join(dir_path, '..', 'data', 'spk2id')} spk2id ignored error ignored for the rest of the run")
+                    logger.error(f"spk2id not found in {os.path.join(dir_path, '..', 'data', 'spk2id')}, error ignored for the rest of the run")
                 log_once = True
                 continue
 

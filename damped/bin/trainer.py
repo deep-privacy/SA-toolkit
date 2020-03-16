@@ -12,10 +12,18 @@ import os
 import time
 
 
+def str_to_bool(value):
+    if value.lower() in {'false', 'f', '0', 'no', 'n'}:
+        return False
+    elif value.lower() in {'true', 't', '1', 'yes', 'y'}:
+        return True
+    raise ValueError(f'{value} is not a valid boolean value')
+
+
 def get_parser(parser=None):
     """Get default arguments."""
     if parser is None:
-        parser = configargparse.ArgumentParser(description="Train an domain branch")
+        parser = configargparse.ArgumentParser(description="Eval an domain branch")
 
     parser.add("--config", type=str, help="config file path", required=True)
     parser.add(
@@ -82,6 +90,14 @@ def get_parser(parser=None):
         required=False,
         type=str,
     )
+    parser.add(
+        "--load-optimizer",
+        help="when a model is --resume, also load the optimizer",
+        default=True,
+        nargs="?",
+        required=False,
+        type=str_to_bool,
+    )
 
     return parser
 
@@ -132,7 +148,7 @@ def main():
     if args.resume:
         print("resumed from %s" % args.resume, flush=True)
         # load last checkpoint
-        monitor.load_checkpoint(args.resume)
+        monitor.load_checkpoint(args.resume, args.load_optimizer)
 
     # Eval related
     eval_mode = False

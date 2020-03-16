@@ -8,7 +8,7 @@ class MetricsMonitor:
     """
 
     def __init__(self, tensorboard_dir):
-        self.tensorboard_writter = SummaryWriter(tensorboard_dir)
+        self.tensorboard_writter = SummaryWriter(tensorboard_dir, flush_secs=10, max_queue=1)
         self._mutex_add = Lock()
 
     def add_scalar(self, tag, scalar_value, interval_log=300):
@@ -34,10 +34,8 @@ class MetricsMonitor:
             map[tag] += float(scalar_value)
             map[tag + "iter"] += 1
 
-            if map[tag + "iter"] % interval_log == 1:
-                self.tensorboard_writter.add_scalar(tag, map[tag] / map[tag + "iter"], map[tag + "iter"])
-                map[tag] = 0
-                map[tag + "iter"] = 0
+            if map[tag + "iter"] % interval_log == 0:
+                self._push_scalar(tag)
 
     def push_scalar_tag(self, tag):
         """Trigger the addition of scalar linked tag to summary
@@ -55,6 +53,15 @@ class MetricsMonitor:
             if map[tag] == 0:
                 return
 
-            self.tensorboard_writter.add_scalar(tag, map[tag] / map[tag + "iter"], map[tag + "iter"])
-            map[tag] = 0
-            map[tag + "iter"] = 0
+            self._push_scalar(tag)
+
+    def _push_scalar(self, tag):
+        map = ManagedMemory().metricsmonitor_values
+
+        if tag + "total" not in map:
+            map[tag + "total"] = 0
+
+        self.tensorboard_writter.add_scalar(tag, map[tag] / map[tag + "iter"], map[tag + "total"])
+        map[tag] = 0
+        map[tag + "iter"] = 0
+        map[tag + "total"] += 1

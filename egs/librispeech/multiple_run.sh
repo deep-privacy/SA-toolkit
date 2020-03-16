@@ -13,6 +13,7 @@ branches=( "gender" "spk_identif" )
 # branches=( "gender" "gender" )
 # input dimensions of each above branches
 branches_eproj=( 1024 1024 )
+# branches_eproj=( 256 256 )
 # branches task rank of each above branches
 # Carefully crafted value also defined in ESPnet
 branches_rank=( 1 2 )
@@ -20,9 +21,14 @@ branches_rank=( 1 2 )
 branches_gpu=( 0 1 )
 
 branches_conf_args=(
-  "--tag baseline --resume BrijSpeakerXvector.best.acc.ckpt"
-  "--tag baseline --resume BrijSpeakerXvector.best.acc.ckpt"
+  "--tag adv_spk --load-optimizer False --resume BrijSpeakerXvector-val72.ckpt"
+  "--tag adv_spk --load-optimizer False --resume BrijSpeakerXvector-val135.ckpt"
 )
+
+# branches_conf_args=(
+  # "--tag baseline"
+  # "--tag baseline"
+# )
 
 world_size=$((${#branches[@]} + 1))
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed

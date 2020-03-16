@@ -21,7 +21,7 @@ argsparser.add("--hidden-units", default=512, type=int)  # noqa
 argsparser.add("--rnn-layers", default=3, type=int)  # noqa
 argsparser.add("--dropout", default=0.2, type=float)  # noqa
 argsparser.add("--grad-reverse", default=False, type=bool)  # noqa
-args = argsparser.parse_args()  # noqa
+args, _ = argsparser.parse_known_args()
 
 
 Net = BrijSpeakerXvector
@@ -29,12 +29,13 @@ if args.grad_reverse:
     Net = grad_reverse_net(Net)
 
 net = Net(args.spk_number, args.eproj, args.hidden_units, args.rnn_layers, args.dropout)
+#  net = Xtractor(args.spk_number, args.dropout, args.eproj)
 
 #  Binary Cross Entropy
 criterion = nn.CrossEntropyLoss()
 
 # Optim
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.00001)
 #  optimizer = torch.optim.Adam(net.parameters())
 
 # mapper used for ../data/spk2id
