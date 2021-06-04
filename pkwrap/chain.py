@@ -506,10 +506,9 @@ class ChainModel(nn.Module):
         logging.info("Initializing with feat_dim={} output_dim={}".format(
             self.chain_opts.feat_dim, self.chain_opts.output_dim
         ))
+        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         if hasattr(model, 'vq_loss'):
             logging.info("USING ADDITIONAL VQ commitment loss")
-
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         return model
 
     def load_base_model(self, model):
