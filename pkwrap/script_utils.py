@@ -225,11 +225,6 @@ def feat_writer(feature_wspec):
 
 def run(cmd, quit_on_error=True, shell=False):
     """Run a command using subprocess, quit if return code is non-zero"""
-    if shell == True:
-        print(" ".join(cmd))
-        os.system(" ".join(cmd))
-        return
-
     p = subprocess.run(cmd, shell=shell)
     if quit_on_error and p.returncode != 0:
         quit(p.returncode)
