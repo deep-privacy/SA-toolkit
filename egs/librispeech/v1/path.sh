@@ -1,6 +1,7 @@
 # Environment variables for running Kaldi scripts
+export KALDI_ROOT=`pwd`/../../../../kaldi
 if [ -z $KALDI_ROOT ]; then
-    export KALDI_ROOT=`pwd`/../../..
+    export KALDI_ROOT=`pwd`/../../../../kaldi
 fi
 [ -f $KALDI_ROOT/tools/env.sh ] && . $KALDI_ROOT/tools/env.sh
 export PATH=$PWD/utils/:$KALDI_ROOT/tools/openfst/bin:$PWD:$PATH

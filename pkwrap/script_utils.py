@@ -223,9 +223,14 @@ def feat_writer(feature_wspec):
     writer = kaldi.matrix.BaseFloatMatrixWriter(feature_wspec)
     return writer
 
-def run(cmd, quit_on_error=True):
+def run(cmd, quit_on_error=True, shell=False):
     """Run a command using subprocess, quit if return code is non-zero"""
-    p = subprocess.run(cmd)
+    if shell == True:
+        print(" ".join(cmd))
+        os.system(" ".join(cmd))
+        return
+
+    p = subprocess.run(cmd, shell=shell)
     if quit_on_error and p.returncode != 0:
         quit(p.returncode)
 

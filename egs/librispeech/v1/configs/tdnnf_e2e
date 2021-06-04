@@ -1,6 +1,6 @@
 [cmd]
-cpu_cmd = queue.pl -l q1d -V 
-cuda_cmd = queue.pl -l q_gpu -V
+cpu_cmd = run.pl
+cuda_cmd = run.pl
 
 [exp]
 # 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
@@ -19,15 +19,18 @@ egs_dir = exp/chain/e2e_tdnnf/egs
 # train params
 num_epochs = 5
 num_jobs_initial = 2
-num_jobs_final = 5
+num_jobs_final = 4
 grad_acc_steps = 2
 lr_initial = 0.001
 lr_final = 0.00001
 diagnostics_interval = 10
-minibatch_size = 16
+minibatch_size = "1,10"
+# train_stage = 366
 
 [test]
 test_set = data/dev_clean_fbank_hires
-suffix = 
+suffix =
 apply_cmvn = True
-cmvn_opts = 
+cmvn_opts =
+
+# vim:set et sw=2 ts=2 ft=config:

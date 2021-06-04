@@ -391,15 +391,18 @@ def train():
                 graph_dir
             ])
 
+
+    final_iter = num_iters-1
+    data_dir = decode_params["test_set"]
+    data_name = os.path.basename(data_dir)
+    decode_iter = decode_params["iter"] if "iter" in decode_params else "final"
+    decode_gpu = bool(decode_params["gpu"]) if "gpu" in decode_params else False
+    decode_affix = decode_params["suffix"] if "suffix" in decode_params else ""
+    decode_suff= "_iter{}{}".format(decode_iter, decode_affix)
+    out_dir = os.path.join(dirname, f"decode_{data_name}{decode_suff}")
+    graph = "{}/HCLG.fst".format(graph_dir)
+
     if stage <= 8:
-        final_iter = num_iters-1
-        data_dir = decode_params["test_set"]
-        data_name = os.path.basename(data_dir)
-        decode_iter = decode_params["iter"] if "iter" in decode_params else "final"
-        decode_affix = decode_params["suffix"] if "suffix" in decode_params else ""
-        decode_suff= "_iter{}{}".format(decode_iter, decode_affix)
-        out_dir = os.path.join(dirname, f"decode_{data_name}{decode_suff}")
-        graph = "{}/HCLG.fst".format(graph_dir)
         if "num_jobs" in decode_params:
             num_jobs = pkwrap.utils.split_data(
                 data_dir, 
@@ -408,6 +411,12 @@ def train():
         else:
             num_jobs = pkwrap.utils.split_data(data_dir)
         logging.info(f"Decoding with {num_jobs} jobs...")
+
+        gpu_opts = []
+        job_gpu_repartition = decode_params["job_gpu_repartition"].split(",") if "job_gpu_repartition" in decode_params else ["0"]*num_jobs
+        if decode_gpu:
+            logging.info("Reparting jobs on gpus: {}".format(str(",".join(job_gpu_repartition))))
+            gpu_opts = ["--use-gpu", "True", "--gpu-repartition", "0, "+",".join(job_gpu_repartition), "--gpu-id", "JOB"]
 
         ivector_opts = []
         if "ivector_dir" in decode_params and len(decode_params["ivector_dir"])>0:
@@ -430,6 +439,7 @@ def train():
             "--dir", dirname,
             "--mode", "decode",
             *ivector_opts,
+            *gpu_opts,
             "--decode-feats", feats_scp,
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
@@ -442,6 +452,8 @@ def train():
         opf = open(os.path.join(out_dir, 'num_jobs'), 'w')
         opf.write('{}'.format(num_jobs))
         opf.close()
+
+    if stage <= 9:
         logging.info(f"Scoring...")
         if not os.path.isfile(os.path.join(out_dir, '../final.mdl')) and \
             os.path.isfile(os.path.join(out_dir, '../0.trans_mdl')):
@@ -459,6 +471,38 @@ def train():
             graph_dir,
             out_dir
         ])
+
+        logging.info(f"WER without rescoring {out_dir}:")
+        pkwrap.script_utils.run([
+            "cat",
+            f"{os.path.join(out_dir, 'wer_*')}",
+            "|",
+            "fgrep WER | ",
+            "sort -k2,2 -g | ",
+            "head -1",
+        ], shell=True)
+
+        logging.info(f"Rescore with a 4gram LM...")
+        pkwrap.script_utils.run([
+            "steps/lmrescore_const_arpa.sh",
+            "--cmd", cpu_cmd,
+            "data/lang_lp_test_tgsmall",
+            "data/lang_lp_test_fglarge",
+            data_dir,
+            out_dir,
+            f"{out_dir}_fg"
+        ])
+
+        os.path.join(f"{out_dir}_fg", "wer_*"),
+        logging.info(f"WER with rescoring {out_dir}:")
+        pkwrap.script_utils.run([
+            "cat",
+            str(os.path.join(f"{out_dir}_fg", "wer_*")),
+            "|",
+            "fgrep WER | ",
+            "sort -k2,2 -g | ",
+            "head -1",
+        ], shell=True)
 
 if __name__ == '__main__':
     train()

@@ -16,6 +16,7 @@ from _pkwrap import kaldi
 from . import chain
 from . import matrix
 from . import script_utils
+from torch.utils.tensorboard import SummaryWriter
 
 class KaldiChainObjfFunction(torch.autograd.Function):
     """LF-MMI objective function for pytorch
@@ -303,18 +304,36 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
+
+    if hasattr(model, 'vq_loss'):
+        logging.info("USING ADDITIONAL VQ commitment loss")
+
     for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
         features = features.cuda()
-        output, xent_output = model(features)
+
+        model_out = model(features)
+        vq_loss = None
+        if hasattr(model, 'vq_loss'):
+            output, xent_output, vq_loss = model_out
+        else:
+            output, xent_output = model_out
+
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
+        self.tensorboard.add_scalar('Loss/train/kaldichain', deriv)
+
         acc_sum.add_(deriv[0])
         if mb_id>0 and mb_id%print_interval==0:
             logging.info("Overall objf={}".format(acc_sum/print_interval))
             acc_sum.zero_()
+
+        if hasattr(model, 'vq_loss'):
+            deriv += vq_loss.to(deriv.device)
+            self.tensorboard.add_scalar('Loss/train/vq_loss', vq_loss)
+
         optimizer.zero_grad()
         deriv.backward()
         clip_grad_value_(model.parameters(), 5.0)
@@ -351,9 +370,20 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
         features = features.cuda()
-        output, xent_output = model(features)
+
+        model_out = model(features)
+        vq_loss = None
+        if hasattr(model, 'vq_loss'):
+            output, xent_output, vq_loss = model_out
+        else:
+            output, xent_output = model_out
+
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
+
+        if hasattr(model, 'vq_loss'):
+            deriv += vq_loss.to(deriv.device)
+
         mb, num_seq, _ = features.shape
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
@@ -373,6 +403,9 @@ class TrainerOpts:
 
 @dataclass
 class DecodeOpts:
+    gpu_repartition: str = "0"
+    gpu_id: int = 0
+    use_gpu: bool = False
     decode_feats: str = 'data/test/feats.scp'
     decode_output: str = '-'
 
@@ -418,6 +451,7 @@ class ChainModel(nn.Module):
             self.chain_opts = ChainModelOpts()
             self.chain_opts.load_from_config(kwargs)
 
+        self.tensorboard = SummaryWriter(self.chain_opts.dir + "/tensorboard")
         self.Net = model_cls
         self.call_by_mode()
 
@@ -453,6 +487,8 @@ class ChainModel(nn.Module):
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        if hasattr(model, 'vq_loss'):
+            logging.info("USING ADDITIONAL VQ commitment loss")
         torch.save(model.state_dict(), self.chain_opts.base_model)
 
     def train(self):
@@ -516,7 +552,7 @@ class ChainModel(nn.Module):
             chain_opts.egs, 
             den_fst_path, 
             training_opts, 
-            minibatch_size="1:64",
+            minibatch_size=f"1:2",
             left_context=chain_opts.context,
             right_context=chain_opts.context,
         )
@@ -543,6 +579,10 @@ class ChainModel(nn.Module):
     def infer(self):
         chain_opts = self.chain_opts
         model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
+        run_on_gpu = int(chain_opts.gpu_repartition.split(",")[int(chain_opts.gpu_id)])
+        if chain_opts.use_gpu:
+            model = model.to(torch.device("cuda:{}".format(run_on_gpu)))
+            logging.info("Using GPU: {}".format(run_on_gpu))
         base_model = chain_opts.base_model
         try:
             model.load_state_dict(torch.load(base_model))
@@ -557,7 +597,18 @@ class ChainModel(nn.Module):
         writer = script_utils.feat_writer(writer_spec)
         for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
             feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
-            post, _ = model(feats_with_context)
+
+            if chain_opts.use_gpu:
+                feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
+
+            post = None
+            if hasattr(model, 'vq_loss'):
+                post, _, _ = model(feats_with_context)
+            else:
+                post, _ = model(feats_with_context)
+
+            if chain_opts.use_gpu:
+                post = post.cpu()
             post = post.squeeze(0)
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
             logging.info("Wrote {}".format(key))
@@ -655,6 +706,9 @@ class ChainModel(nn.Module):
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
+        parser.add_argument("--use-gpu", default=False, type=bool)
+        parser.add_argument("--gpu-repartition", default="0", type=str, help="The GPU on wich each singular splits are extracted")
+        parser.add_argument("--gpu-id", default=0, type=int)
         parser.add_argument("base_model")
         args = parser.parse_args()
         return args
@@ -684,7 +738,7 @@ class ChainModel(nn.Module):
             chain_opts.egs, 
             den_fst_path, 
             training_opts,
-            minibatch_size="1:64", # TODO: this should come from a config
+            minibatch_size=f"1:2",
             left_context=chain_opts.context,
             right_context=chain_opts.context,
             frame_shift=chain_opts.frame_shift,
