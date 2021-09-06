@@ -69,7 +69,7 @@ class Monitor:
         )[0]
         return (idx + 1, score)
 
-    def set_optimizer(self, optimizer, opti_scheduler=True, loss_scheduler_patience=2):
+    def set_optimizer(self, optimizer, opti_scheduler=True, loss_scheduler_patience=7):
         """Sets the optimizer to save its parameters."""
         self.optimizer = optimizer
         if opti_scheduler:
@@ -154,6 +154,12 @@ class Monitor:
     def save_models(self):
         cur_bests = self.cur_bests.copy()
 
+        # save the vctr value
+        self._save_model(suffix=f"iter{self.vctr}")
+
+        if self.early_metric not in cur_bests:
+            return
+
         # Let's start with early-stopping metric
         vctr, metric = cur_bests.pop(self.early_metric)
         if vctr == self.vctr:
@@ -161,12 +167,10 @@ class Monitor:
                 self._save_model(metric=metric, do_symlink=True)
             )
 
-        # save the vctr value
-        self._save_model(suffix=f"val{self.vctr}")
-
         # If requested, save all best metric snapshots
         if self.save_best_metrics and cur_bests:
             for (vctr, metric) in cur_bests.values():
+                print(metric.name, self.eval_metrics, vctr, self.vctr, flush=True)
                 if metric.name in self.eval_metrics and vctr == self.vctr:
                     self.checkpoints[metric.name].push(
                         self._save_model(metric=metric, do_symlink=True)

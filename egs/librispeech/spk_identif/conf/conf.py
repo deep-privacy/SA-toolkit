@@ -16,7 +16,7 @@ import torch.nn as nn
 
 # parse args injected by damped
 argsparser.add("--spk-number", default=251, type=int)  # noqa
-argsparser.add("--eproj", default=1024, type=int)  # noqa
+argsparser.add("--eproj", default=256*2, type=int)  # noqa
 argsparser.add("--hidden-units", default=512, type=int)  # noqa
 argsparser.add("--rnn-layers", default=3, type=int)  # noqa
 argsparser.add("--dropout", default=0.2, type=float)  # noqa
@@ -40,4 +40,6 @@ optimizer = torch.optim.Adam(net.parameters(), lr=0.00001)
 
 # mapper used for ../data/spk2id
 dir_path = os.path.dirname(os.path.realpath(__file__))
-mapper = spkid_mapper(dir_path)
+def spkid(x):
+    return x.split("-")[1]
+mapper = spkid_mapper(dir_path, func=spkid)

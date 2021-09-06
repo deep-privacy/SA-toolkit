@@ -30,10 +30,12 @@ label="$(cat data/spk2id | awk '{ print $2 }' | tr '\n' ' ')"
 label_name="$label"
 
 # The 'task_rank' value to provide to damped.disturb.DomainTask
-task_rank=1
+# all_to_one -> task_rank == 0
+task_rank=0
 gpu_device=1
-world_size=2 # MUST be incremented to match the number of damped.disturb.DomainTask + master!
+world_size=3 # MUST be incremented to match the number of damped.disturb.DomainTask + master!
 master_ip="0.0.0.0" # address of the tool that was damped.disturb-ed
+train_mode="train"
 
 # undefined (not defined above) arguments string are placed in the $other
 # variable without evaluation. ('--not-def 50 --not-def-2 100' will be placed
@@ -94,6 +96,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     --world-size $world_size \
     --master-ip $master_ip \
     --resume $resume \
+    --train-mode $train_mode \
     $other \
     | tee -a $log_path/train.log
 fi

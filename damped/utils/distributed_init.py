@@ -40,4 +40,5 @@ def init_distributedenv(
         f"Initialization of distributed env... [init: {init_param['init_method']}, rank: {init_param['rank']}, world_size: {init_param['world_size']}]"  # noqa
     )
     dist.init_process_group(**init_param)
+    dist.is_available()
     logger.info("Distributed env inited!")

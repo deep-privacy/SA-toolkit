@@ -18,10 +18,10 @@ def fork_recv(
     Returns:
         Tuple(torch.Tensor, torch.Tensor): the related features and class label
     """
-    label, is_meta_data = recv(rank=0, dtype=dtype[1])
+    label, is_meta_data = recv(rank=rank, dtype=dtype[1])
     if is_meta_data:
         return (None, label, is_meta_data)
-    features, _ = recv(rank=0, dtype=dtype[0])
+    features, _ = recv(rank=rank, dtype=dtype[0])
     return (features, label, is_meta_data)
 
 

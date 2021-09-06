@@ -61,7 +61,7 @@ def gender_mapper(dir_path):
     return mapper
 
 
-def spkid_mapper(dir_path):
+def spkid_mapper(dir_path, func=None):
     # Domain label
     spk2gender_lines = [
         line.rstrip("\n").split(" ")
@@ -74,7 +74,7 @@ def spkid_mapper(dir_path):
     log_once = False
 
     # sent y_mapper (from damped.disturb) to y label (for branch task training)
-    def mapper(y_mapper):
+    def mapper(y_mapper, func_apply=True, raw=False):
         nonlocal log_once
         decoded_y_mapped_label = list(
             map(
@@ -82,14 +82,21 @@ def spkid_mapper(dir_path):
                 y_mapper.tolist(),
             )
         )
+        if raw:
+            return decoded_y_mapped_label
+
         label = torch.zeros(len(y_mapper), dtype=torch.long)
         for i, x in enumerate(decoded_y_mapped_label):
             if x == "-1":
                 logger.warning("Warn: y_mapper not found")
                 continue
+            if isinstance(x, bytes):
+                x = x.decode()
+            if func and func_apply:
+                x = func(x)
             if x not in spk2id:
                 if not log_once:
-                    logger.error(f"spk2id not found in {os.path.join(dir_path, '..', 'data', 'spk2id')}, error ignored for the rest of the run")
+                    logger.error(f"spk2id {x} not found in {os.path.join(dir_path, '..', 'data', 'spk2id')}, error ignored for the rest of the run")
                 log_once = True
                 continue
 

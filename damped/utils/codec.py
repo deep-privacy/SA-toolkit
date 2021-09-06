@@ -9,11 +9,18 @@ class str_int_encoder:
     """
 
     @staticmethod
-    def encode(s: str) -> int:
-        b = s.encode("utf-8")
-        return int.from_bytes(b, byteorder="big")
+    def encode(s: str):
+        n = 7
+        s_split = [s[i:i+n].encode() for i in range(0, len(s), n)]
+        return [int.from_bytes(a, byteorder="big") for a in s_split]
 
-    @staticmethod
-    def decode(i: str) -> bytes:
-        b = i.to_bytes(((i.bit_length() + 7) // 8), byteorder="big")
-        return b.decode("utf-8")
+#  torch.tensor([encode("pv1-5703-47198-0014")], dtype=torch.long).tolist()
+
+    #  @staticmethod
+    def decode(i) -> str:
+        res = ""
+        for x in i:
+            res += x.to_bytes(((x.bit_length() + 7) // 8), byteorder='big').decode()
+        return res
+
+#  decode(torch.tensor([encode("pv1-5703-47198-0014")], dtype=torch.long).tolist()[0])
