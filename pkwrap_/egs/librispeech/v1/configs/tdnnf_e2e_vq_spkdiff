@@ -1,0 +1,44 @@
+[cmd]
+cpu_cmd = run.pl
+cuda_cmd = run.pl
+
+[exp]
+# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
+e2e = True
+dirname = e2e_tdnnf_vq_spkdiff
+train_set = data/train_clean_100_sp_fbank_hires
+tree_dir = exp/chain/e2e_biphone_tree
+model_file = local/chain/e2e/tuning/tdnnf_vq_spkdiff.py
+# dummy folders. will not be touched
+lang = data/lang_nosp_test_tgsmall
+lang_chain = data/lang_chain
+# trained using prepare_data.sh
+graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
+egs_dir = exp/chain/e2e_tdnnf_vq_spkdiff/egs
+
+# train params
+num_epochs = 6
+num_jobs_initial = 2
+num_jobs_final = 4
+grad_acc_steps = 2
+lr_initial = 0.001
+lr_final = 0.00001
+diagnostics_interval = 10
+minibatch_size = "4,10"
+# train_stage = 175
+# minibatch_size = "2,4"
+# train_stage = 367
+
+[test]
+# test_set = data/dev_other_fbank_hires
+test_set = data/dev_clean_fbank_hires
+# suffix = VQ_cb_512
+apply_cmvn = True
+cmvn_opts =
+# decode on gpus
+num_jobs = 18
+job_gpu_repartition = 0,0,0,0,1,1,1,1,1,2,2,2,2,3,3,3,3,3
+gpu = True
+
+
+# vim:set et sw=2 ts=2 ft=toml:
