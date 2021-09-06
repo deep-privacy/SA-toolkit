@@ -308,12 +308,16 @@ class TDNNF_VQ(nn.Module):
         floating_scale=True,
         bypass_scale=0.66,
         vq_layer=None,
+        sp_embed=False,
     ):
         super(TDNNF_VQ, self).__init__()
         # lets keep it context_len for now
+        self.sp_embed=sp_embed
         self.vq_layer = vq_layer
         self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthonormal_constraint)
         self.linearA = nn.Linear(bottleneck_dim, output_dim)
+        if self.sp_embed:
+            self.linearA = nn.Linear(bottleneck_dim*2, output_dim)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
         self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
         self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
@@ -340,14 +344,19 @@ class TDNNF_VQ(nn.Module):
         mb, T, D = input.shape
         padded_input = input.reshape(mb, -1).unfold(1, D*self.context_len, D*self.subsampling_factor).contiguous()
         x = self.linearB(padded_input)
+        old_x = x
+        vq_loss = None
         if self.vq_layer != None:
             vq_loss, x, perplexity, _, _, encoding_indices, \
-                        losses, _, _, _, concatenated_quantized = self.vq_layer(x.permute(2, 1, 0))
-            x = x.permute(2, 1, 0)
+                        losses, _, _, _, concatenated_quantized = self.vq_layer(x)
+        if self.sp_embed:
+            x_with_sp_embed = torch.cat((x, old_x - x), 2)
+            x = x_with_sp_embed
+        bottleneck_out = x.detach().cpu()
         x = self.linearA(x)
         if self.use_bypass:
             x = x + input[:,self.identity_lidx:self.identity_ridx:self.subsampling_factor,:]*self.bypass_scale
-        return x, vq_loss
+        return x, vq_loss, bottleneck_out
 
 class TDNNFBatchNorm_VQ(nn.Module):
     def __init__(
@@ -360,6 +369,7 @@ class TDNNFBatchNorm_VQ(nn.Module):
         orthonormal_constraint=0.0,
         bypass_scale=0.66,
         vq_layer=None,
+        sp_embed=False,
     ):
         super(TDNNFBatchNorm_VQ, self).__init__()
         self.tdnn = TDNNF_VQ(
@@ -371,18 +381,19 @@ class TDNNFBatchNorm_VQ(nn.Module):
             orthonormal_constraint=orthonormal_constraint,
             bypass_scale=bypass_scale,
             vq_layer=vq_layer,
+            sp_embed=sp_embed,
         )
         self.bn = nn.BatchNorm1d(output_dim, affine=False)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
 
     def forward(self, input):
         mb, T, D = input.shape
-        x, vq_loss = self.tdnn(input)
+        x, vq_loss, bottleneck_out = self.tdnn(input)
         x = x.permute(0, 2, 1)
         x = self.bn(x)
         x = x.permute(0, 2, 1)
         x = F.relu(x)
-        return x, vq_loss
+        return x, bottleneck_out, vq_loss
 
 
 #  https://github.com/swasun/VQ-VAE-Speech/blob/3c537c17465bf59855f0b81d9265354f65016563/src/models/vector_quantizer_ema.py
@@ -450,16 +461,16 @@ class VectorQuantizerEMA(nn.Module):
             distances
         """
 
-        # Convert inputs from BCHW -> BHWC
-        inputs = inputs.permute(2, 1, 0).contiguous()
+        # input x is of shape: [N, T, C] 
+
         input_shape = inputs.shape
-        _, time, batch_size = input_shape
+        batch_size, time, _ = input_shape
 
         # Flatten input
-        flat_input = inputs.view(-1, self._embedding_dim)
+        flat_input = inputs.view(-1, self._embedding_dim) # [T, C]
         
         # Compute distances between encoded audio frames and embedding vectors
-        distances = (torch.sum(flat_input**2, dim=1, keepdim=True) 
+        distances = (torch.sum(flat_input**2, dim=1, keepdim=True)
                     + torch.sum(self._embedding.weight**2, dim=1)
                     - 2 * torch.matmul(flat_input, self._embedding.weight.t()))
 
@@ -473,21 +484,21 @@ class VectorQuantizerEMA(nn.Module):
         encodings = torch.zeros(encoding_indices.shape[0], self._num_embeddings, dtype=torch.float).to(self._device)
         encodings.scatter_(1, encoding_indices, 1)
 
-        # Compute distances between encoding vectors
+        # Compute distances between encoding vectors | n(n-1)/2 where n = T (i.e.: T = 10 -> len(encoding_distances) == 45)
         if not self.training and compute_distances_if_possible:
             _encoding_distances = [torch.dist(items[0], items[1], 2).to(self._device) for items in combinations(flat_input, r=2)]
-            encoding_distances = torch.tensor(_encoding_distances).to(self._device).view(batch_size, -1)
+            encoding_distances = torch.tensor(_encoding_distances).to(self._device)
         else:
             encoding_distances = None
 
-        # Compute distances between embedding vectors
+        # Compute distances between embedding vectors | n(n-1)/2 where n = num_embeddings (i.e.: num_embeddings = 2 -> len(embedding_distances) == 1)
         if not self.training and compute_distances_if_possible:
             _embedding_distances = [torch.dist(items[0], items[1], 2).to(self._device) for items in combinations(self._embedding.weight, r=2)]
             embedding_distances = torch.tensor(_embedding_distances).to(self._device)
         else:
             embedding_distances = None
 
-        # Sample nearest embedding
+        # Sample nearest embedding | if T = 10 & num_embeddings == 2 -> 10*2 distance tensor
         if not self.training and compute_distances_if_possible:
             _frames_vs_embedding_distances = [torch.dist(items[0], items[1], 2).to(self._device) for items in product(flat_input, self._embedding.weight.detach())]
             frames_vs_embedding_distances = torch.tensor(_frames_vs_embedding_distances).to(self._device).view(batch_size, time, -1)
@@ -530,8 +541,8 @@ class VectorQuantizerEMA(nn.Module):
         """
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
 
-        # Convert quantized from BHWC -> BCHW
-        return vq_loss, quantized.permute(2, 1, 0).contiguous(), \
+        # Convert quantized from [N, T, C] (image origin: BHWC) -> [C, T, N] (image origin: BCHW)
+        return vq_loss, quantized.contiguous(), \
             perplexity, encodings, \
             distances, encoding_indices, \
             {'vq_loss': vq_loss.item()}, encoding_distances, embedding_distances, \

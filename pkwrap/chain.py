@@ -1,6 +1,7 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
+import matplotlib.pyplot as plt
 import os
 import random
 from collections import OrderedDict, Counter
@@ -15,8 +16,25 @@ from _pkwrap import kaldi
 from . import chain
 from . import matrix
 from . import script_utils
-from torch.utils.tensorboard import SummaryWriter
+from . import utils
+from . import cmvn
+from damped import disturb
+import damped
 
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import torchaudio
+
+import numpy
+
+import umap
+from sklearn.manifold import TSNE
+
+loggerHide = logging.getLogger('numba')
+loggerHide.setLevel(logging.WARNING)
+loggerHide = logging.getLogger('matplotlib')
+loggerHide.setLevel(logging.WARNING)
 
 class KaldiChainObjfFunction(torch.autograd.Function):
     """LF-MMI objective function for pytorch
@@ -308,8 +326,12 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
+
+    spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
+
     for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
+
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:, frame_shift:frame_shift+chunk_size+left_context+right_context, :]
         if use_ivector:
@@ -319,28 +341,41 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
 
         model_out = model(features)
         vq_loss = None
-        if hasattr(model, 'vq_loss'):
-            output, xent_output, vq_loss = model_out
+        if hasattr(model, 'vq'):
+            output, xent_output, bottleneck_out, vq_loss = model_out
         else:
-            output, xent_output = model_out
+            output, xent_output, bottleneck_out = model_out
+
+
+        # pchampio send the hidden state to domain task (async)
+        uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
+        #  print(uttid_list, flush=True)
+        uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
+        req = spk_branch.fork_detach(bottleneck_out,
+                               torch.tensor(uttid_list, dtype=torch.long),
+                               dtype=(torch.float32, torch.long))
 
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
-        self.tensorboard.add_scalar('Loss/train/kaldichain', deriv)
+        #  model.tensorboard.add_scalar('Loss/train/kaldichain', deriv)
 
         acc_sum.add_(deriv[0])
         if mb_id > 0 and mb_id % print_interval == 0:
             logging.info("Overall objf={}".format(acc_sum/print_interval))
             acc_sum.zero_()
 
-        if hasattr(model, 'vq_loss'):
+        if hasattr(model, 'vq'):
             deriv += vq_loss.to(deriv.device)
-            self.tensorboard.add_scalar('Loss/train/vq_loss', vq_loss)
+            #  model.tensorboard.add_scalar('Loss/train/vq_loss', vq_loss)
 
         optimizer.zero_grad()
         deriv.backward()
         clip_grad_value_(model.parameters(), 5.0)
         optimizer.step()
+        # pchampio wait for domain branch to fully have received the hidden state
+        req.wait()
+
+        #  return model # fast_test
     model = model.cpu()
     return model
 
@@ -369,6 +404,11 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
         model = model.cuda()
     acc_sum = torch.tensor(0., requires_grad=False)
     tot_weight = 0.
+
+
+    if torch.distributed.is_initialized():
+        spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
+
     for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
@@ -380,20 +420,36 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
 
         model_out = model(features)
         vq_loss = None
-        if hasattr(model, 'vq_loss'):
-            output, xent_output, vq_loss = model_out
+        if hasattr(model, 'vq'):
+            output, xent_output, bottleneck_out, vq_loss = model_out
         else:
-            output, xent_output = model_out
+            output, xent_output, bottleneck_out = model_out
+
+
+        # pchampio send the hidden state to domain task (async)
+        if torch.distributed.is_initialized():
+            uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
+            uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
+
+            req = spk_branch.fork_detach(bottleneck_out,
+                                   torch.tensor(uttid_list, dtype=torch.long),
+                                   dtype=(torch.float32, torch.long))
 
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
 
-        if hasattr(model, 'vq_loss'):
-            deriv += vq_loss.to(deriv.device)
+        # No vq_loss in valid / combine model
+        #  if hasattr(model, 'vq'):
+            #  deriv += vq_loss.to(deriv.device)
 
         mb, num_seq, _ = features.shape
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
+
+        # pchampio wait for domain branch to fully have received the hidden state
+        if torch.distributed.is_initialized():
+            req.wait()
+
     objf = acc_sum/tot_weight
     logging.info("Objective = {}".format(objf))
     model = model.cpu()
@@ -459,8 +515,6 @@ class ChainModel(nn.Module):
         else:
             self.chain_opts = ChainModelOpts()
             self.chain_opts.load_from_config(kwargs)
-
-        self.tensorboard = SummaryWriter(self.chain_opts.dir + "/tensorboard")
         self.Net = model_cls
         self.call_by_mode()
 
@@ -476,6 +530,7 @@ class ChainModel(nn.Module):
             - infer (or decode)
         """
         self.reset_dims()
+
         if self.chain_opts.mode != 'context':
             self.load_context()
         if self.chain_opts.mode == 'init':
@@ -485,13 +540,29 @@ class ChainModel(nn.Module):
         elif self.chain_opts.mode == 'merge':
             self.merge()
         elif self.chain_opts.mode in ['validate', 'diagnostic'] :
+            if "valid" in self.chain_opts.egs:
+                disturb.init(all_to_one=True, rank=1)
+                disturb.eval(all_to_one=True)
             self.validate()
+            if "valid" in self.chain_opts.egs:
+                disturb.train(all_to_one=True)
+                disturb.stop(all_to_one=True)
         elif self.chain_opts.mode in ['train', 'training']:
+            disturb.init(all_to_one=True)
+            disturb.train(all_to_one=True)
             self.train()
+            disturb.stop(all_to_one=True)
         elif self.chain_opts.mode in ['decode', 'infer']:
+            #  disturb.init(all_to_one=True)
+            #  disturb.eval(all_to_one=True)
             self.infer()
+            #  disturb.stop(all_to_one=True)
+        elif self.chain_opts.mode in ['decode_raw', 'infer_raw']:
+            self.infer_raw()
         elif self.chain_opts.mode == 'final_combination':
             self.combine_final_model()
+        elif self.chain_opts.mode == 'codebook_analysis':
+            self.codebook_analysis()
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
@@ -507,7 +578,7 @@ class ChainModel(nn.Module):
             self.chain_opts.feat_dim, self.chain_opts.output_dim
         ))
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        if hasattr(model, 'vq_loss'):
+        if hasattr(model, 'vq'):
             logging.info("USING ADDITIONAL VQ commitment loss")
         return model
 
@@ -577,7 +648,7 @@ class ChainModel(nn.Module):
             chain_opts.egs, 
             den_fst_path, 
             training_opts, 
-            minibatch_size=f"1:2",
+            minibatch_size=chain_opts.minibatch_size, 
             left_context=chain_opts.context,
             right_context=chain_opts.context,
             use_ivector = True if self.chain_opts.ivector_dir else False
@@ -600,6 +671,116 @@ class ChainModel(nn.Module):
         for name in model_acc:
             model_acc[name].data.mul_(weight)
         torch.save(model0.state_dict(), chain_opts.new_model)
+
+    @torch.no_grad()
+    def codebook_analysis(self):
+        chain_opts = self.chain_opts
+        model = self.initialize_model()
+        base_model = chain_opts.base_model
+        try:
+            self.load_base_model(model)
+            model.eval()
+        except Exception as e:
+            logging.error(e)
+            logging.error("Cannot load model {}".format(base_model))
+            quit(1)
+
+        if not hasattr(model, 'vq'):
+            logging.error("Cannot analyise non VQ model: {}".format(base_model))
+            quit(1)
+        if not hasattr(model, 'codebook_analysis'):
+            logging.error("Cannot analyise VQ model no 'codebook_analysis' attribute found in the model definition: {}".format(base_model))
+            quit(1)
+        codebook = model.codebook_analysis().embedding.weight.data.cpu()
+        proj = umap.UMAP(n_neighbors=3,
+                 min_dist=0.1,
+                 metric='cosine').fit_transform(codebook)
+
+        plt.scatter(proj[:,0], proj[:,1], alpha=0.3)
+        savepath = os.path.join(os.path.dirname(base_model), "codebook_analysis_umap.png")
+        plt.savefig(savepath)
+        plt.clf()
+
+        tsne = TSNE(n_components=2, random_state=0, metric='cosine', square_distances=True)
+        proj = tsne.fit_transform(codebook)
+        plt.scatter(proj[:,0], proj[:,1], alpha=0.3)
+        savepath = os.path.join(os.path.dirname(base_model), "codebook_analysis_tsne.png")
+        plt.savefig(savepath)
+
+        logging.info("saved scatters to {}".format(os.path.dirname(savepath)))
+
+
+
+    @torch.no_grad()
+    def infer_raw(self):
+        import kaldiio
+        import configparser
+        chain_opts = self.chain_opts
+        model = self.initialize_model()
+        run_on_gpu = int(chain_opts.gpu_repartition.split(",")[int(chain_opts.gpu_id)])
+        if chain_opts.use_gpu:
+            model = model.to(torch.device("cuda:{}".format(run_on_gpu)))
+            logging.info("Using GPU: {}".format(run_on_gpu))
+        base_model = chain_opts.base_model
+        try:
+            self.load_base_model(model)
+            model.eval()
+        except Exception as e:
+            logging.error(e)
+            logging.error("Cannot load model {}".format(base_model))
+            quit(1)
+        context = chain_opts.context
+
+        with open('/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/egs/librispeech/v1/configs/fbank_hires.conf') as f:
+            file_content = '[dummy_section]\n' + f.read()
+        config = configparser.RawConfigParser()
+        config.read_string(file_content)
+        config = config['dummy_section']
+        fbanks_config = {k.replace("--","").replace("-","_"):utils.parseval(v) for k, v in config.items()}
+
+        cmvn_conf = {
+            "stats": "/home/pchampion/lab/pkwrap/pkwrap/egs/librispeech/v1/data/feats/fbank/dev_clean_fbank_hires/data/cmvn_dev_clean_fbank_hires.ark",
+            "utt2spk": "/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/egs/librispeech/v1/data/dev_clean_fbank_hires/utt2spk",
+            "filetype": "ark",
+        }
+        cmvn_transform = cmvn.CMVN(**cmvn_conf)
+
+        writer_spec = "ark,t:{}".format(chain_opts.decode_output)
+        writer = script_utils.feat_writer(writer_spec)
+
+        with kaldiio.ReadHelper(chain_opts.decode_feats) as reader:
+            for key, (rate, numpy_array) in reader:
+                numpy_array = numpy_array.astype(numpy.float32)
+                waveform = torch.tensor(numpy_array).unsqueeze(0)
+
+                #  waveform_load_wav, _ = torchaudio.load_wav("/srv/storage/talc@talc-data.nancy/multispeech/corpus/speech_recognition/LibriSpeech/dev-clean/5536/43358/5536-43358-0000.flac")
+                #  print("Equal", torch.all(waveform.eq(waveform_load_wav)))
+
+                fbank = torchaudio.compliance.kaldi.fbank(waveform, **fbanks_config)
+                fbank = matrix.add_context(fbank, context, context).unsqueeze(0)
+
+                fbank = cmvn_transform(fbank, uttid=key)
+                feats_with_context = torch.tensor(fbank, dtype=torch.float32)
+
+
+                if chain_opts.use_gpu:
+                    feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
+
+                post = None
+                if hasattr(model, 'vq'):
+                    post, xent_output, bottleneck_out, vq_loss = model(feats_with_context)
+                else:
+                    post, xent_output, bottleneck_out = model(feats_with_context)
+
+                if chain_opts.use_gpu:
+                    post = post.cpu()
+                post = post.squeeze(0)
+                writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
+                logging.info("Wrote {}".format(key))
+
+        writer.Close()
+        return self
+
 
     @torch.no_grad()
     def infer(self):
@@ -643,10 +824,10 @@ class ChainModel(nn.Module):
                 feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
 
             post = None
-            if hasattr(model, 'vq_loss'):
-                post, _, _ = model(feats_with_context)
+            if hasattr(model, 'vq'):
+                post, xent_output, bottleneck_out, vq_loss = model(feats_with_context)
             else:
-                post, _ = model(feats_with_context)
+                post, xent_output, bottleneck_out = model(feats_with_context)
 
             if chain_opts.use_gpu:
                 post = post.cpu()
@@ -782,7 +963,7 @@ class ChainModel(nn.Module):
             chain_opts.egs, 
             den_fst_path, 
             training_opts,
-            minibatch_size=f"1:2",
+            minibatch_size=chain_opts.minibatch_size, 
             left_context=chain_opts.context,
             right_context=chain_opts.context,
             frame_shift=chain_opts.frame_shift,

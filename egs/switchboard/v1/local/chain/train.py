@@ -12,6 +12,7 @@ import os
 import sys
 import shutil
 import datetime
+import math
 import torch
 import pkwrap
 import argparse
@@ -30,21 +31,46 @@ def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_
     ivector_opts = []
     if ivector_dir:
         ivector_opts = ["--ivector-dir", ivector_dir]
+    logging.info(f"Submitting diagnostic {diagnostic_name}")
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
+                "env", "CUDA_VISIBLE_DEVICES="+str([i for i, value in enumerate(['train', 'valid']) if value == diagnostic_name][0]),
+                "DAMPED_N_DOMAIN=1",
                 model_file,
                 "--dir", dirname,
                 "--mode", "diagnostic",
                 "--egs", "ark:{}".format(egs_file),
                 *ivector_opts,
                 os.path.join(dirname, "{}.pt".format(iter_no))])
+
     return process_out.returncode
 
 
-def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, ivector_dir=''):
+def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, dirname_cfg, ivector_dir=''):
     job_pool = []
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2+1) as executor: # plus one for damped
         for diagnostic_name in ['train', 'valid']:
+
+            def damped_job():
+                wd = os.getcwd()
+                resume=[]
+                if iter_no != 0:
+                    resume=["--resume", f"BrijSpeakerXvector-iter{iter_no}.ckpt"]
+                process_out = subprocess.run([
+                    *job_cmd.split(),
+                    "{}/{}/log/eval_damped.{}.log".format(wd, dirname, iter_no),
+                    "./run.sh",
+                    "--stop_stage", "2", "--world_size", "2", "--gpu_device", "3",
+                    "--tag", "spk_identif_" + dirname_cfg,
+                    *resume,
+                ], cwd="/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/damped/egs/librispeech/spk_identif/")
+
+                return process_out.returncode
+            if diagnostic_name == 'valid':
+                # damped sibling job
+                p = executor.submit(damped_job)
+                job_pool.append(p)
+
             egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
             p = executor.submit(
                 run_diagnostics, 
@@ -60,7 +86,7 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, ivect
     return job_pool
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
-    num_archives, num_archives_processed, minibatch_size, job_cmd, ivector_dir=''):
+    num_archives, num_archives_processed, minibatch_size, job_cmd, ivector_dir='', damped_tatal_job=1):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
@@ -70,6 +96,7 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
         ivector_opts = ['--ivector-dir', ivector_dir]
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
+                "env", "CUDA_VISIBLE_DEVICES="+str(job_id-1), f"DAMPED_N_DOMAIN={damped_tatal_job-1}",
                 model_file,
                 "--dir", dirname,
                 "--mode", "training",
@@ -286,6 +313,9 @@ def train():
 #           we don't use num of jobs b/c it is 1 for now
     num_archives_to_process = num_archives*num_epochs*frame_subsampling_factor
     num_iters = (num_archives_to_process*2) // (trainer_opts.num_jobs_initial + trainer_opts.num_jobs_final)
+    num_iters_last_epoch = (num_archives*(num_epochs-1)*frame_subsampling_factor*2) // (trainer_opts.num_jobs_initial + trainer_opts.num_jobs_final)
+
+    logging.info(f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={frame_subsampling_factor}, num_epochs={num_epochs}")
 
 #   TODO: for stages 5 and 6 (and possibly 7), use ChainTrainer
 #   start the training    
@@ -330,8 +360,12 @@ def train():
                 schedule_type='exponential'
             )
             diagnostic_job_pool = None
-            if iter_no % trainer_opts.diagnostics_interval == 0:
-                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd, ivector_dir=trainer_opts.online_ivector_dir)
+            if iter_no % trainer_opts.diagnostics_interval == 0 and iter_no != 0:
+                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd, exp_cfg["dirname"], ivector_dir=trainer_opts.online_ivector_dir)
+                for p in as_completed(diagnostic_job_pool):
+                    if p.result() != 0:
+                        quit(p.result())
+
             logging.info("{} Running iter={} of {} with {} jobs and lr={:.6f}".format(
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 iter_no,
@@ -339,15 +373,40 @@ def train():
                 num_jobs,
                 lr
             ))
-            with ThreadPoolExecutor(max_workers=num_jobs) as executor:
+            with ThreadPoolExecutor(max_workers=num_jobs+1) as executor: # plus one for damped
                     job_pool = []
+
+                    def damped_job():
+                        damped_train_mode="ignore"
+                        if  iter_no > num_iters_last_epoch:
+                            damped_train_mode="trainstore"
+                        wd = os.getcwd()
+                        resume=[]
+                        if iter_no != 0:
+                            resume=["--resume", f"BrijSpeakerXvector-iter{iter_no}.ckpt"]
+                        process_out = subprocess.run([
+                            *cuda_cmd.split(),
+                            "{}/{}/log/train_damped.{}.log".format(wd, dirname, iter_no),
+                            "./run.sh",
+                            "--tag", "spk_identif_" + exp_cfg["dirname"],
+                            "--stop_stage", "2",
+                            "--world_size", f"{num_jobs+1}",
+                            "--train_mode", f"{damped_train_mode}",
+                            *resume,
+                        ], cwd="/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/damped/egs/librispeech/spk_identif/")
+
+                        return process_out.returncode
+                    # damped sibling job
+                    p = executor.submit(damped_job)
+                    job_pool.append(p)
+
                     for job_id in range(1, num_jobs+1):
                         frame_shift = num_archives_processed%frame_subsampling_factor
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
                                         model_file, lr, frame_shift, 
                                         egs_dir, num_archives, num_archives_processed,
                                         exp_cfg["minibatch_size"], cuda_cmd,
-                                        ivector_dir=trainer_opts.online_ivector_dir)
+                                        ivector_dir=trainer_opts.online_ivector_dir, damped_tatal_job=num_jobs+1)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):
@@ -399,6 +458,19 @@ def train():
             ",".join(model_list)
         ])
 
+    logging.info("Damped last fine tune:")
+    resume=["--resume", f"BrijSpeakerXvector-iter{num_iters}.ckpt"]
+    finetune_cmd = [
+        *cuda_cmd.split(),
+        "{}/{}/log/finetune_damped.{}.log".format(os.getcwd(), dirname, num_iters),
+        "./run.sh",
+        "--tag", "spk_identif_" + exp_cfg["dirname"],
+        "--stop_stage", "2",
+        "--train_mode", f"finetune",
+        *resume,
+    ]
+    logging.info(f"{' '.join(finetune_cmd)}")
+
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
     if "graph_dir" in exp_cfg:
@@ -439,16 +511,18 @@ def train():
             num_jobs = pkwrap.utils.split_data(data_dir)
         logging.info(f"Decoding with {num_jobs} jobs...")
 
+        online_fbanks = False
         gpu_opts = []
         job_gpu_repartition = decode_params["job_gpu_repartition"].split(",") if "job_gpu_repartition" in decode_params else ["0"]*num_jobs
         if decode_gpu:
             logging.info("Reparting jobs on gpus: {}".format(str(",".join(job_gpu_repartition))))
-            gpu_opts = ["--use-gpu", "True", "--gpu-repartition", "0, "+",".join(job_gpu_repartition), "--gpu-id", "JOB"]
+            gpu_opts = ["--use-gpu", "True", "--gpu-repartition", "0,"+",".join(job_gpu_repartition), "--gpu-id", "JOB"]
 
-        ivector_opts = []
+        additional_ops = []
         if "ivector_dir" in decode_params and len(decode_params["ivector_dir"])>0:
-            ivector_opts = ["--ivector-dir", decode_params["ivector_dir"]]
+            additional_ops = ["--ivector-dir", decode_params["ivector_dir"]]
 
+        mode = "decode"
         if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
             use_cmvn = True
             cmvn_opts = decode_params["cmvn_opts"]
@@ -458,14 +532,21 @@ def train():
             feats_scp = "ark,s,cs:apply-cmvn {} --utt2spk={} {} {} ark:- |".format(cmvn_opts, utt2spk_name, cmvn_name, feats_name)
         else:
             feats_scp = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
+
+        if online_fbanks:
+            feats_scp = "scp:{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
+            mode = "infer_raw"
+            if not use_cmvn:
+                logging.error("NOT IMPLEMENTED")
+
         pkwrap.script_utils.run([
             *cpu_cmd.split(),
             "JOB=1:{}".format(num_jobs),
             os.path.join(out_dir, "log", "decode.JOB.log"),
             model_file,
             "--dir", dirname,
-            "--mode", "decode",
-            *ivector_opts,
+            "--mode", mode,
+            *additional_ops,
             *gpu_opts,
             "--decode-feats", feats_scp,
             os.path.join(dirname, "{}.pt".format(decode_iter)),
@@ -503,8 +584,12 @@ def train():
             "cat",
             "{}/wer*".format(out_dir),
             "|",
-            "utils/best_wer.sh"
+            "utils/best_wer.sh", ">", "{}/best_wer".format(out_dir),
         ]), shell=True)
+        pkwrap.script_utils.run(" ".join([
+            "cat", "{}/best_wer".format(out_dir),
+        ]), shell=True)
+
 
         logging.info(f"Rescore with a 4gram LM...")
         pkwrap.script_utils.run([
@@ -516,13 +601,21 @@ def train():
             out_dir,
             f"{out_dir}_fg"
         ])
-
-        logging.info(f"Printing best WER with rescoring {out_dir}...")
+        logging.info(f"Printing best WER with rescoring {out_dir}_fg...")
         pkwrap.script_utils.run(" ".join([
             "cat",
-            "{}/wer*".format(out_dir),
+            "{}_fg/wer*".format(out_dir),
             "|",
-            "utils/best_wer.sh"
+            "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir),
+        ]), shell=True)
+        pkwrap.script_utils.run(" ".join([
+            "cat", "{}_fg/best_wer".format(out_dir),
+        ]), shell=True)
+        pkwrap.script_utils.run(" ".join([
+            "./local/wer_detail.sh",
+            "--dataDir", "./data/{}".format(data_name),
+            "--decodeDir","{}_fg".format(out_dir),
+            "--langDir", "data/lang_lp_test_fglarge",
         ]), shell=True)
 
 if __name__ == '__main__':

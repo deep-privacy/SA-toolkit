@@ -84,8 +84,8 @@ class Net(nn.Module):
             bottleneck_dim=prefinal_bottleneck_dim,
             context_len=1,
             orthonormal_constraint=-1.0,
-            vq_layer=None,
-            sp_embed=False,
+            vq_layer=VectorQuantizerEMA(255, prefinal_bottleneck_dim, 0.25, 0.99),
+            sp_embed=True,
         )
         self.prefinal_xent = TDNNFBatchNorm(
             hidden_dim, hidden_dim,
@@ -103,17 +103,20 @@ class Net(nn.Module):
         self.xent_output.bias.data.zero_()
         self.validate_model()
 
+    def codebook_analysis(self):
+        return self.prefinal_chain_vq.tdnn.vq_layer
+
     def validate_model(self):
         N = 2
         T = (10 * self.frame_subsampling_factor)
         #C = feat_dim * 3
         C = self.input_dim
         x = torch.arange(N * T * C).reshape(N, T, C).float()
-        nnet_output, xent_output, _ = self.forward(x)
+        nnet_output, xent_output, _, _ = self.forward(x)
         assert nnet_output.shape[1] == 10
 
         self.eval()
-        nnet_output, xent_output, _ = self.forward(x)
+        nnet_output, xent_output, _, _ = self.forward(x)
         assert nnet_output.shape[1] == 10
         self.train()
 
@@ -124,6 +127,9 @@ class Net(nn.Module):
             right_pad = x[:,-1,:].repeat(1,self.padding,1).reshape(N, -1, C)
             x = torch.cat([left_pad, x, right_pad], axis=1)
         return x
+
+    def vq(self):
+        return True
 
     def forward(self, x, dropout=0.):
         # input x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
@@ -137,12 +143,12 @@ class Net(nn.Module):
         for i in range(len(self.tdnnfs)):
             x = self.tdnnfs[i](x)
 
-        chain_prefinal_out, bottleneck_out, _ = self.prefinal_chain_vq(x)
+        chain_prefinal_out, bottleneck_out, vq_loss  = self.prefinal_chain_vq(x)
         xent_prefinal_out = self.prefinal_xent(x)
 
         chain_out = self.chain_output(chain_prefinal_out)
         xent_out = self.xent_output(xent_prefinal_out)
-        return chain_out, F.log_softmax(xent_out, dim=2), bottleneck_out
+        return chain_out, F.log_softmax(xent_out, dim=2), bottleneck_out, vq_loss
 
 if __name__ == '__main__':
     ChainE2EModel(Net, cmd_line=True)

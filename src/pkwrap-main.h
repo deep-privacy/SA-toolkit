@@ -92,6 +92,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("GetFeaturesFromEgs", &GetFeaturesFromEgs);
     chain.def("GetFeaturesFromCompressedEgs", &GetFeaturesFromCompressedEgs);
     chain.def("GetIvectorsFromEgs", &GetIvectorsFromEgs);
+    chain.def("GetUttID", &GetUttID);
     chain.def("GetFramesPerSequence", &GetFramesPerSequence);
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);

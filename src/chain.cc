@@ -13,6 +13,10 @@
 //
 //  http://www.apache.org/licenses/LICENSE-2.0
 
+
+// PCHAMPIO
+// c++ -MMD -MF '/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/build/temp.linux-x86_64-3.8/src/chain.o'.d -pthread -B /srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/venv/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -I/usr/local/cuda/include -fPIC -I/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/venv/lib/python3.8/site-packages/torch/include -I/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/venv/lib/python3.8/site-packages/torch/include/torch/csrc/api/include -I/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/venv/lib/python3.8/site-packages/torch/include/TH -I/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/venv/lib/python3.8/site-packages/torch/include/THC -I/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/venv/include/python3.8 -c -c '/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/src/chain.cc' -o '/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/build/temp.linux-x86_64-3.8/src/chain.o' -I../kaldi/src -I../kaldi/tools/openfst/include -m64 -msse -msse2 -DHAVE_CUDA=1 -Wno-sign-compare -Wno-deprecated-declarations -Winit-self -DALDI_DOUBLEPRECISION=0 -DHAVE_EXECINFO_H=1 -w -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1011"' -DTORCH_EXTENSION_NAME=_pkwrap -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++14
+
 #include "chain.h"
 
 
@@ -121,12 +125,33 @@ std::vector<kaldi::nnet3::NnetChainExample> ReadChainEgsFile(std::string egs_fil
     std::vector<std::string> exclude_names; 
     exclude_names.push_back(std::string("ivector"));
     int32 num_read = 0;
+
     for (; !example_reader.Done(); example_reader.Next(), num_read++) {
       const std::string &key = example_reader.Key();
+
+      // std::cout << "Test gets imputs name:" << key
+                // << "\n";
+
       kaldi::nnet3::NnetChainExample &eg = example_reader.Value();
       if(frame_shift>0) {
         kaldi::nnet3::ShiftChainExampleTimes(frame_shift, exclude_names, &eg);
       }
+
+      // store utt key
+      kaldi::Vector<float> vkey(50);
+      std::string _key = example_reader.Key();
+      std::string::size_type i = 0;
+      for(; i < _key.size(); ++i) {
+        vkey(i) = float(_key[i]);
+      }
+      vkey(++i) = float('\0');
+      eg.inputs.resize(2);
+      kaldi::Matrix<float> uttid(1, 50);
+
+      uttid.Row(0).CopyFromVec(vkey);
+      kaldi::nnet3::NnetIo uttid_io("uttid", 0, uttid);
+      eg.inputs[1].Swap(&uttid_io);
+
       out.push_back(eg);
     }
     return out;
@@ -422,6 +447,21 @@ torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs) 
     int32 mb_size = egs.outputs[0].supervision.num_sequences;
     int32 feat_dim = mat.NumCols();
     return KaldiMatrixToTensor(mat).clone().detach().reshape({mb_size, -1, feat_dim});
+}
+
+
+torch::Tensor GetUttID(const kaldi::nnet3::NnetChainExample &egs) {
+    for(int32 i=0; i<egs.inputs.size(); i++) {
+      if (egs.inputs[i].name != "uttid") {
+        continue;
+      }
+      auto mat = egs.inputs[1].features.GetFullMatrix();
+      int32 mb_size = egs.outputs[0].supervision.num_sequences;
+      int32 feat_dim = mat.NumCols();
+      return KaldiMatrixToTensor(mat).clone().detach().reshape({mb_size, -1, feat_dim});
+    }
+    std::cerr << "GetIvectorsFromEgs: Cannot find uttid in egs!";
+    return torch::zeros({0});
 }
 
 torch::Tensor GetIvectorsFromEgs(const kaldi::nnet3::NnetChainExample &egs) {

@@ -1,5 +1,6 @@
 package:
 	python setup.py install
+	pip install -e .
 
 test:
 	./tests/test-import.py
