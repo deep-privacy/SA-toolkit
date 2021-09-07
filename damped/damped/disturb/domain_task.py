@@ -185,9 +185,7 @@ class work(object):
     https://github.com/pytorch/pytorch/blob/master/torch/lib/c10d/ProcessGroup.hpp
     """
 
-    _work: Optional[torch.distributed.Work]
-
-    def __init__(self, work: Optional[torch.distributed.Work]):
+    def __init__(self, work):
         self._work = work
 
     def wait(self):

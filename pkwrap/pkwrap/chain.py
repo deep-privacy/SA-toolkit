@@ -28,8 +28,8 @@ with warnings.catch_warnings():
 
 import numpy
 
-import umap
 from sklearn.manifold import TSNE
+from sklearn.manifold import MDS
 
 loggerHide = logging.getLogger('numba')
 loggerHide.setLevel(logging.WARNING)
@@ -692,12 +692,11 @@ class ChainModel(nn.Module):
             logging.error("Cannot analyise VQ model no 'codebook_analysis' attribute found in the model definition: {}".format(base_model))
             quit(1)
         codebook = model.codebook_analysis().embedding.weight.data.cpu()
-        proj = umap.UMAP(n_neighbors=3,
-                 min_dist=0.1,
-                 metric='cosine').fit_transform(codebook)
 
+        mds = MDS(n_components=2, random_state=0, metric='cosine')
+        proj = mds.fit_transform(codebook)
         plt.scatter(proj[:,0], proj[:,1], alpha=0.3)
-        savepath = os.path.join(os.path.dirname(base_model), "codebook_analysis_umap.png")
+        savepath = os.path.join(os.path.dirname(base_model), "codebook_analysis_mds.png")
         plt.savefig(savepath)
         plt.clf()
 

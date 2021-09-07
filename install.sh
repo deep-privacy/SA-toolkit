@@ -4,10 +4,13 @@ set -e
 
 nj=$(nproc)
 
-home=$PWD
-
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
+
+home=$PWD
+CUDAROOT=/usr/local/cuda
+CUDAROOT=/opt/cuda/11.2 # LIUM Cluster
+
 venv_dir=$PWD/venv
 
 mark=.done-venv
@@ -22,6 +25,8 @@ if [ ! -f $mark ]; then
   sh $name -b -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
+  pip install scikit-learn==0.24.2
+
   echo 'Installing conda dependencies'
   yes | conda install -c conda-forge sox
   yes | conda install -c conda-forge libflac
@@ -30,6 +35,12 @@ fi
 echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin/activate; fi" > env.sh
 
 source $venv_dir/bin/activate
+
+export PATH=$CUDAROOT/bin:$PATH
+export LD_LIBRARY_PATH=$CUDAROOT/lib64:$LD_LIBRARY_PATH
+export CFLAGS="-I$CUDAROOT/include $CFLAGS"
+export CUDA_HOME=$CUDAROOT
+export CUDA_PATH=$CUDAROOT
 
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
@@ -51,7 +62,7 @@ mark=.done-kaldi-src
 if [ ! -f $mark ]; then
   echo 'Building Kaldi src'
   cd kaldi/src
-  ./configure --shared --use-cuda=yes --mathlib=ATLAS || exit 1
+  ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
   make clean || exit 1
   make depend -j $nj || exit 1
   make -j $nj || exit 1
@@ -78,7 +89,7 @@ if [ ! -f $mark ]; then
   # git checkout ccf4094
   make
   pip install -e .
-  pip install umap-learn==0.5.1
+  pip install kaldiio==2.15.1
   cd $home
   touch $mark
 fi
