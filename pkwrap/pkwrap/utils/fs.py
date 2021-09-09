@@ -6,8 +6,10 @@
 """
 
 import subprocess
-from . import script_utils
+from .. import script_utils
 import os
+
+run = script_utils.run
 
 def split_data(dirname, num_jobs=0):
     """Call's Kaldi's utils/split_data.sh script
@@ -65,34 +67,6 @@ def make_soft_link(src, dst, relative=False, extra_opts=[]):
     except:
         quit(1)
 
-def get_uttid_str(tensor_str):
-    res = []
-    for t in tensor_str:
-        uttid = ""
-        for c in t[0]:
-            _chr = chr(int(c))
-            if int(c) == 0:  # "\0" terminator
-                break
-            uttid += _chr
-        res.append(uttid)
-    return res
-
-
-def parseval(s):
-    try:
-        return int(s)
-    except ValueError:
-        pass
-    try:
-        return float(s)
-    except ValueError:
-        pass
-    if s.lower() == "true":
-        return True
-    if s.lower() == "false":
-        return False
-    return s
-
 def touch_file(file_path):
     """Touch a file
     
@@ -102,3 +76,11 @@ def touch_file(file_path):
         subprocess.run(["touch", file_path])
     except:
         quit(1)
+
+def cat(file_list, out_file):
+    with open(out_file, 'w') as opf:
+        subprocess.run([
+            "cat",
+            *file_list
+            ],
+            stdout=opf)
