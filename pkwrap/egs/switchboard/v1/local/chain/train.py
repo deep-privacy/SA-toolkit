@@ -22,6 +22,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 logging.basicConfig(level=logging.DEBUG, format='pkwrap %(levelname)s: %(message)s')
 
+import damped
+
 
 def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_name='valid', ivector_dir=''):
     """
@@ -60,10 +62,10 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, dirna
                     *job_cmd.split(),
                     "{}/{}/log/eval_damped.{}.log".format(wd, dirname, iter_no),
                     "./run.sh",
-                    "--stop_stage", "2", "--world_size", "2", "--gpu_device", "3",
+                    "--stop_stage", "2", "--world_size", "2", "--gpu_device", "2",
                     "--tag", "spk_identif_" + dirname_cfg,
                     *resume,
-                ], cwd="/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/damped/egs/librispeech/spk_identif/")
+                ], cwd=os.path.dirname(damped.__file__) + "/../egs/librispeech/spk_identif/")
 
                 return process_out.returncode
             if diagnostic_name == 'valid':
@@ -94,9 +96,12 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
     ivector_opts = []
     if ivector_dir:
         ivector_opts = ['--ivector-dir', ivector_dir]
+    cuda_device = job_id-1
+    if cuda_device >= torch.cuda.device_count():
+        cuda_device = torch.cuda.device_count()-1 - (cuda_device - torch.cuda.device_count())
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
-                "env", "CUDA_VISIBLE_DEVICES="+str(job_id-1), f"DAMPED_N_DOMAIN={damped_tatal_job-1}",
+                "env", "CUDA_VISIBLE_DEVICES="+str(cuda_device), f"DAMPED_N_DOMAIN={damped_tatal_job-1}", f"DAMPED_DOMAIN={job_id}",
                 model_file,
                 "--dir", dirname,
                 "--mode", "training",
@@ -391,9 +396,9 @@ def train():
                             "--tag", "spk_identif_" + exp_cfg["dirname"],
                             "--stop_stage", "2",
                             "--world_size", f"{num_jobs+1}",
-                            "--train_mode", f"{damped_train_mode}",
+                            "--train_mode", f"{damped_train_mode}", "--gpu_device", "0",
                             *resume,
-                        ], cwd="/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/damped/egs/librispeech/spk_identif/")
+                        ], cwd=os.path.dirname(damped.__file__) + "/../egs/librispeech/spk_identif/")
 
                         return process_out.returncode
                     # damped sibling job

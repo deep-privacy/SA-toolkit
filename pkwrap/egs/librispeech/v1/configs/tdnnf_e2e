@@ -17,15 +17,25 @@ graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/egs
 
 # train params
-num_epochs = 6
+# num_epochs = 6
+# num_jobs_initial = 2
+# num_jobs_final = 4
+# grad_acc_steps = 2
+# lr_initial = 0.001
+# lr_final = 0.00001
+# diagnostics_interval = 10
+# minibatch_size = "4,10"
+# train_stage = 201
+
+num_epochs = 5
 num_jobs_initial = 2
-num_jobs_final = 4
+num_jobs_final = 5
 grad_acc_steps = 2
 lr_initial = 0.001
 lr_final = 0.00001
 diagnostics_interval = 10
-minibatch_size = "4,10"
-train_stage = 201
+minibatch_size = "4,16"
+train_stage = 9
 
 [test]
 # test_set = data/dev_other_fbank_hires

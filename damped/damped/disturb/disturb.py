@@ -45,8 +45,11 @@ def init(
         port (int): port on which the the tensor will be exchanged
     """
     logger.info("Waiting for domain-task trainer connection")
-    if all_to_one and rank == 0:
+    if "DAMPED_DOMAIN" in os.environ:
+        rank=int(os.getenv("DAMPED_DOMAIN"))
+    elif all_to_one and rank == 0:
         rank=int(os.getenv("CUDA_VISIBLE_DEVICES", 0)) + 1
+
     utils.init_distributedenv(rank, world_size=expected_domain_tasks + 1, port=port)
 
     # init ManagedMemory

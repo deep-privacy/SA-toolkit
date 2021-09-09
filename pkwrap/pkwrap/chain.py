@@ -787,8 +787,11 @@ class ChainModel(nn.Module):
         model = self.initialize_model()
         run_on_gpu = int(chain_opts.gpu_repartition.split(",")[int(chain_opts.gpu_id)])
         if chain_opts.use_gpu:
+            logging.info("Using GPU: {} of {}".format(run_on_gpu, torch.cuda.device_count()))
+            if run_on_gpu >= torch.cuda.device_count():
+                logging.info("Using GPU: {}".format(run_on_gpu))
+                run_on_gpu = torch.cuda.device_count()-1
             model = model.to(torch.device("cuda:{}".format(run_on_gpu)))
-            logging.info("Using GPU: {}".format(run_on_gpu))
         base_model = chain_opts.base_model
         try:
             self.load_base_model(model)

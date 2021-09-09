@@ -16,7 +16,7 @@ import torch.nn as nn
 
 # parse args injected by damped
 argsparser.add("--spk-number", default=251, type=int)  # noqa
-argsparser.add("--eproj", default=256*2, type=int)  # noqa
+argsparser.add("--eproj", default=256*1, type=int)  # noqa
 argsparser.add("--hidden-units", default=512, type=int)  # noqa
 argsparser.add("--rnn-layers", default=3, type=int)  # noqa
 argsparser.add("--dropout", default=0.2, type=float)  # noqa

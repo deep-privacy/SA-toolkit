@@ -4,12 +4,35 @@ set -e
 
 nj=$(nproc)
 
+home=$PWD
+
+# CUDA version
+CUDAROOT=/usr/local/cuda
+if [ "$(id -g --name)" == "lium" ]; then
+  CUDAROOT=/opt/cuda/10.1 # LIUM Cluster
+  echo "Using local \$CUDAROOT: $CUDAROOT"
+fi
+cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+
+# CONDA
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
 
-home=$PWD
-CUDAROOT=/usr/local/cuda
-CUDAROOT=/opt/cuda/11.2 # LIUM Cluster
+# PYTORCH
+torch_version=1.8.2
+torchvision_version=0.9.2
+torchaudio_version=0.8.2
+
+torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
+
+
+# Match G5K cuda version
+torch_version=1.7.1
+torchvision_version=0.8.2
+torchaudio_version=0.7.2
+torch_wheels="https://download.pytorch.org/whl/torch_stable.html"
+
 
 venv_dir=$PWD/venv
 
@@ -25,15 +48,13 @@ if [ ! -f $mark ]; then
   sh $name -b -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
-  pip install scikit-learn==0.24.2
+  pip3 install scikit-learn==0.24.2
 
   echo 'Installing conda dependencies'
   yes | conda install -c conda-forge sox
   yes | conda install -c conda-forge libflac
   touch $mark
 fi
-echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin/activate; fi" > env.sh
-
 source $venv_dir/bin/activate
 
 export PATH=$CUDAROOT/bin:$PATH
@@ -42,16 +63,19 @@ export CFLAGS="-I$CUDAROOT/include $CFLAGS"
 export CUDA_HOME=$CUDAROOT
 export CUDA_PATH=$CUDAROOT
 
+echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin/activate; fi; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" > env.sh
+
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
 mark=.done-kaldi-tools
 if [ ! -f $mark ]; then
   echo 'Building Kaldi tools'
-  # rm -rf kaldi
+  rm -rf kaldi || true
   git clone https://github.com/kaldi-asr/kaldi.git || true
-  # git checkout d619890
-  cd kaldi/tools
+  cd kaldi
+  git checkout 9d235864c
+  cd tools
   extras/check_dependencies.sh || exit 1
   make -j $nj || exit 1
   cd $home
@@ -72,9 +96,9 @@ fi
 
 mark=.done-pytorch
 if [ ! -f $mark ]; then
-  # pip install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-  pip3 install torch==1.8.2+cu102 torchvision==0.9.2+cu102 torchaudio==0.8.2 -f https://download.pytorch.org/whl/lts/1.8/torch_lts.html
-  pip install tensorboard
+  # pip3 install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+  pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision==$torchvision_version+cu$cuda_version_witout_dot torchaudio==$torchaudio_version -f $torch_wheels
+  pip3 install tensorboard
   cd $home
   touch $mark
 fi
@@ -87,9 +111,9 @@ if [ ! -f $mark ]; then
   # git clone https://github.com/idiap/pkwrap.git
   cd pkwrap
   # git checkout ccf4094
-  make
-  pip install -e .
-  pip install kaldiio==2.15.1
+	python3 setup.py install
+	pip3 install -e .
+  pip3 install kaldiio==2.15.1
   cd $home
   touch $mark
 fi
@@ -100,8 +124,8 @@ if [ ! -f $mark ]; then
   # rm -rf damped
   # git clone https://github.com/deep-privacy/damped
   cd damped
-  pip install -e .
-  pip install ConfigArgParse==1.5.1
+  pip3 install -e .
+  pip3 install ConfigArgParse==1.5.1
   cd $home
   touch $mark
 fi
@@ -113,9 +137,9 @@ if [ ! -f $mark ]; then
   # git clone https://git-lium.univ-lemans.fr/Larcher/sidekit.git
   cd sidekit
   # git checkout 88f4d2b9
-  pip install matplotlib==3.4.3
-  pip install SoundFile==0.10.3.post1
-  pip install PyYAML==5.4.1
+  pip3 install matplotlib==3.4.3
+  pip3 install SoundFile==0.10.3.post1
+  pip3 install PyYAML==5.4.1
   cd $home
   touch $mark
 fi
