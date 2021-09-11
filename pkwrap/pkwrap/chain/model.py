@@ -14,12 +14,14 @@ from .. import matrix
 from .. import script_utils
 from .. import utils
 from .. import cmvn
+from .. import tensorboard
 from .objf import train_lfmmi_one_iter, compute_chain_objf
 
 import kaldiio
 import configparser
 import matplotlib.pyplot as plt
 from damped import disturb
+from pytorch_memlab import LineProfiler
 
 
 @dataclass
@@ -116,7 +118,9 @@ class ChainModel(nn.Module):
         elif self.chain_opts.mode in ['train', 'training']:
             disturb.init(all_to_one=True)
             disturb.train(all_to_one=True)
+            #  with LineProfiler(self.train) as prof:
             self.train()
+            #  print(prof.display(), flush=True)
             disturb.stop(all_to_one=True)
         elif self.chain_opts.mode in ['decode', 'infer']:
             #  disturb.init(all_to_one=True)
@@ -191,6 +195,10 @@ class ChainModel(nn.Module):
                 chain_opts.leaky_hmm_coefficient,
                 chain_opts.xent_regularize,
         )
+        t = None
+        if "valid" in self.chain_opts.egs:
+            t = tensorboard.PkwrapTwensorBoard(self)
+
         compute_chain_objf(
             model,
             chain_opts.egs,
@@ -199,6 +207,7 @@ class ChainModel(nn.Module):
             minibatch_size=chain_opts.minibatch_size,
             left_context=chain_opts.context,
             right_context=chain_opts.context,
+            tensorboard=t,
         )
 
     @torch.no_grad()
@@ -350,6 +359,9 @@ class ChainModel(nn.Module):
         writer = script_utils.feat_writer(writer_spec)
         for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
             feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
+            if chain_opts.use_gpu:
+                feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
+
             if hasattr(model, 'vq'):
                 post, xent_output, bottleneck_out, vq_loss = model(feats_with_context)
             else:
@@ -451,6 +463,9 @@ class ChainModel(nn.Module):
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
+        parser.add_argument("--use-gpu", default=False, type=bool)
+        parser.add_argument("--gpu-repartition", default="0", type=str, help="The GPU on wich each singular splits are extracted")
+        parser.add_argument("--gpu-id", default=0, type=int)
         parser.add_argument("base_model")
         args = parser.parse_args()
         return args
@@ -556,6 +571,7 @@ class ChainE2EModel(ChainModel):
         context = chain_opts.context
         model = model.cuda()
         optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
+        #  with LineProfiler(train_lfmmi_one_iter) as prof:
         new_model = train_lfmmi_one_iter(
             model,
             chain_opts.egs,
@@ -568,9 +584,11 @@ class ChainE2EModel(ChainModel):
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
             frame_shift=chain_opts.frame_shift,
+            tensorboard = tensorboard.PkwrapTwensorBoard(self),
             optimizer=optimizer,
             e2e = True,
         )
+        #  print(prof.display(), flush=True)
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
     def context(self):

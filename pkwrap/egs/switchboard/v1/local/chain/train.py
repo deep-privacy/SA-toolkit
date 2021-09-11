@@ -368,7 +368,7 @@ def train():
                 schedule_type='exponential'
             )
             diagnostic_job_pool = None
-            if iter_no % trainer_opts.diagnostics_interval == 0 and iter_no != 0:
+            if (iter_no % trainer_opts.diagnostics_interval == 0 and iter_no != 0) or (iter_no+1 == num_iters):
                 diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd, exp_cfg["dirname"], ivector_dir=trainer_opts.online_ivector_dir)
                 for p in as_completed(diagnostic_job_pool):
                     if p.result() != 0:
@@ -598,6 +598,7 @@ def train():
         pkwrap.script_utils.run(" ".join([
             "cat", "{}/best_wer".format(out_dir),
         ]), shell=True)
+        logging.info(" " + pkwrap.script_utils.read_single_param_file("{}/best_wer".format(out_dir), typename=str))
 
 
         logging.info(f"Rescore with a 4gram LM...")
@@ -617,9 +618,8 @@ def train():
             "|",
             "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir),
         ]), shell=True)
-        pkwrap.script_utils.run(" ".join([
-            "cat", "{}_fg/best_wer".format(out_dir),
-        ]), shell=True)
+        logging.info(" " + pkwrap.script_utils.read_single_param_file("{}_fg/best_wer".format(out_dir), typename=str))
+        logging.info(f"Computing WER details for {out_dir}_fg...")
         pkwrap.script_utils.run(" ".join([
             "./local/wer_detail.sh",
             "--dataDir", "./data/{}".format(data_name),

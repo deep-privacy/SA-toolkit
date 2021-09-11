@@ -10,3 +10,4 @@ from . import matrix
 from . import utils
 from . import trainer
 from . import nsg
+from . import tensorboard

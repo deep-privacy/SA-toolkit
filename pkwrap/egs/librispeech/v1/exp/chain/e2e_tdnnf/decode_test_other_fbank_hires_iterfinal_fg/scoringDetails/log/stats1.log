@@ -1,0 +1,10 @@
+# cat exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoringDetails/penalty_1.0/12.txt | align-text --special-symbol='***' ark:exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoring/test_filt.txt ark:- ark,t:- | utils/scoring/wer_per_utt_details.pl --special-symbol '***' | tee exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoringDetails/wer_details/per_utt | utils/scoring/wer_per_spk_details.pl ./data/test_other_fbank_hires/utt2spk > exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoringDetails/wer_details/per_spk 
+# Started at Sat Sep 11 14:42:01 CEST 2021
+#
+align-text '--special-symbol=***' ark:exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoring/test_filt.txt ark:- ark,t:- 
+utils/scoring/wer_per_spk_details.pl: Note: handling as utf-8 text
+LOG (align-text[5.5.947~2-9d2358]:main():align-text.cc:135) Done 2939 sentences, failed for 0
+utils/scoring/wer_per_utt_details.pl: Note: handling as utf-8 text
+utils/scoring/wer_per_spk_details.pl: Note: handling as utf-8 text
+# Accounting: time=0 threads=1
+# Ended (code 0) at Sat Sep 11 14:42:01 CEST 2021, elapsed time 0 seconds

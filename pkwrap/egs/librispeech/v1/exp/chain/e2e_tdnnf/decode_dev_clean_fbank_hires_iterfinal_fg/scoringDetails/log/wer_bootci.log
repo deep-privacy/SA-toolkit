@@ -1,0 +1,6 @@
+# compute-wer-bootci --mode=present ark:exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/scoring/test_filt.txt ark:exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/penalty_1.0/9.txt > exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/wer_details/wer_bootci 
+# Started at Sat Sep 11 13:05:06 CEST 2021
+#
+compute-wer-bootci --mode=present ark:exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/scoring/test_filt.txt ark:exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/penalty_1.0/9.txt 
+# Accounting: time=1 threads=1
+# Ended (code 0) at Sat Sep 11 13:05:07 CEST 2021, elapsed time 1 seconds

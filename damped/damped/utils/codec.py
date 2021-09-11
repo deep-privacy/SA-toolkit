@@ -12,6 +12,7 @@ class str_int_encoder:
     def encode(s: str):
         n = 7
         s_split = [s[i:i+n].encode() for i in range(0, len(s), n)]
+        s_split += [''.encode()] * (6 - len(s_split)) # padding of 6
         return [int.from_bytes(a, byteorder="big") for a in s_split]
 
 #  torch.tensor([encode("pv1-5703-47198-0014")], dtype=torch.long).tolist()

@@ -8,6 +8,7 @@
 import subprocess
 from .. import script_utils
 import os
+from datetime import datetime
 
 run = script_utils.run
 
@@ -84,3 +85,7 @@ def cat(file_list, out_file):
             *file_list
             ],
             stdout=opf)
+
+def creation_date_file(file):
+    created = os.stat(file).st_ctime
+    return datetime.fromtimestamp(created)

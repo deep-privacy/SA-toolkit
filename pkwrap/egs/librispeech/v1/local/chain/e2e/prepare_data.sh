@@ -13,10 +13,10 @@ fi
 . ./path.sh
 export LD_LIBRARY_PATH="$(pwd)/lib:$LD_LIBRARY_PATH"
 
-stage=0
+stage=-1
 train_set=train_clean_100
 affix=tdnnf
-affix=tdnnf_vq
+# affix=tdnnf_vq
 
 corpus=
 lm_url=www.openslr.org/resources/11
@@ -63,8 +63,8 @@ done
 
 if [ $stage -le 0 ]; then
   # format the data as Kaldi data directories
- # train-other-500
-  for part in test-clean dev-clean test-other dev-other train-clean-100 train-clean-360; do
+ # train-other-500  train-clean-360
+  for part in  train-clean-100 test-clean dev-clean test-other dev-other; do
     # use underscore-separated names in data directories.
     data_name=$(echo $part | sed s/-/_/g)
     if [ ! -d data/${data_name} ]; then
@@ -74,18 +74,15 @@ if [ $stage -le 0 ]; then
 fi
 
 if [ $stage -le 1 ]; then
-  ######################
-  ## Done on stage -1 ##
-  ######################
-  # mkdir -p data/local/lm_less_phones
-  # ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
-  # ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
-  # ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
-  # ln -rs data/local/lm/4-gram.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
-  # echo "$0: Preparing lexicon"
-  # cp data/local/lm/librispeech-vocab.txt data/local/lm_less_phones/
-  # cat data/local/lm/librispeech-lexicon.txt | sed -e 's/[0,1,2]//g' > \
-    # data/local/lm_less_phones/librispeech-lexicon.txt
+  mkdir -p data/local/lm_less_phones
+  ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
+  ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
+  ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
+  ln -rs data/local/lm/4-gram.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
+  echo "$0: Preparing lexicon"
+  cp data/local/lm/librispeech-vocab.txt data/local/lm_less_phones/
+  cat data/local/lm/librispeech-lexicon.txt | sed -e 's/[0,1,2]//g' > \
+    data/local/lm_less_phones/librispeech-lexicon.txt
 
   echo "$0: Preparing dictionary"
   local/prepare_dict.sh --stage 3 --nj 30 --cmd "$cpu_cmd" \

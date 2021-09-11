@@ -34,18 +34,20 @@ grad_acc_steps = 2
 lr_initial = 0.001
 lr_final = 0.00001
 diagnostics_interval = 10
-minibatch_size = "4,16"
-train_stage = 9
+minibatch_size = 16
+# train_stage = 9
 
 [test]
+# test_set = data/test_clean_fbank_hires
+test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
-test_set = data/dev_clean_fbank_hires
+# test_set = data/dev_clean_fbank_hires
 # suffix = baseline
 apply_cmvn = True
 cmvn_opts =
 # decode on gpus
-num_jobs = 18
-job_gpu_repartition = 0,0,0,0,1,1,1,1,1,2,2,2,2,3,3,3,3,3
+num_jobs = 40
+job_gpu_repartition = 0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0
 gpu = True
 
 

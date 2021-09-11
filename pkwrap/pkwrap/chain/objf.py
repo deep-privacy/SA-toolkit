@@ -206,8 +206,9 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
                          weight_decay=0.25, frame_shift=0,
                          left_context=0,
                          right_context=0,
-                         print_interval=10,
+                         print_interval=30,
                          frame_subsampling_factor=3,
+                         tensorboard = None,
                          optimizer = None,
                          e2e = False,
     ):
@@ -247,6 +248,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
+    acc_sum_vq = torch.tensor(0., requires_grad=False)
 
     spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
@@ -268,6 +270,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
         #  print(uttid_list, flush=True)
         uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
+        #  print(uttid_list, flush=True)
         req = spk_branch.fork_detach(bottleneck_out,
                                torch.tensor(uttid_list, dtype=torch.long),
                                dtype=(torch.float32, torch.long))
@@ -275,15 +278,20 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
         
-        #  model.tensorboard.add_scalar('Loss/train/kaldichain', deriv)
-
         acc_sum.add_(deriv[0])
         if mb_id>0 and mb_id%print_interval==0:
             logging.info("Overall objf={}".format(acc_sum/print_interval))
+            if tensorboard: tensorboard.add_scalar('ASR objf', acc_sum/print_interval, mb_id)
             acc_sum.zero_()
+
         if hasattr(model, 'vq'):
+            acc_sum_vq.add_(vq_loss[0])
             deriv += vq_loss.to(deriv.device)
-            #  model.tensorboard.add_scalar('Loss/train/vq_loss', vq_loss)
+
+            if mb_id>0 and mb_id%print_interval==0:
+                logging.info("Overall VQ objf={}".format(acc_sum_vq/print_interval))
+                if tensorboard: tensorboard.add_scalar('VQ objf', acc_sum_vq/print_interval, mb_id)
+                acc_sum_vq.zero_()
 
         optimizer.zero_grad()
         deriv.backward()
@@ -295,13 +303,16 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
 
         #  return model # fast_test
     model = model.cpu()
+    if tensorboard: tensorboard.close()
     return model
 
 def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     minibatch_size="64", use_gpu=True, frame_shift=0,
     left_context=0,
     right_context=0,
-    frame_subsampling_factor=3):
+    frame_subsampling_factor=3,
+    tensorboard = None
+    ):
     """Function to compute objective value from a minibatch, useful for diagnositcs.
 
     Args:
@@ -365,6 +376,8 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
 
     objf = acc_sum/tot_weight
     logging.info("Objective = {}".format(objf))
+    if tensorboard: tensorboard.add_scalar('ASR objf valid', objf, 1)
+    if tensorboard: tensorboard.close()
     model = model.cpu()
     return model, objf
 

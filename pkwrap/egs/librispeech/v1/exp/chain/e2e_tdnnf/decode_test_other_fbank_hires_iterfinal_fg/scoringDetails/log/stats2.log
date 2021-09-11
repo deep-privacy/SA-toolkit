@@ -1,0 +1,6 @@
+# cat exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoringDetails/wer_details/per_utt | utils/scoring/wer_ops_details.pl --special-symbol '***' | sort -b -i -k 1,1 -k 4,4rn -k 2,2 -k 3,3 > exp/chain/e2e_tdnnf/decode_test_other_fbank_hires_iterfinal_fg/scoringDetails/wer_details/ops 
+# Started at Sat Sep 11 14:42:01 CEST 2021
+#
+utils/scoring/wer_ops_details.pl: Note: handling as utf-8 text
+# Accounting: time=0 threads=1
+# Ended (code 0) at Sat Sep 11 14:42:01 CEST 2021, elapsed time 0 seconds
