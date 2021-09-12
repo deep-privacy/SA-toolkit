@@ -25,14 +25,11 @@ logging.basicConfig(level=logging.DEBUG, format='pkwrap %(levelname)s: %(message
 import damped
 
 
-def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_name='valid', ivector_dir=''):
+def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_name='valid'):
     """
         sub a single diagnostic job and let ThreadPoolExecutor monitor its progress
     """
     log_file = "{}/log/compute_prob_{}.{}.log".format(dirname, diagnostic_name, iter_no)
-    ivector_opts = []
-    if ivector_dir:
-        ivector_opts = ["--ivector-dir", ivector_dir]
     logging.info(f"Submitting diagnostic {diagnostic_name}")
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
@@ -42,13 +39,12 @@ def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_
                 "--dir", dirname,
                 "--mode", "diagnostic",
                 "--egs", "ark:{}".format(egs_file),
-                *ivector_opts,
                 os.path.join(dirname, "{}.pt".format(iter_no))])
 
     return process_out.returncode
 
 
-def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, dirname_cfg, ivector_dir=''):
+def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, dirname_cfg):
     job_pool = []
     with ThreadPoolExecutor(max_workers=2+1) as executor: # plus one for damped
         for diagnostic_name in ['train', 'valid']:
@@ -82,21 +78,17 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, dirna
                 egs_file,
                 job_cmd,
                 diagnostic_name,
-                ivector_dir=ivector_dir,
             )
             job_pool.append(p)
     return job_pool
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
-    num_archives, num_archives_processed, minibatch_size, job_cmd, ivector_dir='', damped_tatal_job=1,
+    num_archives, num_archives_processed, minibatch_size, job_cmd, damped_tatal_job=1,
             xent_regularize=0.025):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
     log_file = "{}/log/train.{}.{}.log".format(dirname, iter_no, job_id)
-    ivector_opts = []
-    if ivector_dir:
-        ivector_opts = ['--ivector-dir', ivector_dir]
     cuda_device = job_id-1
     if cuda_device >= torch.cuda.device_count():
         cuda_device = torch.cuda.device_count()-1 - (cuda_device - torch.cuda.device_count())
@@ -112,7 +104,6 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
                 "--l2-regularize-factor", str(1.0/num_jobs),
                 "--minibatch-size", minibatch_size,
                 "--new-model", os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
-                *ivector_opts,
                 "--xent-regularize", str(xent_regularize),
                 os.path.join(dirname, "{}.pt".format(iter_no))])
     return process_out.returncode
@@ -284,7 +275,6 @@ def train():
             "--frames-per-iter", str(trainer_opts.frames_per_iter),
             "--frames-per-eg", str(trainer_opts.chunk_width),
             "--srand", str(trainer_opts.srand),
-            "--online-ivector-dir", trainer_opts.online_ivector_dir,
             train_set, dirname, lat_dir, egs_dir
         ])
     elif "egs_dir" in exp_cfg:
@@ -303,18 +293,7 @@ def train():
     })
     feat_dim_filename = os.path.join(dirname, "feat_dim")
     if not os.path.isfile(feat_dim_filename):
-        # if ivector_dim is present in egs_dir, add that to feat_dim
-        if os.path.isfile(os.path.join(egs_dir, 'info', 'ivector_dim')):
-            feat_dim = 0
-            with open(os.path.join(egs_dir,"info","feat_dim")) as ipf:
-                feat_dim = int(ipf.readline().strip())
-            with open(os.path.join(egs_dir,"info","ivector_dim")) as ipf:
-                feat_dim += int(ipf.readline().strip())
-            with open(feat_dim_filename, 'w') as opf:
-                opf.write('{}'.format(feat_dim))
-                opf.close()
-        else:
-            shutil.copy(os.path.join(egs_dir,"info","feat_dim"), dirname)
+        shutil.copy(os.path.join(egs_dir,"info","feat_dim"), dirname)
     # we start training with 
     num_archives = pkwrap.script_utils.get_egs_info(egs_dir)
     num_epochs = trainer_opts.num_epochs
@@ -369,7 +348,7 @@ def train():
             )
             diagnostic_job_pool = None
             if (iter_no % trainer_opts.diagnostics_interval == 0 and iter_no != 0) or (iter_no+1 == num_iters):
-                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd, exp_cfg["dirname"], ivector_dir=trainer_opts.online_ivector_dir)
+                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd, exp_cfg["dirname"])
                 for p in as_completed(diagnostic_job_pool):
                     if p.result() != 0:
                         quit(p.result())
@@ -414,7 +393,6 @@ def train():
                                         model_file, lr, frame_shift, 
                                         egs_dir, num_archives, num_archives_processed,
                                         exp_cfg["minibatch_size"], cuda_cmd,
-                                        ivector_dir=trainer_opts.online_ivector_dir, damped_tatal_job=num_jobs+1,
                                         xent_regularize=xent_regularize)
                         num_archives_processed += 1
                         job_pool.append(p)
@@ -452,9 +430,6 @@ def train():
         logging.info("Final model combination...")
         diagnostic_name = 'valid'
         egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
-        ivector_opts = []
-        if trainer_opts.online_ivector_dir:
-            ivector_opts = ["--use-ivector", "True"]
         pkwrap.script_utils.run([
             *cuda_cmd.split(),
             "{}/log/combine.log".format(dirname),
@@ -463,7 +438,6 @@ def train():
             "--mode", "final_combination",
             "--new-model", os.path.join(dirname, "final.pt"),
             "--egs", "ark:{}".format(egs_file),
-            *ivector_opts,
             ",".join(model_list)
         ])
 
@@ -520,33 +494,27 @@ def train():
             num_jobs = pkwrap.utils.split_data(data_dir)
         logging.info(f"Decoding with {num_jobs} jobs...")
 
-        online_fbanks = False
         gpu_opts = []
-        job_gpu_repartition = decode_params["job_gpu_repartition"].split(",") if "job_gpu_repartition" in decode_params else ["0"]*num_jobs
         if decode_gpu:
-            logging.info("Reparting jobs on gpus: {}".format(str(",".join(job_gpu_repartition))))
-            gpu_opts = ["--use-gpu", "True", "--gpu-repartition", "0,"+",".join(job_gpu_repartition), "--gpu-id", "JOB"]
+            gpu_opts = ["--use-gpu", "True", "--gpu-id", "JOB"]
 
-        additional_ops = []
-        if "ivector_dir" in decode_params and len(decode_params["ivector_dir"])>0:
-            additional_ops = ["--ivector-dir", decode_params["ivector_dir"]]
-
-        mode = "decode"
         if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
             use_cmvn = True
             cmvn_opts = decode_params["cmvn_opts"]
-            utt2spk_name = "ark:{}/split{}/JOB/utt2spk".format(data_dir, num_jobs)
+            utt2spk_name = "{}/split{}/JOB/utt2spk".format(data_dir, num_jobs)
             feats_name = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
-            cmvn_name = "scp:{}/split{}/JOB/cmvn.scp".format(data_dir, num_jobs)
-            feats_scp = "ark,s,cs:apply-cmvn {} --utt2spk={} {} {} ark:- |".format(cmvn_opts, utt2spk_name, cmvn_name, feats_name)
+            cmvn_name = "{}/split{}/JOB/cmvn.scp".format(data_dir, num_jobs)
+            feats_scp = "ark,s,cs:apply-cmvn {} --utt2spk=ark:{} scp:{} {} ark:- |".format(cmvn_opts, utt2spk_name, cmvn_name, feats_name)
         else:
             feats_scp = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
 
-        if online_fbanks:
-            feats_scp = "scp:{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
-            mode = "infer_raw"
-            if not use_cmvn:
-                logging.error("NOT IMPLEMENTED")
+        additional_ops = []
+        if "from_wav" in decode_params and bool(decode_params["from_wav"]):
+            feats_scp = "{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
+            additional_ops += ["--from-wav", "True", "--from-wav-fbanks-conf", "./configs/fbank_hires.conf".format(data_dir)]
+
+        if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
+            additional_ops += ["--from-wav-cmvn", '{{"utt2spk": "{}", "stats": "{}", "filetype": "scp"}}'.format(utt2spk_name, cmvn_name)]
 
         pkwrap.script_utils.run([
             *cpu_cmd.split(),
@@ -554,7 +522,7 @@ def train():
             os.path.join(out_dir, "log", "decode.JOB.log"),
             model_file,
             "--dir", dirname,
-            "--mode", mode,
+            "--mode", "decode",
             *additional_ops,
             *gpu_opts,
             "--decode-feats", feats_scp,

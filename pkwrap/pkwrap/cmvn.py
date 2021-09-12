@@ -34,6 +34,9 @@ class CMVN(object):
             elif filetype == "ark":
                 self.accept_uttid = True
                 stats_dict = dict(kaldiio.load_ark(stats))
+            elif filetype == "scp":
+                self.accept_uttid = True
+                stats_dict = dict(kaldiio.load_scp(stats))
             else:
                 raise ValueError("Not supporting filetype={}".format(filetype))
 

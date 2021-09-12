@@ -2,13 +2,16 @@
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 import os
+import json
 from collections import Counter
 import logging
 import argparse
 from dataclasses import dataclass
+import numpy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchaudio
 from _pkwrap import kaldi
 from .. import matrix
 from .. import script_utils
@@ -18,7 +21,6 @@ from .. import tensorboard
 from .objf import train_lfmmi_one_iter, compute_chain_objf
 
 import kaldiio
-import configparser
 import matplotlib.pyplot as plt
 from damped import disturb
 from pytorch_memlab import LineProfiler
@@ -34,9 +36,11 @@ class TrainerOpts:
 
 @dataclass
 class DecodeOpts:
-    gpu_repartition: str = "0"
-    gpu_id: int = 0
     use_gpu: bool = False
+    gpu_id: int = 0
+    from_wav: bool = False
+    from_wav_cmvn = {}
+    from_wav_fbanks_conf: str = "configs/fbank_hires.conf"
     decode_feats: str = 'data/test/feats.scp'
     decode_output: str = '-'
 
@@ -55,8 +59,6 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     feat_dim: int = 1
     context: int = 0
     frame_subsampling_factor: int = 3
-    ivector_dir: str = '' # NOT USED FOR NOW
-    use_ivector: bool = False
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -127,8 +129,6 @@ class ChainModel(nn.Module):
             #  disturb.eval(all_to_one=True)
             self.infer()
             #  disturb.stop(all_to_one=True)
-        elif self.chain_opts.mode in ['decode_raw', 'infer_raw']:
-            self.infer_raw()
         elif self.chain_opts.mode == 'final_combination':
             self.combine_final_model()
         elif self.chain_opts.mode == 'codebook_analysis':
@@ -266,83 +266,13 @@ class ChainModel(nn.Module):
 
 
     @torch.no_grad()
-    def infer_raw(self):
-        chain_opts = self.chain_opts
-        model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
-        base_model = chain_opts.base_model
-
-        run_on_gpu = int(chain_opts.gpu_repartition.split(",")[int(chain_opts.gpu_id)])
-        if chain_opts.use_gpu:
-            logging.info("Using GPU: {} of {}".format(run_on_gpu, torch.cuda.device_count()))
-            if run_on_gpu >= torch.cuda.device_count():
-                run_on_gpu = torch.cuda.device_count()-1
-            model = model.to(torch.device("cuda:{}".format(run_on_gpu)))
-            logging.info("Using GPU: {}".format(run_on_gpu))
-
-        try:
-            model.load_state_dict(torch.load(base_model))
-        except Exception as e:
-            logging.error(e)
-            logging.error("Cannot load model {}".format(base_model))
-        context = chain_opts.context
-        model.eval()
-
-        with open('/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/egs/librispeech/v1/configs/fbank_hires.conf') as f:
-            file_content = '[dummy_section]\n' + f.read()
-        config = configparser.RawConfigParser()
-        config.read_string(file_content)
-        config = config['dummy_section']
-        fbanks_config = {k.replace("--","").replace("-","_"):utils.parseval(v) for k, v in config.items()}
-
-        cmvn_conf = {
-            "stats": "/home/pchampion/lab/pkwrap/pkwrap/egs/librispeech/v1/data/feats/fbank/dev_clean_fbank_hires/data/cmvn_dev_clean_fbank_hires.ark",
-            "utt2spk": "/srv/storage/talc@talc-data.nancy/multispeech/calcul/users/pchampion/lab/pkwrap/pkwrap/egs/librispeech/v1/data/dev_clean_fbank_hires/utt2spk",
-            "filetype": "ark",
-        }
-        cmvn_transform = cmvn.CMVN(**cmvn_conf)
-
-        writer_spec = "ark,t:{}".format(chain_opts.decode_output)
-        writer = script_utils.feat_writer(writer_spec)
-
-        with kaldiio.ReadHelper(chain_opts.decode_feats) as reader:
-            for key, (rate, numpy_array) in reader:
-                numpy_array = numpy_array.astype(numpy.float32)
-                waveform = torch.tensor(numpy_array).unsqueeze(0)
-
-                #  waveform_load_wav, _ = torchaudio.load_wav("/srv/storage/talc@talc-data.nancy/multispeech/corpus/speech_recognition/LibriSpeech/dev-clean/5536/43358/5536-43358-0000.flac")
-                #  print("Equal", torch.all(waveform.eq(waveform_load_wav)))
-
-                fbank = torchaudio.compliance.kaldi.fbank(waveform, **fbanks_config)
-                fbank = matrix.add_context(fbank, context, context).unsqueeze(0)
-
-                fbank = cmvn_transform(fbank, uttid=key)
-                feats_with_context = torch.tensor(fbank, dtype=torch.float32)
-
-                if chain_opts.use_gpu:
-                    feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
-
-                if hasattr(model, 'vq'):
-                    post, xent_output, bottleneck_out, vq_loss = model(feats_with_context)
-                else:
-                    post, xent_output, bottleneck_out = model(feats_with_context)
-                post = post.squeeze(0).cpu()
-                writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
-                logging.info("Wrote {}".format(key))
-
-        writer.Close()
-        return self
-
-    @torch.no_grad()
     def infer(self):
         chain_opts = self.chain_opts
         model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
         base_model = chain_opts.base_model
 
-        run_on_gpu = int(chain_opts.gpu_repartition.split(",")[int(chain_opts.gpu_id)])
+        run_on_gpu = (list(range(0, torch.cuda.device_count())) * 200)[chain_opts.gpu_id]
         if chain_opts.use_gpu:
-            logging.info("Using GPU: {} of {}".format(run_on_gpu, torch.cuda.device_count()))
-            if run_on_gpu >= torch.cuda.device_count():
-                run_on_gpu = torch.cuda.device_count()-1
             model = model.to(torch.device("cuda:{}".format(run_on_gpu)))
             logging.info("Using GPU: {}".format(run_on_gpu))
 
@@ -357,7 +287,28 @@ class ChainModel(nn.Module):
         model.eval()
         writer_spec = "ark,t:{}".format(chain_opts.decode_output)
         writer = script_utils.feat_writer(writer_spec)
-        for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
+
+        reader = script_utils.feat_reader_gen(chain_opts.decode_feats)
+        if chain_opts.from_wav:
+            reader = kaldiio.load_scp_sequential(chain_opts.decode_feats)
+
+            cmvn_transform = lambda args,uttid="nope" : args
+            if chain_opts.from_wav_cmvn:
+                cmvn_transform = cmvn.CMVN(**chain_opts.from_wav_cmvn)
+
+            def frontend(key, feats):
+                sampling_rate, numpy_array = feats
+                numpy_array = numpy_array.astype(numpy.float32)
+                waveform = torch.tensor(numpy_array).unsqueeze(0)
+                fbank = torchaudio.compliance.kaldi.fbank(waveform, **utils.read_kaldi_conf(chain_opts.from_wav_fbanks_conf))
+                feats = cmvn_transform(fbank, uttid=key)
+                feats = torch.tensor(feats, dtype=torch.float32)
+                return key, feats
+
+        for key, feats in reader:
+            if chain_opts.from_wav:
+                key, feats = frontend(key, feats)
+
             feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
             if chain_opts.use_gpu:
                 feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
@@ -464,8 +415,10 @@ class ChainModel(nn.Module):
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
         parser.add_argument("--use-gpu", default=False, type=bool)
-        parser.add_argument("--gpu-repartition", default="0", type=str, help="The GPU on wich each singular splits are extracted")
         parser.add_argument("--gpu-id", default=0, type=int)
+        parser.add_argument("--from-wav", default=False, type=bool)
+        parser.add_argument("--from-wav-cmvn", default=None, type=json.loads)
+        parser.add_argument("--from-wav-fbanks-conf", default='', type=str)
         parser.add_argument("base_model")
         args = parser.parse_args()
         return args

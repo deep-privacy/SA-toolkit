@@ -29,7 +29,6 @@ class TrainerOpts:
     cmd: str = 'queue.pl -l q_gpu -V'
     diagnostics_interval: int = 10
     checkpoint_interval: int = 100
-    online_ivector_dir: str =  ''
     minibatch_size:str = "32"
     srand: int = 1
     
