@@ -107,13 +107,13 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
-mark=.done-kaldi-src
+mark=.done-kaldi-src.3
 if [ ! -f $mark ]; then
   echo " == Building Kaldi src =="
   cd kaldi/src
-  ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
-  make clean || exit 1
-  make depend -j $nj || exit 1
+  # ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
+  # make clean || exit 1
+  # make depend -j $nj || exit 1
   make -j $nj || exit 1
   cd $home
   touch $mark

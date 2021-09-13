@@ -234,7 +234,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         updated model in CPU
     """
 
-    if hasattr(model, 'vq'):
+    if hasattr(model, 'vq') and model.vq():
         logging.info("USING ADDITIONAL VQ commitment loss")
 
     # this is required to make sure Kaldi uses GPU
@@ -249,6 +249,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
     acc_sum_vq = torch.tensor(0., requires_grad=False)
+    acc_sum_perplexity = torch.tensor(0., requires_grad=False)
 
     spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
@@ -256,22 +257,16 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
-        features = features.cuda()
-
-        model_out = model(features)
-        vq_loss = None
-        if hasattr(model, 'vq'):
-            output, xent_output, bottleneck_out, vq_loss = model_out
-        else:
-            output, xent_output, bottleneck_out = model_out
-
+        if use_gpu:
+            features = features.cuda()
+        output, xent_output = model(features.cuda())
 
         # pchampio send the hidden state to domain task (async)
         uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
         #  print(uttid_list, flush=True)
         uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
         #  print(uttid_list, flush=True)
-        req = spk_branch.fork_detach(bottleneck_out,
+        req = spk_branch.fork_detach(model.bottleneck_out,
                                torch.tensor(uttid_list, dtype=torch.long),
                                dtype=(torch.float32, torch.long))
 
@@ -284,14 +279,21 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
             if tensorboard: tensorboard.add_scalar('ASR objf', acc_sum/print_interval, mb_id)
             acc_sum.zero_()
 
-        if hasattr(model, 'vq'):
-            acc_sum_vq.add_(vq_loss[0])
-            deriv += vq_loss.to(deriv.device)
-
+        if hasattr(model, 'vq') and model.vq():
+            acc_sum_vq.add_(model.vq_loss.item())
             if mb_id>0 and mb_id%print_interval==0:
                 logging.info("Overall VQ objf={}".format(acc_sum_vq/print_interval))
                 if tensorboard: tensorboard.add_scalar('VQ objf', acc_sum_vq/print_interval, mb_id)
                 acc_sum_vq.zero_()
+            deriv += model.vq_loss.to(deriv.device) # add to main loss
+
+        if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
+            acc_sum_perplexity.add_(model.perplexity.item())
+            if mb_id>0 and mb_id%print_interval==0:
+                logging.info("VQ perplexity ={}".format(acc_sum_perplexity/print_interval))
+                if tensorboard: tensorboard.add_scalar('VQ perplexity', acc_sum_perplexity/print_interval, mb_id)
+                acc_sum_perplexity.zero_()
+
 
         optimizer.zero_grad()
         deriv.backward()
@@ -331,8 +333,9 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     if use_gpu:
         model = model.cuda()
     acc_sum = torch.tensor(0., requires_grad=False)
+    acc_sum_vq = torch.tensor(0., requires_grad=False)
+    acc_sum_perplexity = torch.tensor(0., requires_grad=False)
     tot_weight = 0.
-
 
     if torch.distributed.is_initialized():
         spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
@@ -342,33 +345,29 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
         features = features.cuda()
-        model_out = model(features)
-        vq_loss = None
-        if hasattr(model, 'vq'):
-            output, xent_output, bottleneck_out, vq_loss = model_out
-        else:
-            output, xent_output, bottleneck_out = model_out
-
+        output, xent_output = model(features)
 
         # pchampio send the hidden state to domain task (async)
         if torch.distributed.is_initialized():
             uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
             uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
 
-            req = spk_branch.fork_detach(bottleneck_out,
+            req = spk_branch.fork_detach(model.bottleneck_out,
                                    torch.tensor(uttid_list, dtype=torch.long),
                                    dtype=(torch.float32, torch.long))
 
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
 
-        # No vq_loss in valid / combine model
-        #  if hasattr(model, 'vq'):
-            #  deriv += vq_loss.to(deriv.device)
-
         mb, num_seq, _ = features.shape
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
+
+        if hasattr(model, 'vq') and model.vq():
+            acc_sum_vq.add_(model.vq_loss.item()*mb*num_seq)
+
+        if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
+            acc_sum_perplexity.add_(model.perplexity.item()*mb*num_seq)
 
         # pchampio wait for domain branch to fully have received the hidden state
         if torch.distributed.is_initialized():
@@ -378,6 +377,15 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     logging.info("Objective = {}".format(objf))
     if tensorboard: tensorboard.add_scalar('ASR objf valid', objf, 1)
     if tensorboard: tensorboard.close()
+
+    if hasattr(model, 'vq') and model.vq():
+        logging.info("Overall VQ objf={}".format(acc_sum_vq/tot_weight))
+        if tensorboard: tensorboard.add_scalar('VQ objf valid', acc_sum_vq/tot_weight, 1)
+
+    if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
+        logging.info("Overall perplexity={}".format(acc_sum_perplexity/tot_weight))
+        if tensorboard: tensorboard.add_scalar('VQ perplexity valid', acc_sum_perplexity/tot_weight, 1)
+
     model = model.cpu()
     return model, objf
 

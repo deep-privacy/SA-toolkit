@@ -33,6 +33,7 @@ class TrainerOpts:
     lr: float = 0.001
     minibatch_size: int = 32
     base_model: str = ''
+    init_weight_model: str = ''
 
 @dataclass
 class DecodeOpts:
@@ -137,6 +138,9 @@ class ChainModel(nn.Module):
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        if self.chain_opts.init_weight_model != "":
+            not_inited = model.load_state_dict(torch.load(self.chain_opts.init_weight_model), strict=False)
+            logging.info("Init from previous model {}, layers not initialized: {}".format(self.chain_opts.init_weight_model, str(not_inited)))
         torch.save(model.state_dict(), self.chain_opts.base_model)
 
     def train(self):
@@ -195,9 +199,6 @@ class ChainModel(nn.Module):
                 chain_opts.leaky_hmm_coefficient,
                 chain_opts.xent_regularize,
         )
-        t = None
-        if "valid" in self.chain_opts.egs:
-            t = tensorboard.PkwrapTwensorBoard(self)
 
         compute_chain_objf(
             model,
@@ -207,7 +208,7 @@ class ChainModel(nn.Module):
             minibatch_size=chain_opts.minibatch_size,
             left_context=chain_opts.context,
             right_context=chain_opts.context,
-            tensorboard=t,
+            tensorboard=tensorboard.PkwrapTwensorBoard(self) if "valid" in self.chain_opts.egs else None,
         )
 
     @torch.no_grad()
@@ -241,7 +242,7 @@ class ChainModel(nn.Module):
             logging.error("Cannot load model {}".format(base_model))
             quit(1)
 
-        if not hasattr(model, 'vq'):
+        if not hasattr(model, 'vq') or not model.vq():
             logging.error("Cannot analyise non VQ model: {}".format(base_model))
             quit(1)
         if not hasattr(model, 'codebook_analysis'):
@@ -313,10 +314,8 @@ class ChainModel(nn.Module):
             if chain_opts.use_gpu:
                 feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
 
-            if hasattr(model, 'vq'):
-                post, xent_output, bottleneck_out, vq_loss = model(feats_with_context)
-            else:
-                post, xent_output, bottleneck_out = model(feats_with_context)
+            post, xent_output = model(feats_with_context)
+
             post = post.squeeze(0).cpu()
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
             logging.info("Wrote {}".format(key))
@@ -417,8 +416,9 @@ class ChainModel(nn.Module):
         parser.add_argument("--use-gpu", default=False, type=bool)
         parser.add_argument("--gpu-id", default=0, type=int)
         parser.add_argument("--from-wav", default=False, type=bool)
-        parser.add_argument("--from-wav-cmvn", default=None, type=json.loads)
+        parser.add_argument("--from-wav-cmvn", default={}, type=json.loads)
         parser.add_argument("--from-wav-fbanks-conf", default='', type=str)
+        parser.add_argument("--init-weight-model", default='', type=str)
         parser.add_argument("base_model")
         args = parser.parse_args()
         return args

@@ -40,9 +40,9 @@ minibatch_size = 16
 [test]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
-from_wav = True
 # test_set = data/dev_other_fbank_hires
 test_set = data/dev_clean_fbank_hires
+# from_wav = True
 # suffix = baseline
 apply_cmvn = True
 cmvn_opts =

@@ -296,7 +296,7 @@ class TDNNFBatchNorm(nn.Module):
         return x
 
 
-class TDNNF_VQ(nn.Module):
+class TDNNF_LD(nn.Module):
     def __init__(
         self,
         feat_dim,
@@ -307,17 +307,13 @@ class TDNNF_VQ(nn.Module):
         orthonormal_constraint=0.0,
         floating_scale=True,
         bypass_scale=0.66,
-        vq_layer=None,
-        sp_embed=False,
+        bottleneck_ld=lambda x: x,
     ):
-        super(TDNNF_VQ, self).__init__()
+        super(TDNNF_LD, self).__init__()
         # lets keep it context_len for now
-        self.sp_embed=sp_embed
-        self.vq_layer = vq_layer
+        self.bottleneck_ld = bottleneck_ld
         self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthonormal_constraint)
         self.linearA = nn.Linear(bottleneck_dim, output_dim)
-        if self.sp_embed:
-            self.linearA = nn.Linear(bottleneck_dim*2, output_dim)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
         self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
         self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
@@ -344,35 +340,26 @@ class TDNNF_VQ(nn.Module):
         mb, T, D = input.shape
         padded_input = input.reshape(mb, -1).unfold(1, D*self.context_len, D*self.subsampling_factor).contiguous()
         x = self.linearB(padded_input)
-        old_x = x
-        vq_loss = None
-        if self.vq_layer != None:
-            vq_loss, x, perplexity, _, _, encoding_indices, \
-                        losses, _, _, _, concatenated_quantized = self.vq_layer(x)
-        if self.sp_embed:
-            x_with_sp_embed = torch.cat((x, old_x - x), 2)
-            x = x_with_sp_embed
-        bottleneck_out = x.detach().cpu()
+        x = self.bottleneck_ld(x)
         x = self.linearA(x)
         if self.use_bypass:
             x = x + input[:,self.identity_lidx:self.identity_ridx:self.subsampling_factor,:]*self.bypass_scale
-        return x, vq_loss, bottleneck_out
+        return x
 
-class TDNNFBatchNorm_VQ(nn.Module):
+class TDNNFBatchNorm_LD(nn.Module):
     def __init__(
-        self, 
-        feat_dim, 
-        output_dim, 
+        self,
+        feat_dim,
+        output_dim,
         bottleneck_dim,
         context_len=1,
         subsampling_factor=1,
         orthonormal_constraint=0.0,
         bypass_scale=0.66,
-        vq_layer=None,
-        sp_embed=False,
+        bottleneck_ld=lambda x: x,
     ):
-        super(TDNNFBatchNorm_VQ, self).__init__()
-        self.tdnn = TDNNF_VQ(
+        super(TDNNFBatchNorm_LD, self).__init__()
+        self.tdnn = TDNNF_LD(
             feat_dim,
             output_dim,
             bottleneck_dim,
@@ -380,20 +367,19 @@ class TDNNFBatchNorm_VQ(nn.Module):
             subsampling_factor=subsampling_factor,
             orthonormal_constraint=orthonormal_constraint,
             bypass_scale=bypass_scale,
-            vq_layer=vq_layer,
-            sp_embed=sp_embed,
+            bottleneck_ld=bottleneck_ld,
         )
         self.bn = nn.BatchNorm1d(output_dim, affine=False)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
 
     def forward(self, input):
         mb, T, D = input.shape
-        x, vq_loss, bottleneck_out = self.tdnn(input)
+        x = self.tdnn(input)
         x = x.permute(0, 2, 1)
         x = self.bn(x)
         x = x.permute(0, 2, 1)
         x = F.relu(x)
-        return x, bottleneck_out, vq_loss
+        return x
 
 
 #  https://github.com/swasun/VQ-VAE-Speech/blob/3c537c17465bf59855f0b81d9265354f65016563/src/models/vector_quantizer_ema.py
@@ -533,12 +519,12 @@ class VectorQuantizerEMA(nn.Module):
         vq_loss = commitment_loss
 
         quantized = inputs + (quantized - inputs).detach()
-        avg_probs = torch.mean(encodings, dim=0)
 
         """
         The perplexity a useful value to track during training.
         It indicates how many codes are 'active' on average.
         """
+        avg_probs = torch.mean(encodings, dim=0)
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
 
         # Convert quantized from [N, T, C] (image origin: BHWC) -> [C, T, N] (image origin: BCHW)

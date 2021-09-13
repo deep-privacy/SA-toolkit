@@ -4,10 +4,10 @@ index d7d65da80..d7087ff44 100644
 +++ b/src/cudamatrix/cu-allocator.h
 @@ -65,7 +65,7 @@ struct CuAllocatorOptions {
    int32 num_subregions;
- 
+
    CuAllocatorOptions():
 -      cache_memory(true), memory_proportion(0.5), num_subregions(20) { }
-+      cache_memory(true), memory_proportion(0.2), num_subregions(20) { }
- 
++      cache_memory(true), memory_proportion(0.051), num_subregions(20) { }
+
    void Register(OptionsItf *po) {
      po->Register("cuda-cache-memory", &cache_memory, "True if you want "

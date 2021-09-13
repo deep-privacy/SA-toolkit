@@ -13,6 +13,7 @@ import sys
 import shutil
 import datetime
 import math
+import json
 import torch
 import pkwrap
 import argparse
@@ -35,7 +36,7 @@ def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_
                 log_file,
                 "env", "CUDA_VISIBLE_DEVICES="+str([i for i, value in enumerate(['train', 'valid']) if value == diagnostic_name][0]),
                 "DAMPED_N_DOMAIN=1",
-                model_file,
+                *model_file,
                 "--dir", dirname,
                 "--mode", "diagnostic",
                 "--egs", "ark:{}".format(egs_file),
@@ -80,6 +81,7 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, dirna
                 diagnostic_name,
             )
             job_pool.append(p)
+            #  print("Pool size:", job_pool, flush=True)
     return job_pool
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
@@ -95,7 +97,7 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
                 "env", "CUDA_VISIBLE_DEVICES="+str(cuda_device), f"DAMPED_N_DOMAIN={damped_tatal_job-1}", f"DAMPED_DOMAIN={job_id}",
-                model_file,
+                *model_file,
                 "--dir", dirname,
                 "--mode", "training",
                 "--lr", str(lr),
@@ -128,7 +130,8 @@ def train():
     assert exp_cfg is not None
 
     stage = args.stage
-    model_file = exp_cfg["model_file"]
+    model_file = [exp_cfg["model_file"]]
+    model_file += json.loads(exp_cfg["model_args"]) if "model_args" in exp_cfg else []
     data = exp_cfg["data"] if "data" in exp_cfg else "data"
     exp = exp_cfg["exp"] if "exp" in exp_cfg else "exp"
     chain_affix = exp_cfg["chain_affix"] if "chain_affix" in exp_cfg else ""
@@ -255,7 +258,7 @@ def train():
         logging.info("Creating egs")
         # first check the context
         process_out = subprocess.run([
-            model_file,
+            *model_file,
             "--mode", "context",
             "--dir", dirname,
             "0.pt", # use a dummy model. 
@@ -308,12 +311,16 @@ def train():
 #   start the training    
     if stage <= 5:
         logging.info("Initializing model")
+        additional_ops = []
+        if "init_weight_model" in exp_cfg and exp_cfg["init_weight_model"] != "":
+            additional_ops += ["--init-weight-model", exp_cfg["init_weight_model"]]
         process_out = subprocess.run([
             *cuda_cmd.split(),
             os.path.join(dirname, "log", "init.log"),
-            model_file,
+            *model_file,
             "--mode", "init",
             "--dir", dirname,
+            *additional_ops,
             os.path.join(dirname, "0.pt")
         ])
         if process_out.returncode != 0:
@@ -390,12 +397,14 @@ def train():
                     for job_id in range(1, num_jobs+1):
                         frame_shift = num_archives_processed%frame_subsampling_factor
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
-                                        model_file, lr, frame_shift, 
+                                        model_file, lr, frame_shift,
                                         egs_dir, num_archives, num_archives_processed,
                                         exp_cfg["minibatch_size"], cuda_cmd,
+                                        damped_tatal_job=num_jobs+1,
                                         xent_regularize=xent_regularize)
                         num_archives_processed += 1
                         job_pool.append(p)
+                    #  print("Pool size:", job_pool, flush=True)
                     for p in as_completed(job_pool):
                         if p.result() != 0:
                             quit(p.result())
@@ -404,7 +413,7 @@ def train():
                 process_out = subprocess.run([
                     *cuda_cmd.split(),
                     "{}/log/merge.{}.log".format(dirname, iter_no+1),
-                    model_file,
+                    *model_file,
                     "--dir", dirname,
                     "--mode", "merge",
                     "--new-model", os.path.join(dirname, "{}.pt".format(iter_no+1)),
@@ -433,7 +442,7 @@ def train():
         pkwrap.script_utils.run([
             *cuda_cmd.split(),
             "{}/log/combine.log".format(dirname),
-            model_file,
+            *model_file,
             "--dir", dirname,
             "--mode", "final_combination",
             "--new-model", os.path.join(dirname, "final.pt"),
@@ -512,15 +521,14 @@ def train():
         if "from_wav" in decode_params and bool(decode_params["from_wav"]):
             feats_scp = "{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
             additional_ops += ["--from-wav", "True", "--from-wav-fbanks-conf", "./configs/fbank_hires.conf".format(data_dir)]
-
-        if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
-            additional_ops += ["--from-wav-cmvn", '{{"utt2spk": "{}", "stats": "{}", "filetype": "scp"}}'.format(utt2spk_name, cmvn_name)]
+            if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
+                additional_ops += ["--from-wav-cmvn", '{{"utt2spk": "{}", "stats": "{}", "filetype": "scp"}}'.format(utt2spk_name, cmvn_name)]
 
         pkwrap.script_utils.run([
             *cpu_cmd.split(),
             "JOB=1:{}".format(num_jobs),
             os.path.join(out_dir, "log", "decode.JOB.log"),
-            model_file,
+            *model_file,
             "--dir", dirname,
             "--mode", "decode",
             *additional_ops,
