@@ -4,9 +4,9 @@
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
-# %WER 7.78 [ 4233 / 54402, 460 ins, 502 del, 3271 sub
+#  ??
 # after fg rescoring
-# %WER 5.11 [ 2779 / 54402, 404 ins, 248 del, 2127 sub ]
+#  ??
 
 import torch
 import torch.nn.functional as F
@@ -21,12 +21,12 @@ logging.basicConfig(level=logging.DEBUG)
 import sys
 import configargparse
 
+import kaldifeat
 
 def build(args):
     class Net(nn.Module):
 
         def __init__(self,
-                     feat_dim,
                      output_dim,
                      hidden_dim=1024,
                      bottleneck_dim=128,
@@ -37,12 +37,19 @@ def build(args):
                      p_dropout=0.1):
             super().__init__()
 
+            # Preprocessor
+            self.cmvn = pkwrap.cmvn.UttCMVN()
+
+            opts = kaldifeat.FbankOptions()
+            self.features_opts = pkwrap.utils.kaldifeat_set_option(opts, "./configs/fbank_hires.conf")
+            self.fbank = kaldifeat.Fbank(self.features_opts)
+
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
 
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
-            input_dim = feat_dim
+            input_dim = self.features_opts.mel_opts.num_bins
 
             #input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
@@ -112,7 +119,6 @@ def build(args):
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 
-
             if args.freeze_encoder:
                 logging.info("Freezing encoder!")
                 
@@ -131,16 +137,14 @@ def build(args):
 
         def validate_model(self):
             N = 2
-            T = (10 * self.frame_subsampling_factor)
-            #C = feat_dim * 3
-            C = self.input_dim
-            x = torch.arange(N * T * C).reshape(N, T, C).float()
+            C = (10 * self.frame_subsampling_factor) * 274
+            x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 10
+            assert nnet_output.shape[1] == 17
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 10
+            assert nnet_output.shape[1] == 17
             self.train()
 
         def pad_input(self, x):
@@ -154,10 +158,25 @@ def build(args):
         def vq(self):
             return True
 
-        def forward(self, x, dropout=0.):
-            # input x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
+        def forward(self, x):
+            assert x.ndim == 2
+            # input x is of shape: [batch_size, wave] = [N, C]
+
+            if self.features_opts.device != x.device:
+                self.features_opts.device = x.device
+                self.fbank = kaldifeat.Fbank(self.features_opts)
+
+
+            # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
+            x *= 32768
+            waveform = [*x] # batch processing with python list (required by kaldifeat)
+
+            x = self.fbank(waveform)
+            x = torch.stack(x) # back to tensor
             assert x.ndim == 3
             x = self.pad_input(x)
+            x = self.cmvn(x)
+            # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
             x = self.tdnn1(x)
             x = self.dropout1(x)

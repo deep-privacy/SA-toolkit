@@ -3,12 +3,10 @@ cpu_cmd = run.pl
 cuda_cmd = run.pl
 
 [exp]
-# 12 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
+# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
 e2e = True
-dirname = e2e_tdnnf
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
-model_file = local/chain/e2e/tuning/tdnnf.py
 # dummy folders. will not be touched
 lang = data/lang_nosp_test_tgsmall
 lang_chain = data/lang_chain
@@ -16,6 +14,7 @@ lang_chain = data/lang_chain
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
+# train params
 num_epochs = 5
 num_jobs_initial = 2
 num_jobs_final = 5
@@ -25,15 +24,18 @@ lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval =  20
 minibatch_size = 16
-train_stage = 1
+# train_stage = 1
+
+
+model_file = local/chain/e2e/tuning/tdnnf.py
+dirname = e2e_tdnnf
 
 [test]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
 test_set = data/dev_clean_fbank_hires
-from_wav = True
-# suffix = online_test2
+# suffix = baseline
 # decode on gpus
 num_jobs = 40
 gpu = True

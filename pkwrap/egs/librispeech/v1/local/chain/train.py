@@ -459,7 +459,6 @@ def train():
         ]), shell=True)
         logging.info(" " + pkwrap.script_utils.read_single_param_file("{}/best_wer".format(out_dir), typename=str))
 
-
         logging.info(f"Rescore with a 4gram LM...")
         pkwrap.script_utils.run([
             "steps/lmrescore_const_arpa.sh",

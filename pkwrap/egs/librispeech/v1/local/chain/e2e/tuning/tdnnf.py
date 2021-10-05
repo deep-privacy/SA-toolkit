@@ -4,9 +4,9 @@
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
-# %WER 7.78 [ 4233 / 54402, 460 ins, 502 del, 3271 sub
+#  %WER 7.82 [ 4254 / 54402, 468 ins, 486 del, 3300 sub ]
 # after fg rescoring
-# %WER 5.11 [ 2779 / 54402, 404 ins, 248 del, 2127 sub ]
+#  %WER 5.12 [ 2787 / 54402, 316 ins, 326 del, 2145 sub ]
 
 import torch
 import torch.nn.functional as F
@@ -37,14 +37,13 @@ def build(args):
                      p_dropout=0.1):
             super().__init__()
 
-
             # Preprocessor
             self.cmvn = pkwrap.cmvn.UttCMVN()
 
             opts = kaldifeat.FbankOptions()
             self.features_opts = pkwrap.utils.kaldifeat_set_option(opts, "./configs/fbank_hires.conf")
             self.fbank = kaldifeat.Fbank(self.features_opts)
-            
+
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
 
@@ -137,7 +136,7 @@ def build(args):
                 x = torch.cat([left_pad, x, right_pad], axis=1)
             return x
 
-        def forward(self, x, dropout=0.):
+        def forward(self, x):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
