@@ -14,7 +14,6 @@ from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
 from _pkwrap import kaldi
 from .. import chain
-from .. import matrix
 from .. import script_utils
 from .. import utils
 from collections import defaultdict, namedtuple
@@ -22,6 +21,7 @@ import subprocess
 import io
 from math import ceil
 from .egs import prepare_minibatch
+from .egs_wav2vec2 import Wav2vec2EgsDataset, Wav2vec2BatchSampler, Wav2vec2EgsCollectFn, GetSupervisionFromWav2Vec2Egs
 
 import damped
 
@@ -201,11 +201,9 @@ class OnlineNaturalGradient(torch.autograd.Function):
         grad_bias.data.mul_(scale)
         return grad_input, grad_weight, grad_bias.t(), None, None
 
-def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
-                         minibatch_size="64", use_gpu=True, lr=0.0001,
+def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
+                         minibatch_size="64", lr=0.0001,
                          weight_decay=0.25, frame_shift=0,
-                         left_context=0,
-                         right_context=0,
                          print_interval=30,
                          frame_subsampling_factor=3,
                          tensorboard = None,
@@ -220,12 +218,10 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
 
     Args:
         model: Path to pytorch model (.pt file)
-        egs_file: scp or ark file (a string), should be prefix accordingly just like Kaldi
+        dataset: a Wav2vec2EgsDataset dataset
         den_fst_path: path to den.fst file
         training_opts: options of type ChainTrainingOpts
-        feat_dim: dimension of features (e.g. 40 for MFCC hires features)
         minibatch_size: a string of minibatch sizes separated by commas. E.g "64" or "128,64"
-        use_gpu: a boolean to set or unset the use of GPUs while training
         lr: learning rate
         frame_shift: an integer (usually 0, 1, or 2) used to shift the training features
         print_interval: the interval (a positive integer) to print the loss value
@@ -243,8 +239,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
     criterion = KaldiChainObjfFunction.apply
-    if use_gpu:
-        model = model.cuda()
+    model = model.cuda()
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
@@ -253,37 +248,47 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
 
     spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
-    for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
-        chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
-        features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
-        features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
-        if use_gpu:
-            features = features.cuda()
-        output, xent_output = model(features.cuda())
+    batch_sampler = Wav2vec2BatchSampler(
+        dataset.egs_holder,
+        batch_size=minibatch_size,
+        drop_last=False,
+    )
+    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=18, timeout=10)
+
+    #  for mb_id, data in enumerate(dataloader):
+        #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
+    #  sys.exit(0)
+
+    for mb_id, data in enumerate(dataloader):
+        features = data[0].cuda()
+
+        output, xent_output = model(features)
+        #  print("OUT:", output.shape, flush=True)
 
         # pchampio send the hidden state to domain task (async)
-        uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
+        uttid_list = list(map(lambda x: x.name, data[1]))
         #  print(uttid_list, flush=True)
         uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
         #  print(uttid_list, flush=True)
-        req = spk_branch.fork_detach(model.bottleneck_out,
+        req = spk_branch.fork_detach(model.bottleneck_out.detach().cpu(),
                                torch.tensor(uttid_list, dtype=torch.long),
                                dtype=(torch.float32, torch.long))
 
-        sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
+        num_output_frames = output.shape[1]
+        sup = GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], num_output_frames)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
         
         acc_sum.add_(deriv[0])
         if mb_id>0 and mb_id%print_interval==0:
             logging.info("Overall objf={}".format(acc_sum/print_interval))
-            if tensorboard: tensorboard.add_scalar('ASR objf', acc_sum/print_interval, mb_id)
+            if tensorboard: tensorboard.add_scalar('ASR_objf/train', acc_sum/print_interval, mb_id)
             acc_sum.zero_()
 
         if hasattr(model, 'vq') and model.vq():
             acc_sum_vq.add_(model.vq_loss.item())
             if mb_id>0 and mb_id%print_interval==0:
                 logging.info("Overall VQ objf={}".format(acc_sum_vq/print_interval))
-                if tensorboard: tensorboard.add_scalar('VQ objf', acc_sum_vq/print_interval, mb_id)
+                if tensorboard: tensorboard.add_scalar('VQ_objf/train', acc_sum_vq/print_interval, mb_id)
                 acc_sum_vq.zero_()
             deriv += model.vq_loss.to(deriv.device) # add to main loss
 
@@ -291,7 +296,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
             acc_sum_perplexity.add_(model.perplexity.item())
             if mb_id>0 and mb_id%print_interval==0:
                 logging.info("VQ perplexity ={}".format(acc_sum_perplexity/print_interval))
-                if tensorboard: tensorboard.add_scalar('VQ perplexity', acc_sum_perplexity/print_interval, mb_id)
+                if tensorboard: tensorboard.add_scalar('VQ_perplexity/train', acc_sum_perplexity/print_interval, mb_id)
                 acc_sum_perplexity.zero_()
 
 
@@ -308,10 +313,9 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     if tensorboard: tensorboard.close()
     return model
 
-def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
-    minibatch_size="64", use_gpu=True, frame_shift=0,
-    left_context=0,
-    right_context=0,
+@torch.no_grad()
+def compute_chain_objf(model, dataset, den_fst_path, training_opts,
+    minibatch_size="64", frame_shift=0,
     frame_subsampling_factor=3,
     tensorboard = None
     ):
@@ -319,19 +323,16 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
 
     Args:
         model: the model to run validation on
-        egs_file: egs containing the validation set
+        dataset: a Wav2vec2EgsDataset dataset
         den_fst_path: path to den.fst
         training_opts: ChainTrainingOpts object
-        left_context: left context of the model
-        right_context: right context of the model
         frame_subsampling_factor: subsampling to be used on the output
     """
     if training_opts is None:
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
     criterion = chain.KaldiChainObjfFunction.apply
-    if use_gpu:
-        model = model.cuda()
+    model = model.cuda()
     acc_sum = torch.tensor(0., requires_grad=False)
     acc_sum_vq = torch.tensor(0., requires_grad=False)
     acc_sum_perplexity = torch.tensor(0., requires_grad=False)
@@ -340,26 +341,32 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     if torch.distributed.is_initialized():
         spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
-    for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
-        chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
-        features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
-        features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
-        features = features.cuda()
+    batch_sampler = Wav2vec2BatchSampler(
+        dataset.egs_holder,
+        batch_size=minibatch_size,
+        drop_last=False,
+    )
+    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=18, timeout=10)
+
+    for mb_id, data in enumerate(dataloader):
+        features = data[0].cuda()
+
         output, xent_output = model(features)
 
         # pchampio send the hidden state to domain task (async)
         if torch.distributed.is_initialized():
-            uttid_list = utils.get_uttid_str(kaldi.chain.GetUttID(merged_egs))
+            uttid_list = list(map(lambda x: x.name, data[1]))
             uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
 
-            req = spk_branch.fork_detach(model.bottleneck_out,
+            req = spk_branch.fork_detach(model.bottleneck_out.detach().cpu(),
                                    torch.tensor(uttid_list, dtype=torch.long),
                                    dtype=(torch.float32, torch.long))
 
-        sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
+        num_output_frames = output.shape[1]
+        sup = GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], num_output_frames)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
 
-        mb, num_seq, _ = features.shape
+        mb, num_seq = features.shape
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
 
@@ -375,16 +382,16 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
 
     objf = acc_sum/tot_weight
     logging.info("Objective = {}".format(objf))
-    if tensorboard: tensorboard.add_scalar('ASR objf valid', objf, 1)
+    if tensorboard: tensorboard.add_scalar('ASR_objf/valid', objf, 1)
     if tensorboard: tensorboard.close()
 
     if hasattr(model, 'vq') and model.vq():
         logging.info("Overall VQ objf={}".format(acc_sum_vq/tot_weight))
-        if tensorboard: tensorboard.add_scalar('VQ objf valid', acc_sum_vq/tot_weight, 1)
+        if tensorboard: tensorboard.add_scalar('VQ_objf/valid', acc_sum_vq/tot_weight, 1)
 
     if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
         logging.info("Overall perplexity={}".format(acc_sum_perplexity/tot_weight))
-        if tensorboard: tensorboard.add_scalar('VQ perplexity valid', acc_sum_perplexity/tot_weight, 1)
+        if tensorboard: tensorboard.add_scalar('VQ_perplexity/valid', acc_sum_perplexity/tot_weight, 1)
 
     model = model.cpu()
     return model, objf

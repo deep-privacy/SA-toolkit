@@ -20,10 +20,9 @@ class EgsInfo(object):
     def __init__(self, name, wav, fstscp, num_output_frames):
         self.name = name
         self.wav = wav
-        self.fst = kaldi.fst.StdVectorFst()
-        kaldi.fst.ReadFstKaldi(fstscp, self.fst)
         self.num_output_frames = int(num_output_frames)
         self.supervision = None
+        self.fstscp = fstscp
 
     def create_supervision(self, trans_mdl):
         """Creates supervision object given transition model
@@ -36,6 +35,9 @@ class EgsInfo(object):
         Returns:
             None
         """
+        self.fst = kaldi.fst.StdVectorFst()
+        kaldi.fst.ReadFstKaldi(self.fstscp, self.fst)
+
         self.supervision = kaldi.chain.Supervision()
         kaldi.chain.TrainingGraphToSupervisionE2e(
             self.fst,
@@ -48,45 +50,81 @@ class EgsInfo(object):
     # applying normalization more than once
     def normalize_supervision(self, normalize_fst):
         """Normalize supervision with fst"""
-        if self.supervision is not None:
-            kaldi.chain.AddWeightToSupervisionFst(normalize_fst, self.supervision)
+        kaldi.chain.AddWeightToSupervisionFst(normalize_fst, self.supervision)
 
-def prepare_e2e_minibatch(batch):
-    """returns a tuple of minibatch tensor and merged supervision
+def prepare_e2e(egs):
+    """returns a tuple of tensor and merged supervision
 
     Args:
-        batch: a list of egs objects
+        egs: a egs objects
 
     Returns:
-        feats: a Tensor of size minibatch_size x time x dimension
-        merged_sup: Supervision object to be used as target for LF-MMI
+        feats: a Tensor of size  time x dimension
+        sup: Supervision object to be used as target for LF-MMI
 
     Raises:
         IOError: when something wrong while read a file
     """
     # load the audio
-    if not batch:
+    if not egs:
         return None, None
-    feat_list = []
     devnull = open(os.devnull, 'w')
-    for egs in batch:
-        try:
-            wav_read_process = subprocess.Popen(
-                ' '.join(egs.wav),
-                stdout=subprocess.PIPE,
-                shell=True,
-                stderr=devnull
-            )
-            samples, _ = soundfile.read(
-                io.BytesIO(wav_read_process.communicate()[0])
-            )
-            feat_list.append(samples)
-        except Exception:
-            raise IOError("Error processing {}".format(egs.name))
-    merged_sup = kaldi.chain.Supervision()
-    kaldi.chain.MergeSupervisionE2e([egs.supervision for egs in batch], merged_sup)
-    feats_torch = torch.tensor(feat_list, dtype=torch.float32, requires_grad=False)
-    return (feats_torch, merged_sup)
+    try:
+        wav_read_process = subprocess.Popen(
+            ' '.join(egs.wav),
+            stdout=subprocess.PIPE,
+            shell=True,
+            stderr=devnull
+        )
+        samples, _ = soundfile.read(
+            io.BytesIO(wav_read_process.communicate()[0])
+        )
+    except Exception:
+        raise IOError("Error processing {}".format(egs.name))
+    feats_torch = torch.tensor(samples, dtype=torch.float32, requires_grad=False)
+    return (feats_torch, egs)
+
+
+def GetSupervisionFromWav2Vec2Egs(transition_model, normalization_fst, egs_list, num_output_frames):
+        batch = []
+        for item in egs_list:
+            item.num_output_frames = num_output_frames
+            item.create_supervision(transition_model)
+            item.normalize_supervision(normalization_fst)
+            batch.append(item.supervision)
+        merged_sup = kaldi.chain.Supervision()
+        kaldi.chain.MergeSupervisionE2e(batch, merged_sup)
+        return merged_sup
+
+
+def Wav2vec2EgsCollectFn(batch):
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        lengths = torch.tensor([t.shape[0] for t in batch])
+        if lengths.sum().item() != batch[0].shape[0]*len(batch):
+            #  logging.warning("Padding tensor lengths={}".format(str(lengths)))
+            return torch.nn.utils.rnn.pad_sequence(batch, batch_first=True)
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum([x.numel() for x in batch])
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        return torch.stack(batch, 0, out=out)
+    if isinstance(elem, EgsInfo):
+        return list(batch)
+    else:
+        # check to make sure that the elements in batch have consistent size
+        it = iter(batch)
+        elem_size = len(next(it))
+        if not all(len(elem) == elem_size for elem in it):
+            raise RuntimeError('each element in list of batch should be of equal size')
+        transposed = zip(*batch)
+        res = [Wav2vec2EgsCollectFn(samples) for samples in transposed]
+        return res
+    raise TypeError("default_collate: batch must contain tensors, numpy arrays, numbers, dicts or lists; found {}".format(elem_type))
 
 
 class Wav2vec2BatchSampler(torch.utils.data.BatchSampler): # pylint: disable=too-few-public-methods
@@ -97,14 +135,13 @@ class Wav2vec2BatchSampler(torch.utils.data.BatchSampler): # pylint: disable=too
         for i in range(len(self.sampler)):
             idx = self.sampler[i]
             num_output_frames = idx.num_output_frames
-            batch_by_length[num_output_frames].append(idx)
+            batch_by_length[num_output_frames].append(i)
             if len(batch_by_length[num_output_frames]) == self.batch_size:
-                # we will have to normalize and merge egs
-                yield prepare_e2e_minibatch(batch_by_length[num_output_frames])
+                yield batch_by_length[num_output_frames]
                 batch_by_length[num_output_frames] = []
         for num_output_frames in batch_by_length:
             if batch_by_length[num_output_frames] and not self.drop_last:
-                yield prepare_e2e_minibatch(batch_by_length[num_output_frames])
+                yield batch_by_length[num_output_frames]
 
 
 class Wav2vec2EgsDataset(torch.utils.data.Dataset):
@@ -113,33 +150,29 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
     # TODO(srikanth): should reduce the number of parameters or reconfigure pylint
     def __init__(
             self,
-            egs_folder,
-            cegs_idx,
+            wav,
+            fst_file,
+            utt2len_file,
             transition_model_filename,
             normalization_fst_rxfilename,
-            sampling_rate=16000,
-            transition_model_binary_mode=True,
             shuffle=False,
     ):
         """instantiates a Pytorch Dataset for E2E training
 
         Args:
-            egs_folder: the folder containing egs
-            cegs_idx: index of egs, s.t. egs.cegs_idx.scp exists
+            wav: the file with wav.scp
+            fst_file: fst_file (e2e_biphone_tree/fst.{number}.scp)
             transition_model: transition model that maps transition ids to pdf ids
             normalization_fst: fst to normalize when supervision is created
-            sampling_rate: sampling rate of the audio files
         """
         self.transition_model = kaldi.hmm.TransitionModel()
         kaldi.hmm.ReadTransitionModel(
             self.transition_model,
             transition_model_filename,
-            transition_model_binary_mode
         )
         self.normalization_fst = kaldi.fst.StdVectorFst()
         kaldi.fst.ReadFstKaldi(normalization_fst_rxfilename, self.normalization_fst)
-        self.sampling_rate = sampling_rate
-        self.prepare_egs(egs_folder, cegs_idx)
+        self.prepare_egs(wav, fst_file)
         if shuffle:
             random.shuffle(self.egs_holder)
 
@@ -147,26 +180,18 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         return len(self.egs_holder)
 
     def __getitem__(self, idx):
-        return self.egs_holder[idx]
+        return prepare_e2e(self.egs_holder[idx])
 
     def __item__(self, i):
         # we may need to return wav and normalized fst instead
         return self.egs_holder[i]
 
-    def prepare_egs(self, egs_folder, cegs_index):
+    def prepare_egs(self, wav, fst_file):
         """Method to prepare egs_holder"""
         # egs file is wav.scp file
-        egs_file = "{}/egs.{}.ark".format(egs_folder, cegs_index)
-        fst_file = "{}/fst.{}.scp".format(egs_folder, cegs_index)
-        utt2len_file = "{}/utt2len.{}.ark".format(egs_folder, cegs_index)
-        utt2wav = Wav2vec2EgsDataset.read_wav_scp(egs_file)
-        utt2len = Wav2vec2EgsDataset.read_utt2len_file(utt2len_file)
-        egs_holder = self.get_egs_holder(fst_file, utt2wav, utt2len)
-
-        allowed_durations_filename = "{}/allowed_durs.txt".format(egs_folder)
-        self.allowed_durations = set([float(ln) for ln in open(allowed_durations_filename)])
-        self.allowed_durations_sorted = sorted(list(self.allowed_durations))
-        self.egs_holder = egs_holder
+        utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav)
+        utt2len = Wav2vec2EgsDataset.read_utt2len_file("{}/utt2len".format(os.path.dirname(wav)))
+        self.egs_holder = self.get_egs_holder(fst_file, utt2wav, utt2len)
 
     @staticmethod
     def read_wav_scp(wav_scp):
@@ -186,17 +211,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 uttname = lns[0]
                 utt2wav[uttname] = lns[1:]
         return utt2wav
-
-    # TODO: refactor this into some utilility that can read 2 column files
-    @staticmethod
-    def read_utt2dur_file(utt2dur_file):
-        """read utt2dur file and return a dictionary"""
-        utt2dur = {}
-        with open(utt2dur_file) as utt2dur_f:
-            for line in utt2dur_f:
-                lns = line.strip().split()
-                utt2dur[lns[0]] = float(lns[1])
-        return utt2dur
 
     @staticmethod
     def read_utt2len_file(utt2len_file):
@@ -227,9 +241,13 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                     logging.warning("Cannot find number of output frames for %s", uttname)
                     skipped += 1
                     continue
-                this_egs_info = EgsInfo(uttname, utt2wav[uttname], fstscp, utt2len[uttname])
-                min_path_length = kaldi.chain.FindMinimumLengthPathFromFst(this_egs_info.fst)
-                if min_path_length > this_egs_info.num_output_frames:
+
+                num_output_frames = utt2len[uttname]
+
+                fst = kaldi.fst.StdVectorFst()
+                kaldi.fst.ReadFstKaldi(fstscp, fst)
+                min_path_length = kaldi.chain.FindMinimumLengthPathFromFst(fst)
+                if min_path_length > num_output_frames:
                     logging.warning(
                         "get_egs_holder, %s has more labels than frames",
                         this_egs_info.name
@@ -237,8 +255,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                     skipped += 1
                     continue
 
-                this_egs_info.create_supervision(self.transition_model)
-                this_egs_info.normalize_supervision(self.normalization_fst)
+                this_egs_info = EgsInfo(uttname, utt2wav[uttname], fstscp, num_output_frames)
                 egs_holder.append(this_egs_info)
                 done += 1
             logging.info(

@@ -88,7 +88,7 @@ def build(args):
 
                 x = torch.cat((x, old_x - x), 2)
                 self.vq_loss = vq_loss
-                self.bottleneck_out = x.detach().cpu()
+                self.bottleneck_out = x
                 self.perplexity = perplexity
                 return x
 

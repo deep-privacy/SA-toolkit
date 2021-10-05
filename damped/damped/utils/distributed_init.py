@@ -9,7 +9,7 @@ logger.addHandler(log_handler)
 
 
 def init_distributedenv(
-    rank: int, world_size: int = 2, ip: str = "0.0.0.0", port: int = 29500
+    rank: int, world_size: int = 2, ip: str = "0.0.0.0", port: int = 29501
 ) -> None:
     """Initialize the distributed environment
 

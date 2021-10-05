@@ -85,7 +85,7 @@ def build(args):
                 vq_loss, x, perplexity, _, _, encoding_indices, \
                             losses, _, _, _, concatenated_quantized = self.quant(x)
                 self.vq_loss = vq_loss
-                self.bottleneck_out = x.detach().cpu()
+                self.bottleneck_out = x
                 self.perplexity = perplexity
                 return x
 
@@ -118,7 +118,7 @@ def build(args):
                 
                 switch_require_grad = False
                 for name, param in self.named_parameters():
-                    if name=="tdnnfs.20.tdnn.linearA.bias":
+                    if name=="tdnnfs.18.tdnn.linearB.weight":
                         switch_require_grad = True
                         continue
                     param.requires_grad = switch_require_grad

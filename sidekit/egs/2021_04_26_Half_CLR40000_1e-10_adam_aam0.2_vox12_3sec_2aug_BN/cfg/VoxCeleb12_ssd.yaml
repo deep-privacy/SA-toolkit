@@ -1,0 +1,70 @@
+# Dataset description
+
+
+# General options
+data_path: /lium/scratch/larcher/
+data_file_extension: .wav
+dataset_csv: list/vox12.csv
+
+# DEV4S smaller dataset:
+# awk -F, 'x[$1]<10;{x[$1]++}' vox12.csv  > vox12_DEV.csv
+# dataset_csv: list/vox12_DEV.csv
+
+# DEV4S smaller dataset (with only long utterances):
+# (head -n 2 list/vox12_DEV.csv ; cat list/vox12_DEV.csv | sort -t , -k 5,5  -rn | head -n 7204) > list/vox12_DEV_long.csv
+# tail -n +2 list/vox12_DEV.csv | cut -d , -f 1 | sort | uniq > /tmp/len
+# tail -n +2 list/vox12_DEV_long.csv | cut -d, -f2- > /tmp/vox12_DEV_long_side.csv
+# paste -d',' /tmp/len /tmp/vox12_DEV_long_side.csv > /tmp/vox12_DEV_long_wrongspkid.csv
+# (head -n 2 list/vox12_DEV.csv; cat /tmp/vox12_DEV_long_wrongspkid.csv) > list/vox12_DEV_long.csv
+# dataset_csv: list/vox12_DEV_long_sorted.csv
+
+sample_rate: 16000
+
+validation_ratio: 0.02
+batch_size: 512
+
+# Training set
+train:
+    duration: 3.
+    chunk_per_segment: -1
+    overlap: 3.
+
+    sampler:
+        examples_per_speaker: 1
+        samples_per_speaker: 100
+        augmentation_replica: 1
+
+    transform_number: 1
+
+    transformation:
+        pipeline: add_reverb,add_noise,filtering,phone_filtering,codec
+        spec_aug: 0.5
+        temp_aug: 0.5
+
+        add_noise:
+            noise_db_csv: /lium/raid01_c/larcher/data/musan_split.csv
+            data_path: /lium/scratch/larcher/musan_split/
+
+        add_reverb:
+            rir_db_csv: list/reverb.csv
+            data_path: /lium/scratch/amehrish/Database/REVERB_UPDATED/REVERB/RIRS_NOISES/
+
+# Validation set
+valid:
+    duration: 3.
+
+    transformation:
+        pipeline:
+        spec_aug: 0.5
+        temp_aug: 0.5
+
+        add_noise:
+            noise_db_csv: /lium/raid01_c/larcher/data/musan_split.csv
+            data_path: /lium/scratch/larcher/musan_split/
+
+# Test set
+test:
+    idmap: /lium/raid01_c/larcher/data/vox1_test_cleaned_idmap.h5
+    ndx: /lium/raid01_c/larcher/data/vox1_test_cleaned_ndx.h5
+    key: /lium/raid01_c/larcher/data/vox1_test_cleaned_key.h5
+    data_path: /lium/scratch/larcher/voxceleb1/test/wav

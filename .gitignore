@@ -5,3 +5,5 @@ Miniconda3-latest-Linux-x86_64.sh
 Miniconda3-py38_4.9.2-Linux-x86_64.sh
 kaldi
 corpora
+kaldifeat
+*/*.egg-inf

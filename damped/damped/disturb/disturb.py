@@ -23,7 +23,7 @@ def init(
     #  rank=int(os.getenv("CUDA_VISIBLE_DEVICES", 0)) + 1,
     rank=0,
     all_to_one = False,
-    expected_domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1)), port=29500
+    expected_domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1)), port=29501
 ) -> None:
     """Initialize the damped distributed environment
 

@@ -2,6 +2,7 @@ import io
 
 import kaldiio
 import numpy as np
+import torch
 
 
 class CMVN(object):
@@ -62,6 +63,8 @@ class CMVN(object):
         # is the number of samples for this statistics.
         self.bias = {}
         self.scale = {}
+        acc_bias = None
+        acc_scale = None
         for spk, stats in stats_dict.items():
             assert len(stats) == 2, stats.shape
 
@@ -76,8 +79,20 @@ class CMVN(object):
             # V(x) = E(x^2) - (E(x))^2
             var = stats[1, :-1] / count - mean * mean
             std = np.maximum(np.sqrt(var), std_floor)
-            self.bias[spk] = -mean
-            self.scale[spk] = 1 / std
+            self.bias[spk] = torch.tensor(-mean, dtype=torch.float32)
+            self.scale[spk] = torch.tensor(1 / std, dtype=torch.float32)
+
+
+            if acc_bias == None:
+                acc_scale = torch.zeros_like(self.scale[spk])
+                acc_bias = torch.zeros_like(self.bias[spk])
+
+            acc_bias.add_(self.bias[spk])
+            acc_scale.add_(self.scale[spk])
+
+        self.bias["generic-spk"] = acc_bias/len(stats_dict)
+        self.scale["generic-spk"] = acc_scale/len(stats_dict)
+
 
     def __repr__(self):
         return (
@@ -93,51 +108,38 @@ class CMVN(object):
         )
 
     def __call__(self, x, uttid=None):
-        if self.utt2spk is not None:
+        if self.utt2spk is not None and uttid != "generic-spk":
             spk = self.utt2spk[uttid]
         else:
             spk = uttid
 
         if not self.reverse:
             if self.norm_means:
-                x = np.add(x, self.bias[spk])
+                x = torch.add(x, self.bias[spk].to(x.device))
             if self.norm_vars:
-                x = np.multiply(x, self.scale[spk])
+                x = torch.multiply(x, self.scale[spk].to(x.device))
 
         else:
             if self.norm_vars:
-                x = np.divide(x, self.scale[spk])
+                x = torch.divide(x, self.scale[spk].to(x.device))
             if self.norm_means:
-                x = np.subtract(x, self.bias[spk])
+                x = torch.subtract(x, self.bias[spk].to(x.device))
 
         return x
 
 
-class UtteranceCMVN(object):
-    def __init__(self, norm_means=True, norm_vars=False, std_floor=1.0e-20):
-        self.norm_means = norm_means
-        self.norm_vars = norm_vars
-        self.std_floor = std_floor
+EPSILON = 1e-6
 
-    def __repr__(self):
-        return "{name}(norm_means={norm_means}, norm_vars={norm_vars})".format(
-            name=self.__class__.__name__,
-            norm_means=self.norm_means,
-            norm_vars=self.norm_vars,
-        )
+class UttCMVN(torch.nn.Module):
+    def __init__(self, var_norm=False):
+        super(UttCMVN, self).__init__()
+        self.var_norm = var_norm
 
-    def __call__(self, x, uttid=None):
-        # x: [Time, Dim]
-        square_sums = (x ** 2).sum(axis=0)
-        mean = x.mean(axis=0)
-
-        if self.norm_means:
-            x = np.subtract(x, mean)
-
-        if self.norm_vars:
-            var = square_sums / x.shape[0] - mean ** 2
-            std = np.maximum(np.sqrt(var), self.std_floor)
-            x = np.divide(x, std)
-
+    def forward(self, x):
+        mean = x.mean(dim=1, keepdims=True)
+        if self.var_norm:
+            std = torch.sqrt(x.var(dim=1, keepdims=True) + EPSILON)
+        x = x - mean
+        if self.var_norm:
+            x /= std
         return x
-

@@ -5,29 +5,30 @@ cuda_cmd = run.pl
 [exp]
 # 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
 e2e = True
-dirname = e2e_tdnnf_vq
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
-model_file = local/chain/e2e/tuning/tdnnf_vq.py
 # dummy folders. will not be touched
 lang = data/lang_nosp_test_tgsmall
 lang_chain = data/lang_chain
 # trained using prepare_data.sh
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
-egs_dir = exp/chain/e2e_tdnnf_vq/egs
+egs_dir = exp/chain/e2e_tdnnf/egs
 
 # train params
-num_epochs = 2
+num_epochs = 1
 num_jobs_initial = 2
 num_jobs_final = 5
 grad_acc_steps = 2
 lr_initial = 0.001
 lr_final = 0.00001
 diagnostics_interval = 10
+checkpoint_interval = 20
 minibatch_size = 16
-# train_stage = 1
+# train_stage = 42
 
-model_args = ["--freeze-encoder", "True", "--codebook-size", "256"]
+model_file = local/chain/e2e/tuning/tdnnf_vq.py
+dirname = e2e_tdnnf_vq_sizeco_2048
+model_args = ["--freeze-encoder", "True", "--codebook-size", "2048"]
 init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 

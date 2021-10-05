@@ -6,8 +6,10 @@ from _pkwrap import *
 from . import nn
 from . import script_utils
 from . import chain
-from . import matrix
 from . import utils
 from . import trainer
-from . import nsg
 from . import tensorboard
+
+from _pkwrap.kaldi.matrix import TensorToKaldiMatrix
+
+from . import cmvn

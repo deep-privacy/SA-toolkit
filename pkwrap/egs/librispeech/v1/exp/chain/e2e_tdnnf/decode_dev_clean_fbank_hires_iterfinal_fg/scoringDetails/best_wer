@@ -1,1 +1,1 @@
-%WER 5.11 [ 2778 / 54402, 355 ins, 312 del, 2111 sub ] exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/wer_9_1.0
+%WER 5.12 [ 2787 / 54402, 316 ins, 326 del, 2145 sub ] exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg/wer_10_1.0

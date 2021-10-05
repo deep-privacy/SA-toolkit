@@ -1,0 +1,20 @@
+# Model description
+
+speaker_number: 7205
+
+loss:
+    type: aam
+    aam_margin: 0.2
+    aam_s: 30
+
+# Initialize model from file, reset and freeze parts of it
+initial_model_name:
+reset_parts: []
+freeze_parts: []
+
+# Model can be fastresnet34, resnet34, xvector of custom
+# if custom, then need more options
+# model_type: halfresnet34
+model_type: bn_halfresnet34
+
+feature_size: 80

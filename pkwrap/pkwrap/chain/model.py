@@ -13,22 +13,20 @@ import torch.nn as nn
 import torch.optim as optim
 import torchaudio
 from _pkwrap import kaldi
-from .. import matrix
 from .. import script_utils
 from .. import utils
-from .. import cmvn
 from .. import tensorboard
 from .objf import train_lfmmi_one_iter, compute_chain_objf
+from .egs_wav2vec2 import Wav2vec2EgsDataset
 
 import kaldiio
 import matplotlib.pyplot as plt
 from damped import disturb
-from pytorch_memlab import LineProfiler
 
 
 @dataclass
 class TrainerOpts:
-    mode: str = "init"
+    mode: str = ""
     dir: str = ""
     lr: float = 0.001
     minibatch_size: int = 32
@@ -39,14 +37,12 @@ class TrainerOpts:
 class DecodeOpts:
     use_gpu: bool = False
     gpu_id: int = 0
-    from_wav: bool = False
-    from_wav_cmvn = {}
-    from_wav_fbanks_conf: str = "configs/fbank_hires.conf"
     decode_feats: str = 'data/test/feats.scp'
     decode_output: str = '-'
 
 @dataclass
 class ChainModelOpts(TrainerOpts, DecodeOpts):
+    dataset: str = ""
     egs: str = ""
     new_model: str = ""
     l2_regularize: float = 1e-4
@@ -54,11 +50,9 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     out_of_range_regularize: float = 0.01
     leaky_hmm_coefficient: float = 0.1
     xent_regularize: float = 0.025
-    minibatch_size: str = "32"
+    minibatch_size: int = 32
     frame_shift: int = 0
     output_dim: int = 1
-    feat_dim: int = 1
-    context: int = 0
     frame_subsampling_factor: int = 3
 
     def load_from_config(self, cfg):
@@ -71,12 +65,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
 
 class ChainModel(nn.Module):
     def __init__(self, model_cls, cmd_line=False, **kwargs):
-        """initialize a ChainModel
-
-        The idea behind this class is to split the various functionalities
-        across methods so that we can reuse whataver is required and reimplement
-        only that which is necessary
-        """
+        """initialize a ChainModel"""
         super(ChainModel, self).__init__()
         assert model_cls is not None
         if cmd_line:
@@ -95,19 +84,14 @@ class ChainModel(nn.Module):
 
         So far the modes supported are:
             - init
-            - context
             - merge
             - train (or training)
             - validate (or diagnostic)
             - infer (or decode)
         """
         self.reset_dims()
-        if self.chain_opts.mode != 'context':
-            self.load_context()
         if self.chain_opts.mode == 'init':
             self.init()
-        elif self.chain_opts.mode == 'context':
-            self.context()
         elif self.chain_opts.mode == 'merge':
             self.merge()
         elif self.chain_opts.mode in ['validate', 'diagnostic'] :
@@ -121,9 +105,7 @@ class ChainModel(nn.Module):
         elif self.chain_opts.mode in ['train', 'training']:
             disturb.init(all_to_one=True)
             disturb.train(all_to_one=True)
-            #  with LineProfiler(self.train) as prof:
             self.train()
-            #  print(prof.display(), flush=True)
             disturb.stop(all_to_one=True)
         elif self.chain_opts.mode in ['decode', 'infer']:
             #  disturb.init(all_to_one=True)
@@ -137,7 +119,7 @@ class ChainModel(nn.Module):
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model = self.Net(self.chain_opts.output_dim)
         if self.chain_opts.init_weight_model != "":
             not_inited = model.load_state_dict(torch.load(self.chain_opts.init_weight_model), strict=False)
             logging.info("Init from previous model {}, layers not initialized: {}".format(self.chain_opts.init_weight_model, str(not_inited)))
@@ -152,35 +134,7 @@ class ChainModel(nn.Module):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
-        chain_opts = self.chain_opts
-        lr = chain_opts.lr
-        den_fst_path = os.path.join(chain_opts.dir, "den.fst")
-
-        # load model
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        model.load_state_dict(torch.load(chain_opts.base_model))
-
-        training_opts = kaldi.chain.CreateChainTrainingOptions(
-                chain_opts.l2_regularize,
-                chain_opts.out_of_range_regularize,
-                chain_opts.leaky_hmm_coefficient,
-                chain_opts.xent_regularize,
-        )
-        context = chain_opts.context
-        new_model = train_lfmmi_one_iter(
-            model,
-            chain_opts.egs,
-            den_fst_path,
-            training_opts,
-            chain_opts.feat_dim,
-            minibatch_size=chain_opts.minibatch_size,
-            left_context=context,
-            right_context=context,
-            lr=chain_opts.lr,
-            weight_decay=chain_opts.l2_regularize_factor,
-            frame_shift=chain_opts.frame_shift
-        )
-        torch.save(new_model.state_dict(), chain_opts.new_model)
+        raise "Only implementing e2e LF-MMI"
 
     @torch.no_grad()
     def validate(self):
@@ -188,8 +142,7 @@ class ChainModel(nn.Module):
         chain_opts = self.chain_opts
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
-#           load model
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model = self.Net(self.chain_opts.output_dim)
         model.load_state_dict(torch.load(chain_opts.base_model))
         model.eval()
 
@@ -200,14 +153,19 @@ class ChainModel(nn.Module):
                 chain_opts.xent_regularize,
         )
 
+        dataset = Wav2vec2EgsDataset(
+            "{}/wav.scp".format(chain_opts.dataset),
+            chain_opts.egs,
+            "{}/utt2len".format(chain_opts.dataset),
+            "{}/final.mdl".format(chain_opts.dir),
+            "{}/normalization.fst".format(chain_opts.dir),
+        )
         compute_chain_objf(
             model,
-            chain_opts.egs,
+            dataset,
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
-            left_context=chain_opts.context,
-            right_context=chain_opts.context,
             tensorboard=tensorboard.PkwrapTwensorBoard(self) if "valid" in self.chain_opts.egs else None,
         )
 
@@ -216,11 +174,11 @@ class ChainModel(nn.Module):
         chain_opts = self.chain_opts
         base_models = chain_opts.base_model.split(',')
         assert len(base_models)>0
-        model0 = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model0 = self.Net(self.chain_opts.output_dim)
         model0.load_state_dict(torch.load(base_models[0]))
         model_acc = dict(model0.named_parameters())
         for mdl_name in base_models[1:]:
-            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            this_mdl = self.Net(self.chain_opts.output_dim)
             this_mdl.load_state_dict(torch.load(mdl_name))
             for name, params in this_mdl.named_parameters():
                 model_acc[name].data.add_(params.data)
@@ -232,11 +190,11 @@ class ChainModel(nn.Module):
     @torch.no_grad()
     def codebook_analysis(self):
         chain_opts = self.chain_opts
-        model = self.initialize_model()
+        model = self.Net(chain_opts.output_dim)
         base_model = chain_opts.base_model
+        model = model.to(device)
         try:
-            self.load_base_model(model)
-            model.eval()
+            model.load_state_dict(torch.load(base_model))
         except Exception as e:
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
@@ -265,17 +223,43 @@ class ChainModel(nn.Module):
 
         logging.info("saved scatters to {}".format(os.path.dirname(savepath)))
 
+    @torch.no_grad()
+    def get_apply(self, device=torch.device("cpu"), data_aug=lambda x, is_eval=False: x):
+        chain_opts = self.chain_opts
+
+        model = self.Net(chain_opts.output_dim)
+        base_model = chain_opts.base_model
+        model = model.to(device)
+        try:
+            model.load_state_dict(torch.load(base_model))
+        except Exception as e:
+            logging.error(e)
+            logging.error("Cannot load model {}".format(base_model))
+            quit(1)
+
+        model.eval()
+
+        def _forward(key, waveform, is_eval=False):
+            with torch.no_grad():
+                waveform = data_aug(waveform, is_eval=is_eval)
+                post, xent_output = model(waveform)
+                return post, model
+
+        return _forward
+
 
     @torch.no_grad()
     def infer(self):
         chain_opts = self.chain_opts
-        model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
+        model = self.Net(chain_opts.output_dim)
         base_model = chain_opts.base_model
 
-        run_on_gpu = (list(range(0, torch.cuda.device_count())) * 200)[chain_opts.gpu_id]
+        device = torch.device("cpu")
         if chain_opts.use_gpu:
-            model = model.to(torch.device("cuda:{}".format(run_on_gpu)))
+            run_on_gpu = (list(range(0, torch.cuda.device_count())) * 200)[chain_opts.gpu_id]
+            device = torch.device("cuda:{}".format(run_on_gpu))
             logging.info("Using GPU: {}".format(run_on_gpu))
+        model = model.to(device)
 
         try:
             model.load_state_dict(torch.load(base_model))
@@ -283,96 +267,24 @@ class ChainModel(nn.Module):
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
             quit(1)
-        # TODO(srikanth): make sure context is a member of chain_opts
-        context = chain_opts.context
         model.eval()
         writer_spec = "ark,t:{}".format(chain_opts.decode_output)
         writer = script_utils.feat_writer(writer_spec)
 
-        reader = script_utils.feat_reader_gen(chain_opts.decode_feats)
-        if chain_opts.from_wav:
-            reader = kaldiio.load_scp_sequential(chain_opts.decode_feats)
+        for key, feats in kaldiio.load_scp_sequential(chain_opts.decode_feats):
+            sampling_rate, numpy_array = feats
+            numpy_array = numpy_array.astype(numpy.float32)
+            feats = torch.tensor(numpy_array).squeeze()
 
-            cmvn_transform = lambda args,uttid="nope" : args
-            if chain_opts.from_wav_cmvn:
-                cmvn_transform = cmvn.CMVN(**chain_opts.from_wav_cmvn)
-
-            def frontend(key, feats):
-                sampling_rate, numpy_array = feats
-                numpy_array = numpy_array.astype(numpy.float32)
-                waveform = torch.tensor(numpy_array).unsqueeze(0)
-                fbank = torchaudio.compliance.kaldi.fbank(waveform, **utils.read_kaldi_conf(chain_opts.from_wav_fbanks_conf))
-                feats = cmvn_transform(fbank, uttid=key)
-                feats = torch.tensor(feats, dtype=torch.float32)
-                return key, feats
-
-        for key, feats in reader:
-            if chain_opts.from_wav:
-                key, feats = frontend(key, feats)
-
-            feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
             if chain_opts.use_gpu:
-                feats_with_context = feats_with_context.to(torch.device("cuda:{}".format(run_on_gpu)))
+                feats = feats.to(device)
 
-            post, xent_output = model(feats_with_context)
+            post, xent_output = model(feats.unsqueeze(0))
 
             post = post.squeeze(0).cpu()
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
             logging.info("Wrote {}".format(key))
         writer.Close()
-
-    def context(self):
-        """Find context by brute force
-
-        WARNING: it only works for frame_subsampling_factor=3
-        """
-
-        logging.warning("context function called. it only works for frame_subsampling_factor=3")
-        visited = Counter()
-        with torch.no_grad():
-          feat_dim = 40
-          num_pdfs = 300
-          model = self.Net(40, 300)
-          chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
-          frame_shift = 0
-          left_context = 0
-          logging.info("Searching for context...")
-          while True:
-              right_context = left_context
-              found = []
-              for chunk_len, output_len in chunk_sizes:
-                  feat_len = chunk_len+left_context+right_context
-                  assert feat_len > 0
-                  try:
-                      test_feats = torch.zeros(32, feat_len, feat_dim)
-                      y = model(test_feats)
-                  except Exception as e:
-                      visited[left_context] += 1
-                      if visited[left_context] > 10:
-                          break
-                  if y[0].shape[1] == output_len:
-                      found.append(True)
-                  else:
-                      found.append(False)
-                      break
-              if all(found):
-                      self.save_context(left_context)
-                      return
-              left_context += 1
-              if left_context >= 100:
-                  raise NotImplementedError("more than context of 100")
-          raise Exception("No context found")
-
-    def save_context(self, value):
-          logging.info(f"Left_context = {value}")
-          with open(os.path.join(self.chain_opts.dir, 'context'), 'w') as opf:
-              opf.write(f'{value}')
-              opf.close()
-
-    def load_context(self):
-        self.chain_opts.context = script_utils.read_single_param_file(
-                os.path.join(self.chain_opts.dir, 'context'),
-        )
 
     def reset_dims(self):
         # what if the user wants to pass it? Just override this function
@@ -382,19 +294,6 @@ class ChainModel(nn.Module):
         )
         self.chain_opts.output_dim = script_utils.read_single_param_file(num_pdfs_filename)
 
-        feat_dim_filename = os.path.join(
-            self.chain_opts.dir,
-            "feat_dim"
-        )
-        # checking this because we don't always need feat_dim (e.g. when
-        # generating context)
-        if os.path.isfile(feat_dim_filename):
-            self.chain_opts.feat_dim = script_utils.read_single_param_file(feat_dim_filename)
-
-
-    def load_model_context(self):
-        context_file_name = os.path.join(self.chain_opts.dir, 'context')
-        context = script_utils.read_single_param_file(context_file_name)
 
     def load_cmdline_args(self):
         parser = argparse.ArgumentParser(description="")
@@ -402,22 +301,20 @@ class ChainModel(nn.Module):
         parser.add_argument("--dir", default="")
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--egs", default="")
+        parser.add_argument("--dataset", default="")
         parser.add_argument("--new-model", default="")
         parser.add_argument("--l2-regularize", default=1e-4, type=float)
         parser.add_argument("--l2-regularize-factor", default=1.0, type=float) # this is the weight_decay in pytorch
         parser.add_argument("--out-of-range-regularize", default=0.01, type=float)
         parser.add_argument("--xent-regularize", default=0.025, type=float)
         parser.add_argument("--leaky-hmm-coefficient", default=0.1, type=float)
-        parser.add_argument("--minibatch-size", default="32", type=str)
+        parser.add_argument("--minibatch-size", default=32, type=int)
         parser.add_argument("--decode-feats", default="data/test/feats.scp", type=str)
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
         parser.add_argument("--use-gpu", default=False, type=bool)
         parser.add_argument("--gpu-id", default=0, type=int)
-        parser.add_argument("--from-wav", default=False, type=bool)
-        parser.add_argument("--from-wav-cmvn", default={}, type=json.loads)
-        parser.add_argument("--from-wav-fbanks-conf", default='', type=str)
         parser.add_argument("--init-weight-model", default='', type=str)
         parser.add_argument("base_model")
         args = parser.parse_args()
@@ -438,19 +335,24 @@ class ChainModel(nn.Module):
                 chain_opts.xent_regularize,
         )
 
-        moving_average = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        best_mdl =  self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        moving_average = self.Net(self.chain_opts.output_dim)
+        best_mdl =  self.Net(self.chain_opts.output_dim)
         moving_average.load_state_dict(torch.load(base_models[0]))
         moving_average.cuda()
         best_mdl = moving_average
+        dataset = Wav2vec2EgsDataset(
+            "{}/wav.scp".format(chain_opts.dataset),
+            chain_opts.egs,
+            "{}/utt2len".format(chain_opts.dataset),
+            "{}/final.mdl".format(chain_opts.dir),
+            "{}/normalization.fst".format(chain_opts.dir),
+        )
         compute_objf = lambda mdl: compute_chain_objf(
             mdl,
-            chain_opts.egs,
+            dataset,
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
-            left_context=chain_opts.context,
-            right_context=chain_opts.context,
             frame_shift=chain_opts.frame_shift,
         )
 
@@ -461,7 +363,7 @@ class ChainModel(nn.Module):
         num_accumulated = torch.Tensor([1.0]).reshape(1).cuda()
         best_num_to_combine = 1
         for mdl_name in base_models[1:]:
-            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            this_mdl = self.Net(self.chain_opts.output_dim)
             logging.info("Combining model {}".format(mdl_name))
             this_mdl.load_state_dict(torch.load(mdl_name))
             this_mdl = this_mdl.cuda()
@@ -511,7 +413,7 @@ class ChainE2EModel(ChainModel):
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
 #           load model
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model = self.Net(self.chain_opts.output_dim)
         model.load_state_dict(torch.load(chain_opts.base_model))
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
@@ -521,19 +423,21 @@ class ChainE2EModel(ChainModel):
                 chain_opts.xent_regularize,
         )
         logging.info("xent passed as {}".format(chain_opts.xent_regularize))
-        context = chain_opts.context
         model = model.cuda()
         optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
-        #  with LineProfiler(train_lfmmi_one_iter) as prof:
+        dataset = Wav2vec2EgsDataset(
+            "{}/wav.scp".format(chain_opts.dataset),
+            chain_opts.egs,
+            "{}/utt2len".format(chain_opts.dataset),
+            "{}/final.mdl".format(chain_opts.dir),
+            "{}/normalization.fst".format(chain_opts.dir),
+        )
         new_model = train_lfmmi_one_iter(
             model,
-            chain_opts.egs,
+            dataset,
             den_fst_path,
             training_opts,
-            chain_opts.feat_dim,
             minibatch_size=chain_opts.minibatch_size,
-            left_context=context,
-            right_context=context,
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
             frame_shift=chain_opts.frame_shift,
@@ -541,11 +445,5 @@ class ChainE2EModel(ChainModel):
             optimizer=optimizer,
             e2e = True,
         )
-        #  print(prof.display(), flush=True)
         torch.save(new_model.state_dict(), chain_opts.new_model)
-
-    def context(self):
-        """Write context of the model to 0 because the Net is designed to pad its own context"""
-        self.save_context(0)
-
 

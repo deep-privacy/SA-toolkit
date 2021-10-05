@@ -58,6 +58,41 @@ echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
+mark=.done-python-requirements-kaldi-feat
+if [ ! -f $mark ]; then
+  # make it specific to your cuda version
+  # conda search cudnn -c conda-forge
+  # conda search cudnn
+  cudnn_version="cudnn=7.6.5=cuda10.2_0"
+  echo " == CHECK THIS: Installing HARDCODED $cudnn_version!!!!!!!!  =="
+  echo " == CHECK THIS: Installing HARDCODED $cudnn_version!!!!!!!!  =="
+  sleep 2
+  yes | conda install cudnn=7.6.5=cuda10.2_0 || exit 1
+
+  export CUDNN_ROOT="$venv_dir"
+  export CUDNN_INCLUDE_DIR="$venv_dir/include"
+  export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
+  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
+  export KALDIFEAT_MAKE_ARGS="-j"
+
+  git clone https://github.com/csukuangfj/kaldifeat
+  cd kaldifeat
+  git checkout 5e1a9b8
+  echo " === Applying personal patch on kaldi ==="
+  git apply ../kaldifeat_install.patch
+  rm build_release -rf || true
+  mkdir build_release
+  cd build_release
+  cmake .. $KALDIFEAT_CMAKE_ARGS
+  make VERBOSE=1 $KALDIFEAT_MAKE_ARGS
+  cd ..
+  python3 setup.py install
+  cd $home
+  python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
+  touch $mark
+fi
+
+
 mark=.done-pytorch
 if [ ! -f $mark ]; then
   echo " == Installing pytorch $torch_version for cuda $cuda_version =="
@@ -85,6 +120,8 @@ if [ ! -f $mark ]; then
   pip3 install matplotlib==3.4.3
   pip3 install SoundFile==0.10.3.post1
   pip3 install PyYAML==5.4.1
+  pip3 install h5py==3.2.1
+  pip3 install ipython==7.27.0
 
   cd $home
   touch $mark
@@ -150,6 +187,7 @@ if [ ! -f $mark ]; then
   # rm -rf sidekit
   # git clone https://git-lium.univ-lemans.fr/Larcher/sidekit.git
   cd sidekit
+  pip3 install -e .
   # git checkout 88f4d2b9
   cd $home
   touch $mark

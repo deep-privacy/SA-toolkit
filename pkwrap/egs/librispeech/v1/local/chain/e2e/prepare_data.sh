@@ -137,8 +137,8 @@ if [ $stage -le 4 ]; then
 fi
 
 if [ $stage -le 5 ]; then
-  mkdir -p ${dir}/configs
-  mkdir -p ${dir}/init
+  # mkdir -p ${dir}/configs
+  # mkdir -p ${dir}/init
   cp -r $treedir/tree $dir/
   cp $treedir/phones.txt $dir/
   cp $treedir/phone_lm.fst $dir/
@@ -147,6 +147,9 @@ if [ $stage -le 5 ]; then
   bash shutil/chain/make_e2e_den_fst.sh \
     --cmd "$cpu_cmd" $treedir $dir
 fi
+
+exit 0 # using raw wav instead of kaldi beased feats
+# checkout "local/chain/e2e/get_egs.sh"
 
 if [ $stage -le 6 ]; then
   echo 'Generating egs to be used during the training'

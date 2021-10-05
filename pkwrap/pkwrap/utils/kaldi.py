@@ -77,7 +77,6 @@ def parseval(s):
         return False
     return s
 
-
 def read_kaldi_conf(filename):
     with open(filename) as f:
         file_content = '[dummy_section]\n' + f.read()
@@ -85,4 +84,23 @@ def read_kaldi_conf(filename):
     config.read_string(file_content)
     config = config['dummy_section']
     return {k.replace("--","").replace("-","_"):parseval(v) for k, v in config.items()}
+
+def kaldifeat_set_option(opts, filename):
+    for kaldi_opts, val in read_kaldi_conf(filename).items():
+         # translate to python option lib 'kaldifeat'
+        translate_opts = {"sample_frequency": "samp_freq", "num_mel_bins": "num_bins"}
+        kaldi_opts = translate_opts[kaldi_opts] if kaldi_opts in translate_opts else kaldi_opts
+
+        if kaldi_opts in dir(opts):
+            setattr(opts, kaldi_opts, val)
+        elif kaldi_opts in dir(opts.frame_opts):
+            setattr(opts.frame_opts, kaldi_opts, val)
+        elif kaldi_opts in dir(opts.mel_opts):
+            setattr(opts.mel_opts, kaldi_opts, val)
+        else:
+            logging.error(f"Kaldi option '{kaldi_opts}' not compatible with python lib 'kaldifeat'")
+            logging.error(f"Change the translation dict according to https://github.com/csukuangfj/kaldifeat/blob/bac4db61c3d0d72e28fa3713c4c234ffa3dca4cb/doc/source/usage.rst#fbankoptions")
+            quit(1)
+
+    return opts
 
