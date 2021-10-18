@@ -41,7 +41,11 @@ def build(args):
             self.cmvn = pkwrap.cmvn.UttCMVN()
 
             opts = kaldifeat.FbankOptions()
-            self.features_opts = pkwrap.utils.kaldifeat_set_option(opts, "./configs/fbank_hires.conf")
+            self.features_opts = pkwrap.utils.kaldifeat_set_option(
+                opts,
+                pkwrap.__path__[0] + "/../egs/librispeech/v1/" + \
+                "./configs/fbank_hires.conf"
+            )
             self.fbank = kaldifeat.Fbank(self.features_opts)
 
             # at present, we support only frame_subsampling_factor to be 3
@@ -121,7 +125,7 @@ def build(args):
 
             if args.freeze_encoder:
                 logging.info("Freezing encoder!")
-                
+
                 switch_require_grad = False
                 for name, param in self.named_parameters():
                     if name=="tdnnfs.18.tdnn.linearB.weight":
@@ -158,7 +162,7 @@ def build(args):
         def vq(self):
             return True
 
-        def forward(self, x):
+        def forward(self, x, spec_augment=lambda x: x):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
@@ -176,6 +180,7 @@ def build(args):
             assert x.ndim == 3
             x = self.pad_input(x)
             x = self.cmvn(x)
+            x = spec_augment(x)
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
             x = self.tdnn1(x)

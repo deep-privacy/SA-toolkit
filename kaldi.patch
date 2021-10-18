@@ -1,13 +1,22 @@
 diff --git a/src/cudamatrix/cu-allocator.h b/src/cudamatrix/cu-allocator.h
-index d7d65da80..d7087ff44 100644
+index d7d65da80..e684d20e4 100644
 --- a/src/cudamatrix/cu-allocator.h
 +++ b/src/cudamatrix/cu-allocator.h
 @@ -65,7 +65,7 @@ struct CuAllocatorOptions {
    int32 num_subregions;
-
+ 
    CuAllocatorOptions():
 -      cache_memory(true), memory_proportion(0.5), num_subregions(20) { }
-+      cache_memory(true), memory_proportion(0.051), num_subregions(20) { }
-
++      cache_memory(true), memory_proportion(0.01), num_subregions(40) { }
+ 
    void Register(OptionsItf *po) {
      po->Register("cuda-cache-memory", &cache_memory, "True if you want "
+@@ -78,7 +78,7 @@ struct CuAllocatorOptions {
+ 
+   void Check() {
+     // don't let it get too close to 1;
+-    KALDI_ASSERT(memory_proportion >= 0.05 && memory_proportion < 0.99);
++    KALDI_ASSERT(memory_proportion >= 0.001 && memory_proportion < 0.99);
+   }
+ };
+ 

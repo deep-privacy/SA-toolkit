@@ -10,9 +10,17 @@ import io
 import random
 import torch
 from _pkwrap import kaldi
-# NOTE: soundfile was exceptionally faster than librosa
 import soundfile
 
+
+class WavInfo(object):
+    """WavInfo objects hole information about each example without the supervision fst graph"""
+    def __init__(self, name, wav):
+        self.name = name
+        self.wav = wav
+
+    def prepare(self):
+        return prepare_e2e(self)
 
 class EgsInfo(object):
     """EgsInfo objects hole information about each example"""
@@ -69,18 +77,21 @@ def prepare_e2e(egs):
     if not egs:
         return None, None
     devnull = open(os.devnull, 'w')
-    try:
-        wav_read_process = subprocess.Popen(
-            ' '.join(egs.wav),
-            stdout=subprocess.PIPE,
-            shell=True,
-            stderr=devnull
-        )
-        samples, _ = soundfile.read(
-            io.BytesIO(wav_read_process.communicate()[0])
-        )
-    except Exception:
-        raise IOError("Error processing {}".format(egs.name))
+    if len(egs.wav) == 1:
+         sample, _ = soundfile.read(wav)
+    else:
+        try:
+            wav_read_process = subprocess.Popen(
+                ' '.join(egs.wav),
+                stdout=subprocess.PIPE,
+                shell=True,
+                stderr=devnull
+            )
+            samples, _ = soundfile.read(
+                io.BytesIO(wav_read_process.communicate()[0])
+            )
+        except Exception:
+            raise IOError("Error processing {}".format(egs.name))
     feats_torch = torch.tensor(samples, dtype=torch.float32, requires_grad=False)
     return (feats_torch, egs)
 

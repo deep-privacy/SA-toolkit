@@ -9,25 +9,29 @@ random_seed: 42
 deterministic: false
 
 epochs: 1000
-lr: 0.001
-patience: 100
 
 multi_gpu: true
-num_cpu: 6
+num_cpu: 8
 
 mixed_precision: true
 clipping: false
 
 # Optimizer and scheduler options
-optimizer: 
+optimizer:
     type: adam
-    options: 
+    options:
 
+# lr: 0.001
+# scheduler:
+    # type: CyclicLR
+    # mode: triangular2
+    # base_lr: 1.0e-06
+    # step_size_up: 3000
+
+lr: 1.0e-07
 scheduler:
-    type: CyclicLR
-    mode: triangular2
-    base_lr: 0.0000000001
-    step_size_up: 40000
+    type: StepLR2
+    options:
 
 
 # Evaluation options

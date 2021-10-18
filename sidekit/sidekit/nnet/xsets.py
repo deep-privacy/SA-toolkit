@@ -39,7 +39,6 @@ import yaml
 from torch.utils.data import Dataset
 from .augmentation import data_augmentation
 from ..bosaris.idmap import IdMap
-from .bn_preprocessor import load_wav
 
 __license__ = "LGPL"
 __author__ = "Anthony Larcher"
@@ -312,7 +311,7 @@ class SideSet(Dataset):
         if start_frame + conversion_rate * self.sample_number >= nfo.num_frames:
             start_frame = numpy.min(nfo.num_frames - conversion_rate * self.sample_number - 1)
 
-        speech, speech_fs = load_wav(f"{self.data_path}/{current_session['file_id']}{self.data_file_extension}",
+        speech, speech_fs = torchaudio.load(f"{self.data_path}/{current_session['file_id']}{self.data_file_extension}",
                                             frame_offset=conversion_rate*start_frame,
                                             num_frames=conversion_rate*self.sample_number)
 
@@ -417,7 +416,7 @@ class IdMapSet(Dataset):
             start = int(self.idmap.start[index] * 0.01 * self.sample_rate)
 
         if self.idmap.stop[index] is None:
-            speech, speech_fs = load_wav(f"{self.data_path}/{self.idmap.rightids[index]}.{self.file_extension}")
+            speech, speech_fs = torchaudio.load(f"{self.data_path}/{self.idmap.rightids[index]}.{self.file_extension}")
             duration = int(speech.shape[1] - start)
         else:
             duration = int(self.idmap.stop[index] * 0.01 * self.sample_rate) - start
@@ -426,7 +425,7 @@ class IdMapSet(Dataset):
                 middle = start + duration // 2
                 start = int(max(0, int(middle - (self.min_duration * self.sample_rate / 2))))
                 duration = int(self.min_duration * self.sample_rate)
-            speech, speech_fs = load_wav(f"{self.data_path}/{self.idmap.rightids[index]}.{self.file_extension}",
+            speech, speech_fs = torchaudio.load(f"{self.data_path}/{self.idmap.rightids[index]}.{self.file_extension}",
                                                 frame_offset=start,
                                                 num_frames=duration)
 
@@ -547,7 +546,7 @@ class IdMapSetPerSpeaker(Dataset):
                     start = int(seg_start * 0.01 * self.sample_rate)
 
                 if seg_stop is None:
-                    speech, speech_fs = load_wav(f"{self.data_path}/{self.idmap.rightids[index]}.{self.file_extension}")
+                    speech, speech_fs = torchaudio.load(f"{self.data_path}/{self.idmap.rightids[index]}.{self.file_extension}")
                     duration = int(speech.shape[1] - start)
                 else:
                     duration = int(seg_stop * 0.01 * self.sample_rate) - start
@@ -557,7 +556,7 @@ class IdMapSetPerSpeaker(Dataset):
                         start = int(max(0, int(middle - (self.min_duration * self.sample_rate / 2))))
                         duration = int(self.min_duration * self.sample_rate)
 
-                    speech, speech_fs = load_wav(f"{self.data_path}/{seg_id}.{self.file_extension}",
+                    speech, speech_fs = torchaudio.load(f"{self.data_path}/{seg_id}.{self.file_extension}",
                                                         frame_offset=start,
                                                         num_frames=duration)
 

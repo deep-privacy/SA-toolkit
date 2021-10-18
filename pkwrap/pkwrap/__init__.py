@@ -10,6 +10,5 @@ from . import utils
 from . import trainer
 from . import tensorboard
 
-from _pkwrap.kaldi.matrix import TensorToKaldiMatrix
-
 from . import cmvn
+from . import huggingface

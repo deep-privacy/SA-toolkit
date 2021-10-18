@@ -16,7 +16,7 @@ def main():
     # keep track of whether the current process is the `master` process (totally optional, but I find it useful for data laoding, logging, etc.)
     args.is_master = args.local_rank == 0
 
-    sidekit.nnet.xvector.xtrain(dataset_description="cfg/VoxCeleb12_ssd.yaml",
+    sidekit.nnet.xvector.xtrain(dataset_description="cfg/dataset.yaml",
                                 model_description="cfg/model.yaml",
                                 training_description="cfg/training.yaml")
 

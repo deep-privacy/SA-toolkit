@@ -1,10 +1,15 @@
 # Dataset description
 
 
-# General options
-data_path: /lium/scratch/larcher/
+# General options voxceleb1&2
+# data_path: /lium/scratch/larcher/
+# data_file_extension: .wav
+# dataset_csv: list/vox12.csv
+
+# General options voxceleb2
+data_path: /lium/scratch/larcher/voxceleb2/dev/wav/
 data_file_extension: .wav
-dataset_csv: list/vox12.csv
+dataset_csv: list/voxceleb2_dev.csv
 
 # DEV4S smaller dataset:
 # awk -F, 'x[$1]<10;{x[$1]++}' vox12.csv  > vox12_DEV.csv

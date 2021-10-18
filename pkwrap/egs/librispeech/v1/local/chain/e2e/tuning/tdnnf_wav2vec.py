@@ -4,9 +4,9 @@
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
-#  %WER 7.82 [ 4254 / 54402, 468 ins, 486 del, 3300 sub ]
+#  ??
 # after fg rescoring
-#  %WER 5.12 [ 2787 / 54402, 316 ins, 326 del, 2145 sub ]
+#  ??
 
 import torch
 import torch.nn.functional as F
@@ -19,9 +19,9 @@ from torch.nn.utils import clip_grad_value_
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import sys
+import os
 import configargparse
 
-import kaldifeat
 
 def build(args):
     class Net(nn.Module):
@@ -31,29 +31,31 @@ def build(args):
                      hidden_dim=1024,
                      bottleneck_dim=128,
                      prefinal_bottleneck_dim=256,
-                     kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3],
-                     subsampling_factor_list=[1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1],
+                     kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3],
+                     subsampling_factor_list=[1, 1, 1, 3, 1, 1, 1, 1, 1],
                      frame_subsampling_factor=3,
                      p_dropout=0.1):
             super().__init__()
 
-            # Preprocessor
-            self.cmvn = pkwrap.cmvn.UttCMVN()
-
-            opts = kaldifeat.FbankOptions()
-            self.features_opts = pkwrap.utils.kaldifeat_set_option(
-                opts,
-                pkwrap.__path__[0] + "/../egs/librispeech/v1/" + \
-                "./configs/fbank_hires.conf"
+            #  self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
+                #  "facebook/wav2vec2-base-960h",
+                #  freeze=not int(os.getenv("DAMPED_N_DOMAIN", "2")) <= 3,
+                #  freeze_feature_extractor=True,
+            #  )
+            self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
+                "facebook/wav2vec2-base-960h",
+                freeze=True,
+                freeze_feature_extractor=True,
             )
-            self.fbank = kaldifeat.Fbank(self.features_opts)
+            logging.info("Preprocessor (wav2vec2) frozzen: {}".format(self.preprocessor.freeze))
+            input_dim = 768 # self.preprocessor output dim
+            
 
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
 
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
-            input_dim = self.features_opts.mel_opts.num_bins
 
             #input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
@@ -120,16 +122,30 @@ def build(args):
 
             self.validate_model()
 
+        def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay):
+            wav2vec = []
+            tdnnf = []
+            for name, param in self.named_parameters():
+                if 'preprocessor' in name:
+                    wav2vec.append(param)
+                else:
+                    tdnnf.append(param)
+            opti = get_optimizer([{'params':wav2vec}, {'params':tdnnf}], lr, weight_decay)
+            opti.param_groups[0]['lr'] = lr/2
+            opti.param_groups[1]['lr'] = lr
+            return opti
+
+
         def validate_model(self):
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 17
+            assert nnet_output.shape[1] == 15, f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 17
+            assert nnet_output.shape[1] == 15, f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
         def pad_input(self, x):
@@ -144,21 +160,12 @@ def build(args):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            if self.features_opts.device != x.device:
-                self.features_opts.device = x.device
-                self.fbank = kaldifeat.Fbank(self.features_opts)
+            with torch.cuda.amp.autocast():
+                x = self.preprocessor(x, spec_aug=self.training)
 
-
-            # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
-            x *= 32768
-            waveform = [*x] # batch processing with python list (required by kaldifeat)
-
-            x = self.fbank(waveform)
-            x = torch.stack(x) # back to tensor
             assert x.ndim == 3
             x = self.pad_input(x)
-            x = self.cmvn(x)
-            x = spec_augment(x)
+            #  x = spec_augment(x) # TODO ADD SPEC AUG IN WAV2VEC2
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
             x = self.tdnn1(x)

@@ -60,7 +60,7 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, job
                     *job_cmd.split(),
                     "{}/{}/log/eval_damped.{}.log".format(wd, dirname, iter_no),
                     "./run.sh",
-                    "--stop_stage", "2", "--world_size", "2", "--gpu_device", "2",
+                    "--stop_stage", "2", "--world_size", "2", "--gpu_device", "1",
                     "--tag", "spk_identif_" + dirname_cfg,
                     *resume,
                 ], cwd=os.path.dirname(damped.__file__) + "/../egs/librispeech/spk_identif/")
@@ -197,6 +197,20 @@ def train():
         ])
     else:
         egs_dir = exp_cfg["egs_dir"]
+
+    if not os.path.isfile(os.path.join(dirname, "den.fst")):
+        pkwrap.script_utils.run([
+                "cp",
+                os.path.join(egs_dir + "/../", "den.fst"),
+                os.path.join(dirname, "den.fst"),
+        ])
+    if not os.path.isfile(os.path.join(dirname, "normalization.fst")):
+        pkwrap.script_utils.run([
+                "cp",
+                os.path.join(egs_dir + "/../", "normalization.fst"),
+                os.path.join(dirname, "normalization.fst"),
+        ])
+
     # we start training with 
     num_archives = pkwrap.script_utils.get_egs_info(egs_dir)
     num_epochs = trainer_opts.num_epochs
@@ -326,7 +340,7 @@ def train():
                     os.path.join(dirname, "{}.pt".format(iter_no+1)),
                 ])
             # remove old model
-            if iter_no >= 20 and (iter_no-10)%trainer_opts.checkpoint_interval != 0:
+            if iter_no >= 15 and (iter_no-10)%trainer_opts.checkpoint_interval != 0:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
                 if os.path.isfile(mdl):
                     pkwrap.script_utils.run(["rm", mdl])
@@ -341,6 +355,7 @@ def train():
         pkwrap.script_utils.run([
             *cuda_cmd.split(),
             "{}/log/combine.log".format(dirname),
+            "env", "CUDA_VISIBLE_DEVICES=0",
             *model_file,
             "--dir", dirname,
             "--mode", "final_combination",

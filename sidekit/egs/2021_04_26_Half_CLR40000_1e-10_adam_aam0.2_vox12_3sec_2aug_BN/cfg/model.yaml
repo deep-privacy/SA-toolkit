@@ -1,6 +1,7 @@
 # Model description
 
-speaker_number: 7205
+# speaker_number: 7205 # Vox 1&2
+speaker_number: 5994 # Vox 1
 
 loss:
     type: aam
@@ -8,7 +9,8 @@ loss:
     aam_s: 30
 
 # Initialize model from file, reset and freeze parts of it
-initial_model_name:
+initial_model_name: ./model/tmp_half_clr_adam_aam0.2_30_b256_vox12.pt
+# initial_model_name:
 reset_parts: []
 freeze_parts: []
 

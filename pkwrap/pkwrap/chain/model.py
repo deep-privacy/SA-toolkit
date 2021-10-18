@@ -17,7 +17,7 @@ from .. import script_utils
 from .. import utils
 from .. import tensorboard
 from .objf import train_lfmmi_one_iter, compute_chain_objf
-from .egs_wav2vec2 import Wav2vec2EgsDataset
+from .egs_wav2vec2 import Wav2vec2EgsDataset, WavInfo
 
 import kaldiio
 import matplotlib.pyplot as plt
@@ -29,7 +29,7 @@ class TrainerOpts:
     mode: str = ""
     dir: str = ""
     lr: float = 0.001
-    minibatch_size: int = 32
+    minibatch_size: int = 16
     base_model: str = ''
     init_weight_model: str = ''
 
@@ -50,7 +50,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     out_of_range_regularize: float = 0.01
     leaky_hmm_coefficient: float = 0.1
     xent_regularize: float = 0.025
-    minibatch_size: int = 32
+    minibatch_size: int = 16
     frame_shift: int = 0
     output_dim: int = 1
     frame_subsampling_factor: int = 3
@@ -157,7 +157,7 @@ class ChainModel(nn.Module):
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
             "{}/utt2len".format(chain_opts.dataset),
-            "{}/final.mdl".format(chain_opts.dir),
+            "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
         )
         compute_chain_objf(
@@ -224,7 +224,7 @@ class ChainModel(nn.Module):
         logging.info("saved scatters to {}".format(os.path.dirname(savepath)))
 
     @torch.no_grad()
-    def get_apply(self, device=torch.device("cpu"), data_aug=lambda x, is_eval=False: x):
+    def get_forward(self, device=torch.device("cpu")):
         chain_opts = self.chain_opts
 
         model = self.Net(chain_opts.output_dim)
@@ -239,10 +239,9 @@ class ChainModel(nn.Module):
 
         model.eval()
 
-        def _forward(key, waveform, is_eval=False):
+        def _forward(waveform, spec_augment=lambda x: x):
             with torch.no_grad():
-                waveform = data_aug(waveform, is_eval=is_eval)
-                post, xent_output = model(waveform)
+                post, xent_output = model(waveform, spec_augment=spec_augment)
                 return post, model
 
         return _forward
@@ -251,35 +250,27 @@ class ChainModel(nn.Module):
     @torch.no_grad()
     def infer(self):
         chain_opts = self.chain_opts
-        model = self.Net(chain_opts.output_dim)
-        base_model = chain_opts.base_model
 
         device = torch.device("cpu")
         if chain_opts.use_gpu:
             run_on_gpu = (list(range(0, torch.cuda.device_count())) * 200)[chain_opts.gpu_id]
             device = torch.device("cuda:{}".format(run_on_gpu))
             logging.info("Using GPU: {}".format(run_on_gpu))
-        model = model.to(device)
 
-        try:
-            model.load_state_dict(torch.load(base_model))
-        except Exception as e:
-            logging.error(e)
-            logging.error("Cannot load model {}".format(base_model))
-            quit(1)
-        model.eval()
+        model = self.get_forward(device=device)
+
         writer_spec = "ark,t:{}".format(chain_opts.decode_output)
         writer = script_utils.feat_writer(writer_spec)
 
-        for key, feats in kaldiio.load_scp_sequential(chain_opts.decode_feats):
-            sampling_rate, numpy_array = feats
-            numpy_array = numpy_array.astype(numpy.float32)
-            feats = torch.tensor(numpy_array).squeeze()
+        utt2wav = Wav2vec2EgsDataset.read_wav_scp(chain_opts.decode_feats)
+
+        for key, wavfile in utt2wav.items():
+            feats, _ = WavInfo(key, wavfile).prepare()
 
             if chain_opts.use_gpu:
                 feats = feats.to(device)
 
-            post, xent_output = model(feats.unsqueeze(0))
+            post, _ = model(feats.unsqueeze(0))
 
             post = post.squeeze(0).cpu()
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
@@ -344,7 +335,7 @@ class ChainModel(nn.Module):
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
             "{}/utt2len".format(chain_opts.dataset),
-            "{}/final.mdl".format(chain_opts.dir),
+            "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
         )
         compute_objf = lambda mdl: compute_chain_objf(
@@ -373,7 +364,11 @@ class ChainModel(nn.Module):
             for name, params in this_mdl.named_parameters():
                 model_acc[name].data.mul_((num_accumulated-1.)/(num_accumulated))
                 model_acc[name].data.add_(params.data.mul_(1./num_accumulated))
-            _, this_objf = compute_objf(moving_average)
+            try:
+                _, this_objf = compute_objf(moving_average)
+            except Exception as e:
+                logging.warining("Error: ".format(str(e)))
+                _, this_objf = compute_objf(moving_average)
             if this_objf > best_objf:
                 best_objf = this_objf
                 best_mdl = moving_average
@@ -392,7 +387,7 @@ class ChainE2EModel(ChainModel):
     """Extension of ChainModel to handle Chain E2E training"""
     def get_optimizer(self, model, lr=0.01, weight_decay=0.001, **kwargs):
         optimizer = optim.Adam(
-            model.parameters(),
+            model,
             lr=lr,
             weight_decay=weight_decay
         )
@@ -424,12 +419,15 @@ class ChainE2EModel(ChainModel):
         )
         logging.info("xent passed as {}".format(chain_opts.xent_regularize))
         model = model.cuda()
-        optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
+        if hasattr(model, 'set_lr_layers_for_optim'):
+            optimizer = model.set_lr_layers_for_optim(self.get_optimizer, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
+        else:
+            optimizer = self.get_optimizer(model.parameters(), lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
         dataset = Wav2vec2EgsDataset(
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
             "{}/utt2len".format(chain_opts.dataset),
-            "{}/final.mdl".format(chain_opts.dir),
+            "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
         )
         new_model = train_lfmmi_one_iter(

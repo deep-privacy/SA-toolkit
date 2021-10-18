@@ -17,27 +17,28 @@ egs_dir = exp/chain/e2e_tdnnf/fst_egs
 # train params
 num_epochs = 5
 num_jobs_initial = 2
-num_jobs_final = 5
-lr_initial = 0.001
-lr_final = 0.00001
+num_jobs_final = 3
+lr_initial = 0.0001
+lr_final = 0.000001
 diagnostics_interval = 10
 checkpoint_interval =  20
 minibatch_size = 16
-# train_stage = 1
+train_stage = 58
 
 
-model_file = local/chain/e2e/tuning/tdnnf.py
-dirname = e2e_tdnnf
+model_file = local/chain/e2e/tuning/tdnnf_wav2vec.py
+dirname = e2e_tdnnf_wav2vec
 
 [test]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
 # test_set = data/dev_clean_fbank_hires
-test_set = data/test_other_fbank_hires
-suffix = _final
+test_set = data/dev_clean_fbank_hires
+# suffix = baseline
 # decode on gpus
 num_jobs = 40
 gpu = True
+
 
 # vim:set et sw=2 ts=2 ft=toml:

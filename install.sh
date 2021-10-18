@@ -112,6 +112,7 @@ if [ ! -f $mark ]; then
   # pkwrap additional req
   pip3 install pytorch-memlab==0.2.3
   pip3 install kaldiio==2.15.1
+  pip3 install git+https://github.com/huggingface/transformers.git@d5b82bb70c2e8c4b184a6f2a7d1c91d7fd156956
 
   # damped additional req
   pip3 install ConfigArgParse==1.5.1

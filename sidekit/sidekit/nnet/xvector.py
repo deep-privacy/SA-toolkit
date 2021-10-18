@@ -451,6 +451,69 @@ class Xtractor(torch.nn.Module):
             self.before_speaker_embedding_weight_decay = 0.002
             self.after_speaker_embedding_weight_decay = 0.002
 
+        if model_archi == "bn_xvector":
+
+            self.input_nbdim = 2
+
+            if loss not in ["cce", 'aam']:
+                raise NotImplementedError(f"The valid loss are for now cce and aam ")
+            else:
+                self.loss = loss
+
+            self.activation = torch.nn.LeakyReLU(0.2)
+
+            self.preprocessor = BNFrontEnd()
+            ars_bn_dim = 256
+
+
+            self.sequence_network = torch.nn.Sequential(OrderedDict([
+                ("conv1", torch.nn.Conv1d(int((5120/80)*ars_bn_dim), 512, 5, dilation=1)),
+                ("activation1", torch.nn.LeakyReLU(0.2)),
+                ("batch_norm1", torch.nn.BatchNorm1d(512)),
+                ("conv2", torch.nn.Conv1d(512, 512, 3, dilation=2)),
+                ("activation2", torch.nn.LeakyReLU(0.2)),
+                ("batch_norm2", torch.nn.BatchNorm1d(512)),
+                ("conv3", torch.nn.Conv1d(512, 512, 3, dilation=3)),
+                ("activation3", torch.nn.LeakyReLU(0.2)),
+                ("batch_norm3", torch.nn.BatchNorm1d(512)),
+                ("conv4", torch.nn.Conv1d(512, 512, 1)),
+                ("activation4", torch.nn.LeakyReLU(0.2)),
+                ("batch_norm4", torch.nn.BatchNorm1d(512)),
+                ("conv5", torch.nn.Conv1d(512, 1536, 1)),
+                ("activation5", torch.nn.LeakyReLU(0.2)),
+                ("batch_norm5", torch.nn.BatchNorm1d(1536))
+            ]))
+
+            self.embedding_size = embedding_size
+
+            self.stat_pooling = MeanStdPooling()
+            self.stat_pooling_weight_decay = 0
+            self.before_speaker_embedding = torch.nn.Sequential(OrderedDict([
+                ("linear6", torch.nn.Linear(3072, self.embedding_size))
+            ]))
+
+            if self.loss == "aam":
+                self.after_speaker_embedding = ArcMarginProduct(self.embedding_size,
+                                                                int(self.speaker_number),
+                                                                s=64,
+                                                                m=0.2,
+                                                                easy_margin=False)
+            elif self.loss == "cce":
+                self.after_speaker_embedding = torch.nn.Sequential(OrderedDict([
+                    ("activation6", torch.nn.LeakyReLU(0.2)),
+                    ("batch_norm6", torch.nn.BatchNorm1d(512)),
+                    ("dropout6", torch.nn.Dropout(p=0.05)),
+                    ("linear7", torch.nn.Linear(512, 512)),
+                    ("activation7", torch.nn.LeakyReLU(0.2)),
+                    ("batch_norm7", torch.nn.BatchNorm1d(512)),
+                    ("linear8", torch.nn.Linear(512, int(self.speaker_number)))
+                ]))
+
+            self.preprocessor_weight_decay = 0.0002
+            self.sequence_network_weight_decay = 0.0002
+            self.before_speaker_embedding_weight_decay = 0.002
+            self.after_speaker_embedding_weight_decay = 0.002
+
         elif model_archi == "resnet34":
 
             self.preprocessor = MelSpecFrontEnd(n_mels=80)
@@ -1039,7 +1102,7 @@ def get_network(model_opts, local_rank):
     :return:
     """
 
-    if model_opts["model_type"] in ["xvector", "rawnet2", "resnet34", "fastresnet34", "halfresnet34", "bn_halfresnet34"]:
+    if model_opts["model_type"] in ["xvector", "rawnet2", "resnet34", "fastresnet34", "halfresnet34", "bn_halfresnet34", "bn_xvector"]:
         model = Xtractor(model_opts["speaker_number"], model_opts["model_type"], loss=model_opts["loss"]["type"], embedding_size=model_opts["embedding_size"])
     else:
         # Custom type of model
@@ -1120,9 +1183,7 @@ def get_loaders(dataset_opts, training_opts, model_opts, local_rank=0):
     val_DEV4S = "/tmp/DEV4S_val_side_set.pl"
     if os.environ.get('DEV4S') == 'True':
         dataset_opts["batch_size"] = 4
-    if os.environ.get('DEV4S') == 'True' and os.path.isfile(train_DEV4S):
-        
-
+    if os.environ.get('DEV4S') == 'True' and os.path.isfile(train_DEV4S) and os.environ.get('DEV4S_KeepDataPrep') != "True":
         with open(train_DEV4S, "rb") as f:
             training_set = pickle.load(f)
         with open(val_DEV4S, "rb") as f:
@@ -1154,9 +1215,9 @@ def get_loaders(dataset_opts, training_opts, model_opts, local_rank=0):
         samples_per_speaker = 1
 
     if training_opts["multi_gpu"]:
-        assert dataset_opts["batch_size"] % torch.cuda.device_count() == 0
+        assert dataset_opts["batch_size"] % int(os.environ['WORLD_SIZE']) == 0
         assert dataset_opts["batch_size"] % samples_per_speaker == 0
-        batch_size = dataset_opts["batch_size"]//(torch.cuda.device_count() * dataset_opts["train"]["sampler"]["examples_per_speaker"])
+        batch_size = dataset_opts["batch_size"]//(int(os.environ['WORLD_SIZE']) * dataset_opts["train"]["sampler"]["examples_per_speaker"])
 
         side_sampler = SideSampler(data_source=training_set.sessions['speaker_idx'],
                                    spk_count=model_opts["speaker_number"],
@@ -1165,7 +1226,7 @@ def get_loaders(dataset_opts, training_opts, model_opts, local_rank=0):
                                    batch_size=batch_size,
                                    seed=training_opts['torch_seed'],
                                    rank=local_rank,
-                                   num_process=torch.cuda.device_count(),
+                                   num_process=int(os.environ['WORLD_SIZE']),
                                    num_replicas=dataset_opts["train"]["sampler"]["augmentation_replica"]
                                    )
     else:
@@ -1279,7 +1340,7 @@ def get_optimizer(model, model_opts, train_opts, training_loader):
 
     elif train_opts["scheduler"]["type"] == "StepLR":
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer,
-                                                           step_size=1 * training_loader.__len__(),
+                                                           step_size=0.5 * training_loader.__len__(),
                                                            gamma=0.95)
 
     elif train_opts["scheduler"]["type"] == "StepLR2":
@@ -1387,6 +1448,8 @@ def xtrain(dataset_description,
     - en cas de redemarrage à partir d'un modele existant, recharger l'optimize et le scheduler
     """
 
+    torch.multiprocessing.set_start_method('forkserver', force=True)
+
     local_rank = -1
     if "RANK" in os.environ:
         local_rank = int(os.environ['RANK'])
@@ -1475,7 +1538,7 @@ def xtrain(dataset_description,
     """
     if training_opts["multi_gpu"]:
         if local_rank < 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            print("Let's use", int(os.environ['WORLD_SIZE']), "GPUs!")
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
         model = torch.nn.parallel.DistributedDataParallel(model,
                                                           device_ids=[local_rank],
@@ -1492,7 +1555,7 @@ def xtrain(dataset_description,
 
     if local_rank < 1:
         monitor.logger.info(f"Start training process")
-        monitor.logger.info(f"Use \t{torch.cuda.device_count()} \tgpus")
+        monitor.logger.info(f"Use \t{int(os.environ['WORLD_SIZE'])} \tgpus")
         monitor.logger.info(f"Use \t{training_opts['num_cpu']} \tcpus")
 
         monitor.logger.info(f"Validation EER will be measured using")
@@ -1557,7 +1620,7 @@ def xtrain(dataset_description,
                 save_model(model, monitor, model_opts, training_opts, optimizer, scheduler, epoch)
 
 
-    for ii in range(torch.cuda.device_count()):
+    for ii in range(int(os.environ['WORLD_SIZE'])):
         monitor.logger.info(torch.cuda.memory_summary(ii))
 
     # TODO gérer l'affichage en utilisant le training_monitor
@@ -1657,13 +1720,15 @@ def train_epoch(model,
             training_monitor.update(training_loss=loss.item(),
                                     training_acc=100.0 * accuracy.item() / ((batch_idx + 1) * batch_size))
 
-            training_monitor.logger.info('Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tAccuracy: {:.3f}'.format(
+            training_monitor.logger.info('Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tAccuracy: {:.3f}\tLr: {}'.format(
                 training_monitor.current_epoch,
                 batch_idx + 1,
                 training_loader.__len__(),
                 100. * batch_idx / training_loader.__len__(),
                 running_loss / batch_count,
-                100.0 * accuracy / (batch_count*target.shape[0])))
+                100.0 * accuracy / (batch_count*target.shape[0]),
+                scheduler.get_last_lr()[0], # TODO only working fro some scheduler
+            ))
             running_loss = 0.0
             accuracy = 0.0
             batch_count = 0

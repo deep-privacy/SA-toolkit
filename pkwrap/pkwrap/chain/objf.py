@@ -13,7 +13,6 @@ import torch.nn as nn
 from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
 from _pkwrap import kaldi
-from .. import chain
 from .. import script_utils
 from .. import utils
 from collections import defaultdict, namedtuple
@@ -21,7 +20,7 @@ import subprocess
 import io
 from math import ceil
 from .egs import prepare_minibatch
-from .egs_wav2vec2 import Wav2vec2EgsDataset, Wav2vec2BatchSampler, Wav2vec2EgsCollectFn, GetSupervisionFromWav2Vec2Egs
+from .egs_wav2vec2 import Wav2vec2BatchSampler, Wav2vec2EgsCollectFn, GetSupervisionFromWav2Vec2Egs
 
 import damped
 
@@ -40,6 +39,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
     ```
     """
     @staticmethod
+    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
     def forward(ctx, opts, den_graph, supervision, nnet_output_tensor,
                 xent_out_tensor):
         """This function computes the loss for a single minibatch.
@@ -120,6 +120,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         return objf
 
     @staticmethod
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, dummy):
         """returns the derivatives"""
         if len(ctx.saved_tensors) == 3:
@@ -138,6 +139,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
     it in a Linear layer. See pkwrap.nn.NaturalAffineTransform.
     """
     @staticmethod
+    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
     def forward(ctx, input, weight, bias, in_state, out_state):
         """Forward pass for NG-SGD layer
 
@@ -166,6 +168,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
 
     @staticmethod
     @torch.no_grad()
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, grad_output):
         """Backward pass for NG-SGD layer
 
@@ -202,7 +205,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
         return grad_input, grad_weight, grad_bias.t(), None, None
 
 def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
-                         minibatch_size="64", lr=0.0001,
+                         minibatch_size=16, lr=0.0001,
                          weight_decay=0.25, frame_shift=0,
                          print_interval=30,
                          frame_subsampling_factor=3,
@@ -221,7 +224,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         dataset: a Wav2vec2EgsDataset dataset
         den_fst_path: path to den.fst file
         training_opts: options of type ChainTrainingOpts
-        minibatch_size: a string of minibatch sizes separated by commas. E.g "64" or "128,64"
+        minibatch_size: 
         lr: learning rate
         frame_shift: an integer (usually 0, 1, or 2) used to shift the training features
         print_interval: the interval (a positive integer) to print the loss value
@@ -245,6 +248,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
     acc_sum = torch.tensor(0., requires_grad=False)
     acc_sum_vq = torch.tensor(0., requires_grad=False)
     acc_sum_perplexity = torch.tensor(0., requires_grad=False)
+    #  scaler = torch.cuda.amp.GradScaler()
 
     spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
@@ -253,7 +257,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         batch_size=minibatch_size,
         drop_last=False,
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=18, timeout=10)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=8)
 
     #  for mb_id, data in enumerate(dataloader):
         #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
@@ -299,10 +303,31 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
                 if tensorboard: tensorboard.add_scalar('VQ_perplexity/train', acc_sum_perplexity/print_interval, mb_id)
                 acc_sum_perplexity.zero_()
 
+        if hasattr(model, 'additional_obj'):
+            model.additional_obj(deriv,
+                                 should_log=mb_id>0 and mb_id%print_interval==0,
+                                 print_interval=print_interval,
+                                 tensorboard=tensorboard)
+
+        #  TODO: move this to nn.models
+        #  def additional_obj(self, deriv, should_log=False, print_interval=1, tensorboard=None):
+            #  if deriv == None or self.wav2vec2_loss:
+                #  return
+            #  deriv += self.wav2vec2_loss.to(deriv.device)
+
+            #  if should_log:
+                #  logging.info("Wav2Vec2 loss ={}".format(self.acc_sum_wav2vec2_loss/print_interval))
+                #  if tensorboard: tensorboard.add_scalar('wav2vec2/train', self.acc_sum_wav2vec2_loss/print_interval, mb_id)
+                #  self.acc_sum_wav2vec2_loss.zero_()
+
 
         optimizer.zero_grad()
+        #  scaler.scale(deriv.cuda()).backward()
         deriv.backward()
+        #  scaler.unscale_(optimizer)
         clip_grad_value_(model.parameters(), 5.0)
+        #  scaler.step(optimizer)
+        #  scaler.update()
         optimizer.step()
 
         # pchampio wait for domain branch to fully have received the hidden state
@@ -315,7 +340,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
 
 @torch.no_grad()
 def compute_chain_objf(model, dataset, den_fst_path, training_opts,
-    minibatch_size="64", frame_shift=0,
+    minibatch_size=16, frame_shift=0,
     frame_subsampling_factor=3,
     tensorboard = None
     ):
@@ -331,7 +356,7 @@ def compute_chain_objf(model, dataset, den_fst_path, training_opts,
     if training_opts is None:
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
-    criterion = chain.KaldiChainObjfFunction.apply
+    criterion = KaldiChainObjfFunction.apply
     model = model.cuda()
     acc_sum = torch.tensor(0., requires_grad=False)
     acc_sum_vq = torch.tensor(0., requires_grad=False)
@@ -346,7 +371,7 @@ def compute_chain_objf(model, dataset, den_fst_path, training_opts,
         batch_size=minibatch_size,
         drop_last=False,
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=18, timeout=10)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=4)
 
     for mb_id, data in enumerate(dataloader):
         features = data[0].cuda()

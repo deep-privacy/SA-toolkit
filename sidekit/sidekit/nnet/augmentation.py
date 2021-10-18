@@ -31,8 +31,6 @@ import random
 import torch
 import torchaudio
 
-from .bn_preprocessor import load_wav
-
 from scipy import signal
 
 
@@ -183,7 +181,7 @@ def data_augmentation(speech,
     if "add_reverb" in augmentations:
         rir_nfo = rir_df.iloc[random.randrange(rir_df.shape[0])].file_id
         rir_fn = transform_dict["add_reverb"]["data_path"] + rir_nfo  # TODO harmonize with noise
-        rir, rir_fs = load_wav(rir_fn)
+        rir, rir_fs = torchaudio.load(rir_fn)
         assert rir_fs == sample_rate
         #rir = rir[rir_nfo[1], :] #keep selected channel
         speech = torch.tensor(signal.convolve(speech, rir, mode='full')[:, :speech.shape[1]])
@@ -298,9 +296,9 @@ def load_noise_seg(noise_row, speech_shape, sample_rate, data_path):
 
     noise_fn = data_path + "/" + noise_file_id + ".wav"
     if noise_duration * sample_rate > speech_shape[1]:
-        noise_seg, noise_sr = load_wav(noise_fn, frame_offset=int(frame_offset), num_frames=int(speech_shape[1]))
+        noise_seg, noise_sr = torchaudio.load(noise_fn, frame_offset=int(frame_offset), num_frames=int(speech_shape[1]))
     else:
-        noise_seg, noise_sr = load_wav(noise_fn,
+        noise_seg, noise_sr = torchaudio.load(noise_fn,
                                               frame_offset=int(frame_offset),
                                               num_frames=int(noise_duration * sample_rate))
     assert noise_sr == sample_rate

@@ -19,7 +19,6 @@ class TrainerOpts:
     cmd: str = 'queue.pl -l q_gpu -V'
     diagnostics_interval: int = 10
     checkpoint_interval: int = 100
-    minibatch_size:str = "32"
     srand: int = 1
     
     def load_from_config(self, cfg):
