@@ -20,7 +20,7 @@ class NGState:
 def get_preconditioner_from_ngstate(ngstate):
     assert ngstate is not None
     try:
-        from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+        from _pkwrap import kaldi # lazy import (kaldi-free decoding)
     except ImportError as error:
         logging.critical("pkwrap: -- Failed to import kaldi you better not be in training mode (no backward possible) --")
         return None

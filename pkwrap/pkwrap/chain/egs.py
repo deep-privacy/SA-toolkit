@@ -6,7 +6,7 @@ from collections import OrderedDict
 import torch
 
 try:
-    from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+    from _pkwrap import kaldi # lazy import (kaldi-free decoding)
 except ImportError as error:
     pass
 
