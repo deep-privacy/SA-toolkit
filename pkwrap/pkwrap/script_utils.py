@@ -12,11 +12,15 @@
  recipes for chain modelling
 """
 
+try:
+    from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+except ImportError as error:
+    pass
+
 import shutil
 import os
 import math
 import subprocess
-from _pkwrap import kaldi
 
 def _add_simple_arg(args, name, default_value, type_name=None):
     """This function is called by add_chain_recipe_opts. Don't use this directly.

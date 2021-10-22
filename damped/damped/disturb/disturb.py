@@ -44,6 +44,8 @@ def init(
         expected_domain_tasks (int): The number of expected domain task.
         port (int): port on which the the tensor will be exchanged
     """
+    if expected_domain_tasks == 0:
+        return
     logger.info("Waiting for domain-task trainer connection")
     if "DAMPED_DOMAIN" in os.environ:
         rank=int(os.getenv("DAMPED_DOMAIN"))
@@ -64,6 +66,8 @@ def stop(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1)), all_to_one=False) ->
         domain_tasks (int): the number of domain_tasks used
 
     """
+    if not torch.distributed.is_initialized():
+        return
     logger.info(f"Stop the domain tasks")
     if all_to_one:
         t=0
@@ -89,6 +93,9 @@ def eval(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1)), all_to_one = False) 
     Args:
         domain_tasks (int): the number of domain_tasks used
     """
+    if not torch.distributed.is_initialized():
+        return
+
     logger.info(f"Evaluating on dev the domain tasks")
     if all_to_one:
         t=0
@@ -112,6 +119,9 @@ def train(domain_tasks=int(os.getenv("DAMPED_N_DOMAIN", 1)), all_to_one = False)
     Args:
         domain_tasks (int): the number of domain_tasks used
     """
+    if not torch.distributed.is_initialized():
+        return
+
     logger.info(f"Train on the domain tasks")
     if all_to_one:
         t=0

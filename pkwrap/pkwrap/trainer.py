@@ -1,7 +1,6 @@
 """This module contains training related classes and functions"""
 from dataclasses import dataclass
 from . import script_utils
-from _pkwrap import kaldi
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 

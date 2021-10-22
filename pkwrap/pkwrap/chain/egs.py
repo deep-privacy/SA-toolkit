@@ -4,7 +4,11 @@
 import random
 from collections import OrderedDict
 import torch
-from _pkwrap import kaldi
+
+try:
+    from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+except ImportError as error:
+    pass
 
 # take a scp file
 class ChainExample(torch.utils.data.Dataset):

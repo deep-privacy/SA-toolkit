@@ -37,14 +37,9 @@ def build(args):
                      p_dropout=0.1):
             super().__init__()
 
-            #  self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
-                #  "facebook/wav2vec2-base-960h",
-                #  freeze=not int(os.getenv("DAMPED_N_DOMAIN", "2")) <= 3,
-                #  freeze_feature_extractor=True,
-            #  )
             self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
                 "facebook/wav2vec2-base-960h",
-                freeze=True,
+                freeze=False,
                 freeze_feature_extractor=True,
             )
             logging.info("Preprocessor (wav2vec2) frozzen: {}".format(self.preprocessor.freeze))
@@ -136,6 +131,7 @@ def build(args):
             return opti
 
 
+        @torch.no_grad()
         def validate_model(self):
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
@@ -165,7 +161,6 @@ def build(args):
 
             assert x.ndim == 3
             x = self.pad_input(x)
-            #  x = spec_augment(x) # TODO ADD SPEC AUG IN WAV2VEC2
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
             x = self.tdnn1(x)

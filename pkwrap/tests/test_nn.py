@@ -3,14 +3,6 @@ import torch
 import pkwrap.nn as pnn
 torch.no_grad()
 
-def test_create_tdnn():
-    """instantiate a TDNN"""
-    pnn.TDNN(40, 100)
-
-def test_create_tdnn_batchnorm():
-    """create a TDNNBatchNorm"""
-    pnn.TDNNBatchNorm(40, 100)
-
 def test_create_tdnnf():
     """instantiate a TDNNF"""
     pnn.TDNNF(40, 100, bottleneck_dim=50)

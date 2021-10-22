@@ -4,12 +4,16 @@ import tempfile
 import random
 import importlib.util
 from types import SimpleNamespace
+import random
 
 
 import torch
 import torchaudio
 
 import pkwrap
+import kaldiio
+
+ECHO_TIMES = 0
 
 def load_wav(
     filepath: str,
@@ -61,13 +65,16 @@ def get_extract_bn(device=torch.device("cuda")):
 
         out, model = net(waveform, data_aug)
 
-        #  tmpname = next(tempfile._get_candidate_names())
-        #  writer = pkwrap.script_utils.feat_writer(f"ark,t:/tmp/asr_am_out_{tmpname}.ark")
-        #  writer.Write("test_utts", pkwrap.kaldi.matrix.TensorToKaldiMatrix(out[0].cpu()))
-        #  writer.Close()
-        #  torchaudio.save(f"/tmp/waveform_{tmpname}.wav", waveform[0].cpu().unsqueeze(0) / 2**15, 16000)
-        #  print("== Example ASR decoding (No LM-rescoring): ==")
-        #  print(f"cat /tmp/asr_am_out_{tmpname}.ark | {pkwrap_path}/shutil/decode/latgen-faster-mapped.sh {pkwrap_path}/exp/chain/e2e_biphone_tree/graph_tgsmall/words.txt {pkwrap_path}/exp/chain/e2e_tdnnf/0.trans_mdl exp/chain/e2e_biphone_tree/graph_tgsmall/HCLG.fst /tmp/decode_{tmpname}_lat.1.gz")
+        global ECHO_TIMES
+        if ECHO_TIMES < 3 and random.randint(1,100) == 1:
+            ECHO_TIMES += 1
+            tmpname = next(tempfile._get_candidate_names())
+            writer = kaldiio.WriteHelper(f"ark,t:/tmp/asr_am_out_{tmpname}.ark")
+            writer("test_utts", out[0].cpu().numpy())
+            writer.close()
+            torchaudio.save(f"/tmp/waveform_{tmpname}.wav", waveform[0].cpu().unsqueeze(0) / 2**15, 16000)
+            print("== Example ASR decoding (No LM-rescoring): ==", file=sys.stderr)
+            print(f"cat /tmp/asr_am_out_{tmpname}.ark | {pkwrap_path}/shutil/decode/latgen-faster-mapped.sh {pkwrap_path}/exp/chain/e2e_biphone_tree/graph_tgsmall/words.txt {pkwrap_path}/exp/chain/e2e_tdnnf/0.trans_mdl exp/chain/e2e_biphone_tree/graph_tgsmall/HCLG.fst /tmp/decode_{tmpname}_lat.1.gz", file=sys.stderr)
         #  sys.exit()
 
         out = model.bottleneck_out.permute(0, 2, 1).contiguous()

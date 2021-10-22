@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
-from _pkwrap import kaldi
 from .. import script_utils
 from .. import utils
 from collections import defaultdict, namedtuple
@@ -23,6 +22,11 @@ from .egs import prepare_minibatch
 from .egs_wav2vec2 import Wav2vec2BatchSampler, Wav2vec2EgsCollectFn, GetSupervisionFromWav2Vec2Egs
 
 import damped
+
+try:
+    from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+except ImportError as error:
+    pass
 
 class KaldiChainObjfFunction(torch.autograd.Function):
     """LF-MMI objective function for pytorch
@@ -177,6 +181,8 @@ class OnlineNaturalGradient(torch.autograd.Function):
         """
         input, weight, _ = ctx.saved_tensors
         in_state, out_state = ctx.states
+        assert in_state != None, "in_state == None - libkaldi-base.so should be in LD_PATH (source ./path.sh)"
+        assert out_state != None, "out_state == None - libkaldi-base.so should be in LD_PATH (source ./path.sh)"
         if input.dim() == 3:
             mb, T, D = input.shape
             mb_T = mb*T
@@ -224,7 +230,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         dataset: a Wav2vec2EgsDataset dataset
         den_fst_path: path to den.fst file
         training_opts: options of type ChainTrainingOpts
-        minibatch_size: 
+        minibatch_size:
         lr: learning rate
         frame_shift: an integer (usually 0, 1, or 2) used to shift the training features
         print_interval: the interval (a positive integer) to print the loss value
@@ -232,9 +238,6 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
     Returns:
         updated model in CPU
     """
-
-    if hasattr(model, 'vq') and model.vq():
-        logging.info("USING ADDITIONAL VQ commitment loss")
 
     # this is required to make sure Kaldi uses GPU
     kaldi.InstantiateKaldiCuda()
@@ -246,11 +249,10 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
-    acc_sum_vq = torch.tensor(0., requires_grad=False)
-    acc_sum_perplexity = torch.tensor(0., requires_grad=False)
     #  scaler = torch.cuda.amp.GradScaler()
 
-    spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
+    if torch.distributed.is_initialized():
+        spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
     batch_sampler = Wav2vec2BatchSampler(
         dataset.egs_holder,
@@ -274,9 +276,10 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         #  print(uttid_list, flush=True)
         uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
         #  print(uttid_list, flush=True)
-        req = spk_branch.fork_detach(model.bottleneck_out.detach().cpu(),
-                               torch.tensor(uttid_list, dtype=torch.long),
-                               dtype=(torch.float32, torch.long))
+        if torch.distributed.is_initialized():
+            req = spk_branch.fork_detach(model.bottleneck_out.detach().cpu(),
+                                   torch.tensor(uttid_list, dtype=torch.long),
+                                   dtype=(torch.float32, torch.long))
 
         num_output_frames = output.shape[1]
         sup = GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], num_output_frames)
@@ -288,38 +291,11 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
             if tensorboard: tensorboard.add_scalar('ASR_objf/train', acc_sum/print_interval, mb_id)
             acc_sum.zero_()
 
-        if hasattr(model, 'vq') and model.vq():
-            acc_sum_vq.add_(model.vq_loss.item())
-            if mb_id>0 and mb_id%print_interval==0:
-                logging.info("Overall VQ objf={}".format(acc_sum_vq/print_interval))
-                if tensorboard: tensorboard.add_scalar('VQ_objf/train', acc_sum_vq/print_interval, mb_id)
-                acc_sum_vq.zero_()
-            deriv += model.vq_loss.to(deriv.device) # add to main loss
-
-        if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
-            acc_sum_perplexity.add_(model.perplexity.item())
-            if mb_id>0 and mb_id%print_interval==0:
-                logging.info("VQ perplexity ={}".format(acc_sum_perplexity/print_interval))
-                if tensorboard: tensorboard.add_scalar('VQ_perplexity/train', acc_sum_perplexity/print_interval, mb_id)
-                acc_sum_perplexity.zero_()
-
         if hasattr(model, 'additional_obj'):
             model.additional_obj(deriv,
                                  should_log=mb_id>0 and mb_id%print_interval==0,
                                  print_interval=print_interval,
-                                 tensorboard=tensorboard)
-
-        #  TODO: move this to nn.models
-        #  def additional_obj(self, deriv, should_log=False, print_interval=1, tensorboard=None):
-            #  if deriv == None or self.wav2vec2_loss:
-                #  return
-            #  deriv += self.wav2vec2_loss.to(deriv.device)
-
-            #  if should_log:
-                #  logging.info("Wav2Vec2 loss ={}".format(self.acc_sum_wav2vec2_loss/print_interval))
-                #  if tensorboard: tensorboard.add_scalar('wav2vec2/train', self.acc_sum_wav2vec2_loss/print_interval, mb_id)
-                #  self.acc_sum_wav2vec2_loss.zero_()
-
+                                 tensorboard=tensorboard, mb_id=mb_id)
 
         optimizer.zero_grad()
         #  scaler.scale(deriv.cuda()).backward()
@@ -331,7 +307,8 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         optimizer.step()
 
         # pchampio wait for domain branch to fully have received the hidden state
-        req.wait()
+        if torch.distributed.is_initialized():
+            req.wait()
 
         #  return model # fast_test
     model = model.cpu()
@@ -359,8 +336,6 @@ def compute_chain_objf(model, dataset, den_fst_path, training_opts,
     criterion = KaldiChainObjfFunction.apply
     model = model.cuda()
     acc_sum = torch.tensor(0., requires_grad=False)
-    acc_sum_vq = torch.tensor(0., requires_grad=False)
-    acc_sum_perplexity = torch.tensor(0., requires_grad=False)
     tot_weight = 0.
 
     if torch.distributed.is_initialized():
@@ -395,11 +370,8 @@ def compute_chain_objf(model, dataset, den_fst_path, training_opts,
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
 
-        if hasattr(model, 'vq') and model.vq():
-            acc_sum_vq.add_(model.vq_loss.item()*mb*num_seq)
-
-        if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
-            acc_sum_perplexity.add_(model.perplexity.item()*mb*num_seq)
+        if hasattr(model, 'additional_obj'):
+            model.additional_obj(mb*num_seq, for_valid=True)
 
         # pchampio wait for domain branch to fully have received the hidden state
         if torch.distributed.is_initialized():
@@ -410,13 +382,8 @@ def compute_chain_objf(model, dataset, den_fst_path, training_opts,
     if tensorboard: tensorboard.add_scalar('ASR_objf/valid', objf, 1)
     if tensorboard: tensorboard.close()
 
-    if hasattr(model, 'vq') and model.vq():
-        logging.info("Overall VQ objf={}".format(acc_sum_vq/tot_weight))
-        if tensorboard: tensorboard.add_scalar('VQ_objf/valid', acc_sum_vq/tot_weight, 1)
-
-    if hasattr(model, 'vq') and model.vq() and hasattr(model, 'perplexity'):
-        logging.info("Overall perplexity={}".format(acc_sum_perplexity/tot_weight))
-        if tensorboard: tensorboard.add_scalar('VQ_perplexity/valid', acc_sum_perplexity/tot_weight, 1)
+    if hasattr(model, 'additional_obj'):
+        model.additional_obj(0, for_valid=True, print_interval=tot_weight, tensorboard=tensorboard)
 
     model = model.cpu()
     return model, objf

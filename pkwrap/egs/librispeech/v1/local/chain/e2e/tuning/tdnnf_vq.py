@@ -3,10 +3,23 @@
 #  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-# tg results on dev_clean
-#  ??
-# after fg rescoring
-#  ??
+#  ==> e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
+#  %WER 23.02 [ 12524 / 54402, 1408 ins, 2029 del, 9087 sub ] exp/chain/e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_8_1.0
+
+#  ==> e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
+#  %WER 11.36 [ 6181 / 54402, 741 ins, 781 del, 4659 sub ] exp/chain/e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+
+#  ==> e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
+#  %WER 9.02 [ 4905 / 54402, 601 ins, 606 del, 3698 sub ] exp/chain/e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+
+#  ==> e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
+#  %WER 8.39 [ 4566 / 54402, 543 ins, 602 del, 3421 sub ] exp/chain/e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+
+#  ==> e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
+#  %WER 8.13 [ 4425 / 54402, 486 ins, 677 del, 3262 sub ] exp/chain/e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+
+#  ==> e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
+#  %WER 7.73 [ 4204 / 54402, 439 ins, 618 del, 3147 sub ] exp/chain/e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
 
 import torch
 import torch.nn.functional as F
@@ -38,8 +51,6 @@ def build(args):
             super().__init__()
 
             # Preprocessor
-            self.cmvn = pkwrap.cmvn.UttCMVN()
-
             opts = kaldifeat.FbankOptions()
             self.features_opts = pkwrap.utils.kaldifeat_set_option(
                 opts,
@@ -54,6 +65,9 @@ def build(args):
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
             input_dim = self.features_opts.mel_opts.num_bins
+
+            self.cmvn = pkwrap.cmvn.UttCMVN()
+
 
             #input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
@@ -91,6 +105,9 @@ def build(args):
             # tdnnfs requires [N, C, T]
             self.tdnnfs = nn.ModuleList(tdnnfs)
 
+
+            self.acc_sum_vq = torch.tensor(0., requires_grad=False)
+            self.acc_sum_perplexity = torch.tensor(0., requires_grad=False)
             self.quant = VectorQuantizerEMA(args.codebook_size, prefinal_bottleneck_dim, 0.25, 0.99)
             def bottleneck_ld(x):
                 vq_loss, x, perplexity, _, _, encoding_indices, \
@@ -108,6 +125,7 @@ def build(args):
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
             )
+
             self.prefinal_xent = TDNNFBatchNorm(
                 hidden_dim, hidden_dim,
                 bottleneck_dim=prefinal_bottleneck_dim,
@@ -123,14 +141,13 @@ def build(args):
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 
-            if args.freeze_encoder:
+            if args.freeze_encoder == "True":
                 logging.info("Freezing encoder!")
 
                 switch_require_grad = False
                 for name, param in self.named_parameters():
                     if name=="tdnnfs.18.tdnn.linearB.weight":
                         switch_require_grad = True
-                        continue
                     param.requires_grad = switch_require_grad
                     logging.info(name + f" - requires_grad={param.requires_grad}")
 
@@ -139,16 +156,49 @@ def build(args):
         def codebook_analysis(self):
             return self.quant
 
+        def additional_obj(self, deriv, should_log=False, print_interval=1, tensorboard=None, mb_id=1, for_valid=False):
+            if deriv != None and self.vq_loss != None:
+
+                if for_valid and print_interval > 1:
+                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq/print_interval))
+                    if tensorboard: tensorboard.add_scalar('VQ_objf/valid', self.acc_sum_vq/print_interval, mb_id)
+                    logging.info("VQ perplexity ={}".format(self.acc_sum_perplexity/print_interval))
+                    if tensorboard: tensorboard.add_scalar('VQ_perplexity/valid', self.acc_sum_perplexity/print_interval, mb_id)
+                    self.acc_sum_vq.zero_()
+                    self.acc_sum_perplexity.zero_()
+                    return
+
+                if for_valid:
+                    self.acc_sum_vq.add_(self.vq_loss.item()*deriv) # deriv here is the mini_batchsize*num_seq
+                    self.acc_sum_perplexity.add_(self.perplexity.item()*deriv)
+                    return
+
+                self.acc_sum_vq.add_(self.vq_loss.item())
+                self.acc_sum_perplexity.add_(self.perplexity.item())
+
+                if not self.quant.freeze:
+                    deriv += self.vq_loss.to(deriv.device)
+                if should_log:
+                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq/print_interval))
+                    if tensorboard: tensorboard.add_scalar('VQ_objf/train', self.acc_sum_vq/print_interval, mb_id)
+                    self.acc_sum_vq.zero_()
+
+                if should_log:
+                    logging.info("VQ perplexity ={}".format(self.acc_sum_perplexity/print_interval))
+                    if tensorboard: tensorboard.add_scalar('VQ_perplexity/train', self.acc_sum_perplexity/print_interval, mb_id)
+                    self.acc_sum_perplexity.zero_()
+
+        @torch.no_grad()
         def validate_model(self):
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 17
+            assert nnet_output.shape[1] == 17, f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 17
+            assert nnet_output.shape[1] == 17, f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
         def pad_input(self, x):
@@ -201,7 +251,7 @@ def build(args):
 
 if __name__ == '__main__':
     parser = configargparse.ArgumentParser(description="Model config args")
-    parser.add("--freeze-encoder", default=False, type=bool)
+    parser.add("--freeze-encoder", default="False", type=str)
     parser.add("--codebook-size", default=255, type=int)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1]+remaining_argv

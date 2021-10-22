@@ -1,0 +1,58 @@
+# Dataset description
+
+# General options libri
+data_path: /lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/
+data_file_extension: .flac
+dataset_csv: list/libri460.csv
+
+sample_rate: 16000
+
+validation_ratio: 0.02
+batch_size: 2024
+
+# Training set
+train:
+    duration: 3.
+    chunk_per_segment: -1
+    overlap: 3.
+
+    sampler:
+        examples_per_speaker: 1
+        samples_per_speaker: 100
+        augmentation_replica: 1
+
+    transform_number: 0
+
+    transformation:
+        pipeline: filtering,codec
+
+        spec_aug: 0.5
+        temp_aug: 0.5
+
+        add_noise:
+            noise_db_csv: /lium/raid01_c/larcher/data/musan_split.csv
+            data_path: /lium/scratch/larcher/musan_split/
+
+        add_reverb:
+            rir_db_csv: list/reverb.csv
+            data_path: /lium/scratch/amehrish/Database/REVERB_UPDATED/REVERB/RIRS_NOISES/
+
+# Validation set
+valid:
+    duration: 3.
+
+    transformation:
+        pipeline:
+        spec_aug: 0.5
+        temp_aug: 0.5
+
+        add_noise:
+            noise_db_csv: /lium/raid01_c/larcher/data/musan_split.csv
+            data_path: /lium/scratch/larcher/musan_split/
+
+# Test set
+test:
+    idmap: /lium/raid01_c/larcher/data/vox1_test_cleaned_idmap.h5
+    ndx: /lium/raid01_c/larcher/data/vox1_test_cleaned_ndx.h5
+    key: /lium/raid01_c/larcher/data/vox1_test_cleaned_key.h5
+    data_path: /lium/scratch/larcher/voxceleb1/test/wav

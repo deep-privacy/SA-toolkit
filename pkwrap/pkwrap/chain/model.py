@@ -12,12 +12,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchaudio
-from _pkwrap import kaldi
 from .. import script_utils
 from .. import utils
 from .. import tensorboard
 from .objf import train_lfmmi_one_iter, compute_chain_objf
-from .egs_wav2vec2 import Wav2vec2EgsDataset, WavInfo
+from .egs_wav2vec2 import Wav2vec2EgsDataset, Wav2vec2DecodeDataset, Wav2vec2EgsCollectFn
 
 import kaldiio
 import matplotlib.pyplot as plt
@@ -121,8 +120,10 @@ class ChainModel(nn.Module):
         """Initialize the model and save it in chain_opts.base_model"""
         model = self.Net(self.chain_opts.output_dim)
         if self.chain_opts.init_weight_model != "":
-            not_inited = model.load_state_dict(torch.load(self.chain_opts.init_weight_model), strict=False)
-            logging.info("Init from previous model {}, layers not initialized: {}".format(self.chain_opts.init_weight_model, str(not_inited)))
+            init_weight_provided = torch.load(self.chain_opts.init_weight_model)
+            init_weight_provided_matched, unmatch = utils.torch.match_state_dict(model.state_dict(), init_weight_provided)
+            not_inited = model.load_state_dict(init_weight_provided_matched, strict=False)
+            logging.info("Init from previous model {}, layers not initialized: {}: layers ommited (wrong shape): {}".format(self.chain_opts.init_weight_model, str(not_inited), str(unmatch.keys())))
         torch.save(model.state_dict(), self.chain_opts.base_model)
 
     def train(self):
@@ -138,6 +139,7 @@ class ChainModel(nn.Module):
 
     @torch.no_grad()
     def validate(self):
+        from _pkwrap import kaldi # lasy import (kaldi-free decoding)
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
@@ -181,10 +183,14 @@ class ChainModel(nn.Module):
             this_mdl = self.Net(self.chain_opts.output_dim)
             this_mdl.load_state_dict(torch.load(mdl_name))
             for name, params in this_mdl.named_parameters():
-                model_acc[name].data.add_(params.data)
+                # Only average layers that are trained otherwise we ran
+                # into chained numerical division imprecision
+                if params.requires_grad:
+                    model_acc[name].data.add_(params.data)
         weight = 1.0/len(base_models)
         for name in model_acc:
-            model_acc[name].data.mul_(weight)
+            if model_acc[name].requires_grad:
+                model_acc[name].data.mul_(weight)
         torch.save(model0.state_dict(), chain_opts.new_model)
 
     @torch.no_grad()
@@ -259,23 +265,39 @@ class ChainModel(nn.Module):
 
         model = self.get_forward(device=device)
 
-        writer_spec = "ark,t:{}".format(chain_opts.decode_output)
-        writer = script_utils.feat_writer(writer_spec)
+        write_with_kaldi=True
+        try:
+            from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+        except ImportError as error:
+             # shutil/decode/latgen-faster-mapped.sh compatible but slower
+            logging.critical(" -- Failed to import kaldi for feat writing --")
+            logging.exception(error)
+            write_with_kaldi=False
 
-        utt2wav = Wav2vec2EgsDataset.read_wav_scp(chain_opts.decode_feats)
+        if write_with_kaldi:
+            writer_spec = "ark,t:{}".format(chain_opts.decode_output)
+            writer = script_utils.feat_writer(writer_spec)
+            close=writer.Close
+            writer=writer.Write
+            tensor_to_writer= lambda x: kaldi.matrix.TensorToKaldiMatrix(x)
+        else:
+            logging.info(" -- Using Kaldiio for feat writing --")
+            writer = kaldiio.WriteHelper('ark,t:{}'.format(chain_opts.decode_output))
+            close=writer.close
+            tensor_to_writer= lambda x: x.numpy()
 
-        for key, wavfile in utt2wav.items():
-            feats, _ = WavInfo(key, wavfile).prepare()
+        dataset = Wav2vec2DecodeDataset.from_wav_scp(chain_opts.decode_feats)
+        dataloader = torch.utils.data.DataLoader(dataset, collate_fn=Wav2vec2EgsCollectFn, num_workers=8)
 
+        for feats, key in dataloader:
             if chain_opts.use_gpu:
                 feats = feats.to(device)
-
-            post, _ = model(feats.unsqueeze(0))
-
+            post, _ = model(feats)
             post = post.squeeze(0).cpu()
-            writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
-            logging.info("Wrote {}".format(key))
-        writer.Close()
+             # batch size = 1 !!
+            writer(key[0], tensor_to_writer(post))
+            logging.info("Wrote {}".format(key[0]))
+        close()
 
     def reset_dims(self):
         # what if the user wants to pass it? Just override this function
@@ -314,6 +336,7 @@ class ChainModel(nn.Module):
     @torch.no_grad()
     def combine_final_model(self):
         """Implements Kaldi-style model ensembling"""
+        from _pkwrap import kaldi # lasy import (kaldi-free decoding)
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
@@ -353,30 +376,34 @@ class ChainModel(nn.Module):
         model_acc = dict(moving_average.named_parameters())
         num_accumulated = torch.Tensor([1.0]).reshape(1).cuda()
         best_num_to_combine = 1
-        for mdl_name in base_models[1:]:
-            this_mdl = self.Net(self.chain_opts.output_dim)
-            logging.info("Combining model {}".format(mdl_name))
-            this_mdl.load_state_dict(torch.load(mdl_name))
-            this_mdl = this_mdl.cuda()
-            # TODO(srikanth): check why is this even necessary
-            moving_average.cuda()
-            num_accumulated += 1.
-            for name, params in this_mdl.named_parameters():
-                model_acc[name].data.mul_((num_accumulated-1.)/(num_accumulated))
-                model_acc[name].data.add_(params.data.mul_(1./num_accumulated))
-            try:
-                _, this_objf = compute_objf(moving_average)
-            except Exception as e:
-                logging.warining("Error: ".format(str(e)))
-                _, this_objf = compute_objf(moving_average)
-            if this_objf > best_objf:
-                best_objf = this_objf
-                best_mdl = moving_average
-                best_num_to_combine = int(num_accumulated.clone().detach())
-                logging.info("Found best model")
-            else:
-                logging.info("Won't update best model")
-
+        if len(base_models) == 1:
+            best_mdl = moving_average
+            logging.info("Using last iter model (no combining) {}".format(base_models[0]))
+        else:
+            for mdl_name in base_models[1:]:
+                this_mdl = self.Net(self.chain_opts.output_dim)
+                logging.info("Combining model {}".format(mdl_name))
+                this_mdl.load_state_dict(torch.load(mdl_name))
+                this_mdl = this_mdl.cuda()
+                # TODO(srikanth): check why is this even necessary
+                moving_average.cuda()
+                num_accumulated += 1.
+                for name, params in this_mdl.named_parameters():
+                    model_acc[name].data.mul_((num_accumulated-1.)/(num_accumulated))
+                    model_acc[name].data.add_(params.data.mul_(1./num_accumulated))
+                # with try/catch it works all the time, otherwise I might get some kaldi error
+                try:
+                    _, this_objf = compute_objf(moving_average)
+                except Exception as e:
+                    logging.warining("Error: ".format(str(e)))
+                    _, this_objf = compute_objf(moving_average)
+                if this_objf > best_objf:
+                    best_objf = this_objf
+                    best_mdl = moving_average
+                    best_num_to_combine = int(num_accumulated.clone().detach())
+                    logging.info("Found best model")
+                else:
+                    logging.info("Won't update best model")
         logging.info("Combined {} models".format(best_num_to_combine))
         logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
         best_mdl.cpu()
@@ -402,6 +429,7 @@ class ChainE2EModel(ChainModel):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
+        from _pkwrap import kaldi # lasy import (kaldi-free decoding)
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         lr = chain_opts.lr

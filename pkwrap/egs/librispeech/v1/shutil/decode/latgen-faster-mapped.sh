@@ -5,13 +5,9 @@ frames_per_chunk=50
 max_active=7000
 min_active=200
 lattice_beam=8.0 # Beam we use in lattice generation.
-use_gpu=false # If true, will use a GPU, with nnet3-latgen-faster-batch.
-              # In that case it is recommended to set num-threads to a large
-              # number, e.g. 20 if you have that many free CPU slots on a GPU
-              # node, and to use a small number of jobs.
 minimize=false
 
-echo "$0 $@"  
+echo "$0 $@"
 . ./utils/parse_options.sh
 
 if [ $# -ne 4 ]; then

@@ -46,7 +46,7 @@ def run_diagnostics(dirname, model_file, iter_no, egs_file, train_set, job_cmd, 
     return process_out.returncode
 
 
-def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, job_cmd, dirname_cfg):
+def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, job_cmd, exp_cfg):
     job_pool = []
     with ThreadPoolExecutor(max_workers=2+1) as executor: # plus one for damped
         for diagnostic_name in ['train_diagnositc', 'valid']:
@@ -56,12 +56,14 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, job
                 resume=[]
                 if iter_no != 0:
                     resume=["--resume", f"BrijSpeakerXvector-iter{iter_no}.ckpt"]
+                damped_args = json.loads(exp_cfg["damped_args"]) if "damped_args" in exp_cfg else []
                 process_out = subprocess.run([
                     *job_cmd.split(),
                     "{}/{}/log/eval_damped.{}.log".format(wd, dirname, iter_no),
                     "./run.sh",
                     "--stop_stage", "2", "--world_size", "2", "--gpu_device", "1",
-                    "--tag", "spk_identif_" + dirname_cfg,
+                    *damped_args,
+                    "--tag", "spk_identif_" + exp_cfg["dirname"],
                     *resume,
                 ], cwd=os.path.dirname(damped.__file__) + "/../egs/librispeech/spk_identif/")
 
@@ -129,8 +131,8 @@ def train():
     cfg_parse = configparser.ConfigParser()
     cfg_parse.read(args.config)
     cmd = cfg_parse["cmd"]
-    cpu_cmd = cmd['cpu_cmd']
-    cuda_cmd = cmd['cuda_cmd']
+    cpu_cmd = os.getcwd() + "/" + cmd['cpu_cmd']
+    cuda_cmd = os.getcwd() + "/" + cmd['cuda_cmd']
 
     exp_cfg = cfg_parse["exp"]
     assert exp_cfg is not None
@@ -222,7 +224,7 @@ def train():
     logging.info(f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={frame_subsampling_factor}, num_epochs={num_epochs}")
 
 #   start the training
-    if stage <= 5:
+    if stage <= 5 and trainer_opts.train_stage == 0:
         logging.info("Initializing model")
         additional_ops = []
         if "init_weight_model" in exp_cfg and exp_cfg["init_weight_model"] != "":
@@ -268,7 +270,7 @@ def train():
             )
             diagnostic_job_pool = None
             if iter_no == 1 or (iter_no % trainer_opts.diagnostics_interval == 0 and iter_no != 0) or (iter_no+1 == num_iters):
-                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, cuda_cmd, exp_cfg["dirname"])
+                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, cuda_cmd, exp_cfg)
                 for p in as_completed(diagnostic_job_pool):
                     if p.result() != 0:
                         quit(p.result())
@@ -291,12 +293,14 @@ def train():
                         resume=[]
                         if iter_no != 0:
                             resume=["--resume", f"BrijSpeakerXvector-iter{iter_no}.ckpt"]
+                        damped_args = json.loads(exp_cfg["damped_args"]) if "damped_args" in exp_cfg else []
                         process_out = subprocess.run([
                             *cuda_cmd.split(),
                             "{}/{}/log/train_damped.{}.log".format(wd, dirname, iter_no),
                             "./run.sh",
                             "--tag", "spk_identif_" + exp_cfg["dirname"],
                             "--stop_stage", "2",
+                            *damped_args,
                             "--world_size", f"{num_jobs+1}",
                             "--train_mode", f"{damped_train_mode}", "--gpu_device", "0",
                             *resume,
@@ -306,6 +310,10 @@ def train():
                     # damped sibling job
                     p = executor.submit(damped_job)
                     job_pool.append(p)
+                    # DEBUG damped:
+                    #  for p in as_completed(job_pool):
+                        #  if p.result() != 0:
+                            #  quit(p.result())
 
                     for job_id in range(1, num_jobs+1):
                         frame_shift = num_archives_processed%frame_subsampling_factor
@@ -345,6 +353,7 @@ def train():
                 if os.path.isfile(mdl):
                     pkwrap.script_utils.run(["rm", mdl])
         # do final model combination
+        n_models = int(exp_cfg["final_combination_n_model"]) if "final_combination_n_model" in exp_cfg else 10
         model_list = [
                 os.path.join(dirname, f"{i}.pt")
                 for i in range(num_iters, num_iters-10, -1)
@@ -367,11 +376,13 @@ def train():
 
     logging.info("Damped last fine tune:")
     resume=["--resume", f"BrijSpeakerXvector-iter{num_iters}.ckpt"]
+    damped_args = json.loads(exp_cfg["damped_args"]) if "damped_args" in exp_cfg else []
     finetune_cmd = [
         *cuda_cmd.split(),
         "{}/{}/log/finetune_damped.{}.log".format(os.getcwd(), dirname, num_iters),
         "./run.sh",
         "--tag", "spk_identif_" + exp_cfg["dirname"],
+        *damped_args,
         "--stop_stage", "2",
         "--train_mode", f"finetune",
         *resume,

@@ -38,8 +38,6 @@ def build(args):
             super().__init__()
 
             # Preprocessor
-            self.cmvn = pkwrap.cmvn.UttCMVN()
-
             opts = kaldifeat.FbankOptions()
             self.features_opts = pkwrap.utils.kaldifeat_set_option(
                 opts,
@@ -54,6 +52,9 @@ def build(args):
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
             input_dim = self.features_opts.mel_opts.num_bins
+
+            self.cmvn = pkwrap.cmvn.UttCMVN()
+
 
             #input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
@@ -120,16 +121,17 @@ def build(args):
 
             self.validate_model()
 
+        @torch.no_grad()
         def validate_model(self):
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 17
+            assert nnet_output.shape[1] == 17, f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 17
+            assert nnet_output.shape[1] == 17, f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
         def pad_input(self, x):

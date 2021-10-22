@@ -9,9 +9,12 @@ import subprocess
 import io
 import random
 import torch
-from _pkwrap import kaldi
 import soundfile
 
+try:
+    from _pkwrap import kaldi # lasy import (kaldi-free decoding)
+except ImportError as error:
+    pass
 
 class WavInfo(object):
     """WavInfo objects hole information about each example without the supervision fst graph"""
@@ -126,6 +129,10 @@ def Wav2vec2EgsCollectFn(batch):
         return torch.stack(batch, 0, out=out)
     if isinstance(elem, EgsInfo):
         return list(batch)
+    if isinstance(elem, WavInfo):
+        return list(batch)
+    if isinstance(elem, str):
+        return list(batch)
     else:
         # check to make sure that the elements in batch have consistent size
         it = iter(batch)
@@ -155,8 +162,35 @@ class Wav2vec2BatchSampler(torch.utils.data.BatchSampler): # pylint: disable=too
                 yield batch_by_length[num_output_frames]
 
 
+class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
+    """A Pytorch Dataset class to prepare wav for Wav2vec2 decoding"""
+
+    def __init__(
+        self,
+        wav_spc_file
+    ):
+        utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav_spc_file)
+        self.holder = []
+        for key, wavfile in utt2wav.items():
+            self.holder.append(WavInfo(key, wavfile))
+
+    def __len__(self):
+        return len(self.holder)
+
+    def __getitem__(self, idx):
+        feats, info = self.holder[idx].prepare()
+        return feats, info.name
+
+    def __item__(self, i):
+        return self.holder[i]
+
+    @classmethod
+    def from_wav_scp(cls, wav_scp_file):
+        return cls(wav_scp_file)
+
+
 class Wav2vec2EgsDataset(torch.utils.data.Dataset):
-    """A Pytorch Dataset class to prepare Egs for Wav2vec2 models"""
+    """A Pytorch Dataset class to prepare Egs for Wav2vec2 models training"""
 
     # TODO(srikanth): should reduce the number of parameters or reconfigure pylint
     def __init__(
@@ -194,7 +228,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         return prepare_e2e(self.egs_holder[idx])
 
     def __item__(self, i):
-        # we may need to return wav and normalized fst instead
         return self.egs_holder[i]
 
     def prepare_egs(self, wav, fst_file):

@@ -143,3 +143,70 @@ class UttCMVN(torch.nn.Module):
         if self.var_norm:
             x /= std
         return x
+
+
+class AdaptivePCMN(torch.nn.Module):
+    """ Using adaptive parametric Cepstral Mean Normalization to replace traditional CMN.
+        It is implemented according to [Ozlem Kalinli, etc. "Parametric Cepstral Mean Normalization 
+        for Robust Automatic Speech Recognition", icassp, 2019.]
+    """
+    def __init__(self, input_dim, left_context=-10, right_context=10, pad=True):
+        super(AdaptivePCMN, self).__init__()
+
+        assert left_context < 0 and right_context > 0
+
+        self.left_context = left_context
+        self.right_context = right_context
+        self.tot_context = self.right_context - self.left_context + 1
+
+        kernel_size = (self.tot_context,)
+
+        self.input_dim = input_dim
+        # Just pad head and end rather than zeros using replicate pad mode 
+        # or set pad false with enough context egs.
+        self.pad = pad
+        self.pad_mode = "replicate"
+
+        self.groups = input_dim
+        output_dim = input_dim
+
+        # The output_dim is equal to input_dim and keep every dims independent by using groups conv.
+        self.beta_w = torch.nn.Parameter(torch.randn(output_dim, input_dim//self.groups, *kernel_size))
+        self.alpha_w = torch.nn.Parameter(torch.randn(output_dim, input_dim//self.groups, *kernel_size))
+        self.mu_n_0_w = torch.nn.Parameter(torch.randn(output_dim, input_dim//self.groups, *kernel_size))
+        self.bias = torch.nn.Parameter(torch.randn(output_dim))
+
+        # init weight and bias. It is important
+        self.init_weight()
+
+    def init_weight(self):
+        torch.nn.init.normal_(self.beta_w, 0., 0.01)
+        torch.nn.init.normal_(self.alpha_w, 0., 0.01)
+        torch.nn.init.normal_(self.mu_n_0_w, 0., 0.01)
+        torch.nn.init.constant_(self.bias, 0.)
+
+    def forward(self, inputs):
+        """
+        @inputs: a 3-dimensional tensor (a batch), including [B, TIME, FRAME]
+        """
+        inputs = inputs.permute(0, 2, 1)
+        assert len(inputs.shape) == 3
+        assert inputs.shape[1] == self.input_dim
+        assert inputs.shape[2] >= self.tot_context
+
+        if self.pad:
+            pad_input = torch.nn.functional.pad(inputs, (-self.left_context, self.right_context), mode=self.pad_mode)
+        else:
+            pad_input = inputs
+            inputs = inputs[:,:,-self.left_context:-self.right_context]
+
+        # outputs beta + 1 instead of beta to avoid potentially zeroing out the inputs cepstral features.
+        self.beta = torch.nn.functional.conv1d(pad_input, self.beta_w, bias=self.bias, groups=self.groups) + 1
+        self.alpha = torch.nn.functional.conv1d(pad_input, self.alpha_w, bias=self.bias, groups=self.groups)
+        self.mu_n_0 = torch.nn.functional.conv1d(pad_input, self.mu_n_0_w, bias=self.bias, groups=self.groups)
+
+        outputs = self.beta * inputs - self.alpha * self.mu_n_0
+
+        outputs = inputs.permute(0, 2, 1)
+
+        return outputs
