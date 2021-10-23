@@ -24,7 +24,7 @@ train:
     transform_number: 0
 
     transformation:
-        pipeline: filtering,codec
+        pipeline: add_reverb,add_noise,filtering,phone_filtering,codec
 
         spec_aug: 0.5
         temp_aug: 0.5

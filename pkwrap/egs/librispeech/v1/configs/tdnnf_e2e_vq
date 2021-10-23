@@ -23,12 +23,12 @@ lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
 minibatch_size = 16
-final_combination_n_model = 1 # finetune, last epcho usualy best model (also to not break the vq prototypes)
-train_stage = 25
+final_combination_n_model = 1 # finetune, last epcho usualy best model -> also to not break the vq prototypes
+# train_stage = 25
 
 model_file = local/chain/e2e/tuning/tdnnf_vq.py
-dirname = e2e_tdnnf_vq_sizeco_64
-model_args = ["--freeze-encoder", "True", "--codebook-size", "64"]
+dirname = e2e_tdnnf_vq_sizeco_48
+model_args = ["--freeze-encoder", "True", "--codebook-size", "48"]
 init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 # sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq

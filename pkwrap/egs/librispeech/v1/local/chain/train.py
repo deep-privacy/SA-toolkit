@@ -353,10 +353,10 @@ def train():
                 if os.path.isfile(mdl):
                     pkwrap.script_utils.run(["rm", mdl])
         # do final model combination
-        n_models = int(exp_cfg["final_combination_n_model"]) if "final_combination_n_model" in exp_cfg else 10
+        n_models = exp_cfg["final_combination_n_model"] if "final_combination_n_model" in exp_cfg else 10
         model_list = [
                 os.path.join(dirname, f"{i}.pt")
-                for i in range(num_iters, num_iters-10, -1)
+                for i in range(num_iters, num_iters-n_models, -1)
         ]
         logging.info("Final model combination...")
         diagnostic_name = 'valid'

@@ -23,13 +23,13 @@ lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
 minibatch_size = 16
-final_combination_n_model = 1 # finetune, last epcho usualy best model (also to not break the vq prototypes)
-# train_stage = 26
+final_combination_n_model = 5
+# train_stage = 30
 
 model_file = local/chain/e2e/tuning/tdnnf_vq_spkdelta.py
-dirname = e2e_tdnnf_vq_spkdelta_sizeco_64
-model_args = ["--freeze-encoder", "True", "--codebook-size", "64"]
-init_weight_model = "./exp/chain/e2e_tdnnf_vq_sizeco_64/final.pt"
+dirname = e2e_tdnnf_vq_spkdelta_sizeco_
+model_args = ["--freeze-encoder", "True", "--codebook-size", ""]
+init_weight_model = "./exp/chain/e2e_tdnnf_vq_sizeco_/final.pt"
 
 damped_args = ["--eproj", "512"]
 
