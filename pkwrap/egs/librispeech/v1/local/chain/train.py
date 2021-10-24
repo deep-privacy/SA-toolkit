@@ -353,7 +353,7 @@ def train():
                 if os.path.isfile(mdl):
                     pkwrap.script_utils.run(["rm", mdl])
         # do final model combination
-        n_models = exp_cfg["final_combination_n_model"] if "final_combination_n_model" in exp_cfg else 10
+        n_models = int(exp_cfg["final_combination_n_model"]) if "final_combination_n_model" in exp_cfg else 10
         model_list = [
                 os.path.join(dirname, f"{i}.pt")
                 for i in range(num_iters, num_iters-n_models, -1)
@@ -503,13 +503,13 @@ def train():
             "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir),
         ]), shell=True)
         logging.info(" " + pkwrap.script_utils.read_single_param_file("{}_fg/best_wer".format(out_dir), typename=str))
-        logging.info(f"Computing WER details for {out_dir}_fg...")
-        pkwrap.script_utils.run(" ".join([
-            "./local/wer_detail.sh",
-            "--dataDir", "./data/{}".format(data_name),
-            "--decodeDir","{}_fg".format(out_dir),
-            "--langDir", "data/lang_lp_test_fglarge",
-        ]), shell=True)
+        #  logging.info(f"Computing WER details for {out_dir}_fg...")
+        #  pkwrap.script_utils.run(" ".join([
+            #  "./local/wer_detail.sh",
+            #  "--dataDir", "./data/{}".format(data_name),
+            #  "--decodeDir","{}_fg".format(out_dir),
+            #  "--langDir", "data/lang_lp_test_fglarge",
+        #  ]), shell=True)
 
 if __name__ == '__main__':
     train()

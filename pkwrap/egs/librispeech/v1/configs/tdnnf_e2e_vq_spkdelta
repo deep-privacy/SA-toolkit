@@ -27,9 +27,9 @@ final_combination_n_model = 5
 # train_stage = 30
 
 model_file = local/chain/e2e/tuning/tdnnf_vq_spkdelta.py
-dirname = e2e_tdnnf_vq_spkdelta_sizeco_
-model_args = ["--freeze-encoder", "True", "--codebook-size", ""]
-init_weight_model = "./exp/chain/e2e_tdnnf_vq_sizeco_/final.pt"
+dirname = e2e_tdnnf_vq_spkdelta_sizeco_768
+model_args = ["--freeze-encoder", "True", "--codebook-size", "768"]
+init_weight_model = "./exp/chain/e2e_tdnnf_vq_sizeco_768/final.pt"
 
 damped_args = ["--eproj", "512"]
 
@@ -40,9 +40,9 @@ damped_args = ["--eproj", "512"]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
-test_set = data/dev_clean_fbank_hires
+test_set = data/test_other_fbank_hires
 # test_set = data/test_other_fbank_hires
-suffix = _final2
+suffix = _final
 # decode on gpus
 num_jobs = 40
 gpu = True

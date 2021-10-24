@@ -8,7 +8,7 @@ if [ "$(hostname)" == "lst" ]; then
     done
     for dim in 48 64 128
     do
-        sbatch -p gpu -c 40 --gres gpu:rtx6000:3 -N 1 --mem 128G --constraint=noexcl --time 6:30:00 -o .log_parrallel_tdnnf_vq_$dim.out --job-name tdnnf_vq_$dim --wrap="bash .parallel.sh $dim"
+        sbatch -p gpu -c 40 --gres gpu:rtx6000:3 -N 1 --mem 128G --constraint=noexcl --time 7:30:00 -o .log_parrallel_tdnnf_vq_$dim.out --job-name tdnnf_vq_$dim --wrap="bash .parallel.sh $dim"
     done
 
     exit 0
