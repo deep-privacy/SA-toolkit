@@ -53,6 +53,9 @@ export CFLAGS="-I$CUDAROOT/include $CFLAGS"
 export CUDA_HOME=$CUDAROOT
 export CUDA_PATH=$CUDAROOT
 
+export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
+export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH
+
 echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin/activate; fi; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" > env.sh
 
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
@@ -91,6 +94,19 @@ if [ ! -f $mark ]; then
   python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
   touch $mark
 fi
+
+# mark=.done-k2
+# if [ ! -f $mark ]; then
+  # echo " == Installing k2 =="
+  # export CUDNN_ROOT="$venv_dir"
+  # export CUDNN_INCLUDE_DIR="$venv_dir/include"
+  # export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
+  # git clone https://github.com/k2-fsa/k2.git
+  # cd k2
+  # python3 setup.py install
+  # cd $home
+  # touch $mark
+# fi
 
 
 mark=.done-pytorch
@@ -171,6 +187,27 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
+# might use pychain at some point for faster e2e-lfmmi evaluation (need to
+# manualy add xent and l2 regularisation)
+# have look here:https://github.com/m-wiesner/nnet_pytorch/blob/086bc45cf2f1a12197f29033a1e129f6c8b55b03/nnet_pytorch/objectives/LFMMI.py
+# or here: https://github.com/freewym/espresso/blob/65e52fbf4b2aa28809bde7fa6a32bd12ad6d90dc/espresso/criterions/lf_mmi_loss.py
+# How to use some part of pychain: https://github.com/lucasondel/MarkovModels.jl/blob/78a70b902c32f814b5c71b52bba72764563fae75/misc/benchmark_pychain.py
+# mark=.done-pychain
+# if [ ! -f $mark ]; then
+  # git clone https://github.com/YiwenShaoStephen/pychain
+  # cd pychain
+  # git checkout 7bdfdad
+  # cd openfst_binding
+  # # OPENFST_PATH and LD_LIBRARY_PATH must point to above kaldi/tools
+  # python3 setup.py install
+  # cd ..
+  # cd pytorch_binding
+  # python3 setup.py install
+  # cd $home
+  # echo "export PYTHONPATH=$PYTHONPATH:$(realpath .)/pychain" >> env.sh
+  # touch $mark
+# fi
+
 mark=.done-damped
 if [ ! -f $mark ]; then
   echo " == Building damped =="
@@ -188,8 +225,8 @@ if [ ! -f $mark ]; then
   # rm -rf sidekit
   # git clone https://git-lium.univ-lemans.fr/Larcher/sidekit.git
   cd sidekit
-  pip3 install -e .
   # git checkout 88f4d2b9
+  pip3 install -e .
   cd $home
   touch $mark
 fi
@@ -200,6 +237,13 @@ if [ ! -f $mark ]; then
   cd $home
   pip3 install seaborn
   touch $mark
+fi
+
+mark=.done-speech-resynthesis
+if [ ! -f $mark ]; then
+  git clone https://github.com/facebookresearch/speech-resynthesis.git
+  cd speech-resynthesis
+  pip install -r requirements.txt
 fi
 
 echo " == Everything got installed successfully =="

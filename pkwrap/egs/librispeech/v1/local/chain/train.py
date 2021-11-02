@@ -503,13 +503,13 @@ def train():
             "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir),
         ]), shell=True)
         logging.info(" " + pkwrap.script_utils.read_single_param_file("{}_fg/best_wer".format(out_dir), typename=str))
-        #  logging.info(f"Computing WER details for {out_dir}_fg...")
-        #  pkwrap.script_utils.run(" ".join([
-            #  "./local/wer_detail.sh",
-            #  "--dataDir", "./data/{}".format(data_name),
-            #  "--decodeDir","{}_fg".format(out_dir),
-            #  "--langDir", "data/lang_lp_test_fglarge",
-        #  ]), shell=True)
+        logging.info(f"Computing WER details for {out_dir}_fg...")
+        pkwrap.script_utils.run(" ".join([
+            "./local/wer_detail.sh",
+            "--dataDir", "./data/{}".format(data_name),
+            "--decodeDir","{}_fg".format(out_dir),
+            "--langDir", "data/lang_lp_test_fglarge",
+        ]), shell=True)
 
 if __name__ == '__main__':
     train()

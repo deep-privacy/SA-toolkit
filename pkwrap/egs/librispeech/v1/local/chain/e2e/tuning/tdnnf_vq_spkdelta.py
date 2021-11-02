@@ -3,23 +3,32 @@
 #  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-#  ==> e2e_tdnnf_vq_spkdelta_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 6.81 [ 3703 / 54402, 548 ins, 385 del, 2770 sub ] exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_8_1.0
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.25 [ 3945 / 54402, 453 ins, 607 del, 2885 sub ] 
 
-#  ==> e2e_tdnnf_vq_spkdelta_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 7.42 [ 4039 / 54402, 536 ins, 448 del, 3055 sub ] exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_16/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.67 [ 4173 / 54402, 567 ins, 490 del, 3116 sub ] 
 
-#  ==> e2e_tdnnf_vq_spkdelta_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 7.69 [ 4183 / 54402, 504 ins, 497 del, 3182 sub ] exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.97 [ 4335 / 54402, 566 ins, 554 del, 3215 sub ] 
 
-#  ==> e2e_tdnnf_vq_spkdelta_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 7.90 [ 4297 / 54402, 422 ins, 640 del, 3235 sub ] exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_10_1.0
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_32/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.10 [ 3861 / 54402, 495 ins, 483 del, 2883 sub ] 
 
-#  ==> e2e_tdnnf_vq_spkdelta_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 7.69 [ 4186 / 54402, 435 ins, 606 del, 3145 sub ] exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_10_1.0
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.78 [ 4233 / 54402, 621 ins, 429 del, 3183 sub ] 
 
-#  ==> e2e_tdnnf_vq_spkdelta_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 7.48 [ 4069 / 54402, 426 ins, 583 del, 3060 sub ] exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_48/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.39 [ 4018 / 54402, 590 ins, 416 del, 3012 sub ] 
+
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.83 [ 4259 / 54402, 556 ins, 542 del, 3161 sub ] 
+
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 6.93 [ 3770 / 54402, 527 ins, 401 del, 2842 sub ] 
+
+#  ==> e2e_tdnnf_vq_spkdelta_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.42 [ 4036 / 54402, 489 ins, 517 del, 3030 sub ] 
 
 import torch
 import torch.nn.functional as F
@@ -115,6 +124,7 @@ def build(args):
                             losses, _, _, _, concatenated_quantized = self.quant(x)
 
                 delta = torch.nn.functional.normalize((old_x - x), p=2, dim=2) # l2 norm on delta vec
+                #  delta = old_x - x
                 x = torch.cat((x, delta), 2)
                 self.vq_loss = vq_loss
                 self.bottleneck_out = x
@@ -138,6 +148,35 @@ def build(args):
                 orthonormal_constraint=-1.0,
             )
 
+            #  == Add more layers (like tdnn_1d in kaldi)
+            #  self.chain_layers = nn.Sequential(
+                #  OrthonormalLinear(hidden_dim, prefinal_bottleneck_dim, scale=-1.0),
+                #  nn.Dropout(p_dropout),
+                #  OrthonormalLinear(prefinal_bottleneck_dim, hidden_dim, scale=-1.0),
+                #  nn.Dropout(p_dropout),
+                #  OrthonormalLinear(hidden_dim, prefinal_bottleneck_dim, scale=-1.0),
+                #  nn.Dropout(p_dropout),
+                #  NaturalAffineTransform(prefinal_bottleneck_dim, output_dim),
+            #  )
+            #  self.chain_layers[-1].weight.data.zero_()
+            #  self.chain_layers[-1].bias.data.zero_()
+            #  self.xent_layers = nn.Sequential(
+                #  OrthonormalLinear(hidden_dim, prefinal_bottleneck_dim, scale=-1.0),
+                #  nn.Dropout(p_dropout),
+                #  OrthonormalLinear(prefinal_bottleneck_dim, hidden_dim, scale=-1.0),
+                #  nn.Dropout(p_dropout),
+                #  OrthonormalLinear(hidden_dim, prefinal_bottleneck_dim, scale=-1.0),
+                #  nn.Dropout(p_dropout),
+                #  NaturalAffineTransform(prefinal_bottleneck_dim, output_dim),
+            #  )
+            #  self.xent_layers[-1].weight.data.zero_()
+            #  self.xent_layers[-1].bias.data.zero_()
+
+            #  self.chain_output = self.chain_layers
+            #  self.xent_output = self.xent_layers
+            # END add more layer
+
+            # Old 1 layer
             self.chain_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.chain_output.weight.data.zero_()
             self.chain_output.bias.data.zero_()

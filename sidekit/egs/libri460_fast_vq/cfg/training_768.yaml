@@ -1,0 +1,45 @@
+# Training description
+
+
+# Gerenal options
+log_file: log/training_vq_768.log
+torch_seed: 42
+numpy_seed: 42
+random_seed: 42
+deterministic: false
+
+patience: 25
+epochs: 300
+
+multi_gpu: true
+num_cpu: 8
+
+mixed_precision: true
+clipping: false
+
+# Optimizer and scheduler options
+optimizer:
+    type: adam
+    options:
+
+lr: 0.0001
+scheduler:
+    type: CyclicLR
+    mode: triangular2
+    base_lr: 1.0e-05
+    step_size_up: 4500
+
+# lr: 1.0e-04
+# scheduler:
+    # type: StepLR2
+    # options:
+
+# Evaluation options
+compute_test_eer: false
+log_interval: 10
+validation_frequency: 2
+
+# Save options
+tmp_model_name: model/tmp_model_vq_768.pt
+best_model_name: model/best_model_vq_768.pt
+checkpoint_frequency:

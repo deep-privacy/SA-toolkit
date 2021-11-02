@@ -470,11 +470,10 @@ class Xtractor(torch.nn.Module):
             self.activation = torch.nn.LeakyReLU(0.2)
 
             self.preprocessor = BNFrontEnd()
-            ars_bn_dim = 256
-
+            ars_bn_dim = int(os.getenv("pkwrap_bn_dim", "256"))
 
             self.sequence_network = torch.nn.Sequential(OrderedDict([
-                ("conv1", torch.nn.Conv1d(int((5120/80)*ars_bn_dim), 512, 5, dilation=1)),
+                ("conv1", torch.nn.Conv1d(ars_bn_dim, 512, 5, dilation=1)),
                 ("activation1", torch.nn.LeakyReLU(0.2)),
                 ("batch_norm1", torch.nn.BatchNorm1d(512)),
                 ("conv2", torch.nn.Conv1d(512, 512, 3, dilation=2)),
@@ -580,7 +579,7 @@ class Xtractor(torch.nn.Module):
             self.sequence_network = PreFastResNet34()
             self.embedding_size = embedding_size
 
-            ars_bn_dim = 256
+            ars_bn_dim = int(os.getenv("pkwrap_bn_dim", "256"))
             self.before_speaker_embedding = torch.nn.Linear(in_features = int((2560/80)*ars_bn_dim),
                                                             out_features = self.embedding_size)
 
@@ -615,7 +614,7 @@ class Xtractor(torch.nn.Module):
             #self.before_speaker_embedding = torch.nn.Linear(in_features = 5120,
             #                                                out_features = self.embedding_size)
 
-            ars_bn_dim = 256
+            ars_bn_dim = int(os.getenv("pkwrap_bn_dim", "256"))
             self.before_speaker_embedding = torch.nn.Sequential(OrderedDict([
                 ("lin_be", torch.nn.Linear(in_features = int((5120/80)*ars_bn_dim), out_features = self.embedding_size, bias=False)),
                 ("bn_be", torch.nn.BatchNorm1d(self.embedding_size))
@@ -1613,7 +1612,8 @@ def xtrain(dataset_description,
         # Process one epoch and return the current model
         if monitor.current_patience == 0:
             print(f"Stopping at epoch {epoch} for cause of patience")
-            break
+            monitor.display_final()
+            sys.exit(0)
 
         sampler.set_epoch(epoch)
         if training_opts["multi_gpu"]:

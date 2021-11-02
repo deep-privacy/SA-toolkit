@@ -24,8 +24,8 @@ def load_wav(
 
 def get_extract_bn(device=torch.device("cuda")):
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
-    model = "local/chain/e2e/tuning/tdnnf.py"
-    exp_path = "exp/chain/e2e_tdnnf/"
+    model = os.getenv("pkwrap_model", "local/chain/e2e/tuning/tdnnf.py")
+    exp_path = os.getenv("pkwrap_exp_dir", "exp/chain/e2e_tdnnf/")
     model_weight = "final.pt"
 
 
@@ -37,7 +37,14 @@ def get_extract_bn(device=torch.device("cuda")):
     asr_model_file = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(asr_model_file)
 
-    asr_net = asr_model_file.build(SimpleNamespace())
+    args = SimpleNamespace()
+    if int(os.getenv("pkwrap_vq_dim", "-1")) != -1:
+        args = SimpleNamespace(
+            freeze_encoder=True,
+            codebook_size=int(os.getenv("pkwrap_vq_dim", "-1")),
+        )
+
+    asr_net = asr_model_file.build(args)
     pkwrap_chain = pkwrap.chain.ChainE2EModel(asr_net, cmd_line=False,
                           **{
                               "dir": pkwrap_path + exp_path,

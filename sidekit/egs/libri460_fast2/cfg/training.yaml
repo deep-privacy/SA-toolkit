@@ -8,7 +8,8 @@ numpy_seed: 42
 random_seed: 42
 deterministic: false
 
-epochs: 1000
+patience: 25
+epochs: 300
 
 multi_gpu: true
 num_cpu: 8
@@ -21,12 +22,12 @@ optimizer:
     type: adam
     options:
 
-lr: 0.001
+lr: 0.0001
 scheduler:
     type: CyclicLR
     mode: triangular2
-    base_lr: 1.0e-04
-    step_size_up: 3500
+    base_lr: 1.0e-05
+    step_size_up: 4500
 
 # lr: 1.0e-04
 # scheduler:

@@ -18,6 +18,7 @@ freeze_parts: []
 # Model can be fastresnet34, resnet34, xvector of custom
 # if custom, then need more options
 # model_type: halfresnet34
-model_type: bn_fastresnet34
+# model_type: bn_fastresnet34
+model_type: bn_xvector
 
 feature_size: 80

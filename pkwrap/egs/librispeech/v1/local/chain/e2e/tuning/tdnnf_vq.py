@@ -3,23 +3,32 @@
 #  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-#  ==> e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 23.02 [ 12524 / 54402, 1408 ins, 2029 del, 9087 sub ] exp/chain/e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_8_1.0
+#  ==> e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 9.54 [ 5189 / 54402, 661 ins, 658 del, 3870 sub ] 
 
-#  ==> e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 11.36 [ 6181 / 54402, 741 ins, 781 del, 4659 sub ] exp/chain/e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_sizeco_16/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 93.96 [ 51117 / 54402, 162 ins, 38922 del, 12033 sub ] 
 
-#  ==> e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 9.02 [ 4905 / 54402, 601 ins, 606 del, 3698 sub ] exp/chain/e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 8.61 [ 4686 / 54402, 656 ins, 553 del, 3477 sub ] 
 
-#  ==> e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 8.39 [ 4566 / 54402, 543 ins, 602 del, 3421 sub ] exp/chain/e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_sizeco_32/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 32.48 [ 17672 / 54402, 2041 ins, 4561 del, 11070 sub ] 
 
-#  ==> e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 8.13 [ 4425 / 54402, 486 ins, 677 del, 3262 sub ] exp/chain/e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 8.15 [ 4433 / 54402, 534 ins, 561 del, 3338 sub ] 
 
-#  ==> e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final2_fg/scoringDetails/best_wer <==
-#  %WER 7.73 [ 4204 / 54402, 439 ins, 618 del, 3147 sub ] exp/chain/e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final2_fg/wer_9_1.0
+#  ==> e2e_tdnnf_vq_sizeco_48/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 12.76 [ 6942 / 54402, 958 ins, 781 del, 5203 sub ] 
+
+#  ==> e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 8.08 [ 4395 / 54402, 630 ins, 477 del, 3288 sub ] 
+
+#  ==> e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 11.93 [ 6489 / 54402, 852 ins, 783 del, 4854 sub ] 
+
+#  ==> e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
+#  %WER 7.88 [ 4289 / 54402, 575 ins, 551 del, 3163 sub ] 
 
 import torch
 import torch.nn.functional as F

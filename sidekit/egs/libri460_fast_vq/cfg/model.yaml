@@ -1,0 +1,23 @@
+# Model description
+
+# speaker_number: 7205 # Vox 1&2
+# speaker_number: 5994 # Vox 1
+speaker_number: 1172 # librispeech 460
+
+loss:
+    type: aam
+    aam_margin: 0.2
+    aam_s: 30
+
+# Initialize model from file, reset and freeze parts of it
+# initial_model_name: ./model/best_model.pt_epoch12
+# initial_model_name:
+reset_parts: []
+freeze_parts: []
+
+# Model can be fastresnet34, resnet34, xvector of custom
+# if custom, then need more options
+# model_type: halfresnet34
+model_type: bn_xvector
+
+feature_size: 80
