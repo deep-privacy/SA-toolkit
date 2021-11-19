@@ -30,6 +30,7 @@
 #  ==> e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
 #  %WER 7.88 [ 4289 / 54402, 575 ins, 551 del, 3163 sub ] 
 
+import os
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -119,10 +120,22 @@ def build(args):
             self.acc_sum_perplexity = torch.tensor(0., requires_grad=False)
             self.quant = VectorQuantizerEMA(args.codebook_size, prefinal_bottleneck_dim, 0.25, 0.99)
             def bottleneck_ld(x):
+                quant_id_as_bn = int(os.getenv("qant_id_as_bn", "0"))
+                show_bn = int(os.getenv("show_bn", "0"))
                 vq_loss, x, perplexity, _, _, encoding_indices, \
                             losses, _, _, _, concatenated_quantized = self.quant(x)
+                self.encoding_indices = encoding_indices
+                if show_bn == 1:
+                    encoding_indices_l = torch.flatten(encoding_indices).tolist()
+                    if len(encoding_indices_l) != 34: # for valid
+                        logging.info("enc indices: len: " + str(len(encoding_indices_l)) + " id: " + str(" ".join(map(str, encoding_indices_l))))
+                        
                 self.vq_loss = vq_loss
                 self.bottleneck_out = x
+                if quant_id_as_bn == 1:
+                    reshape_like = list(x.shape)
+                    reshape_like[-1] = 1
+                    self.bottleneck_out = torch.reshape(encoding_indices, tuple(reshape_like)).to(torch.float32)
                 self.perplexity = perplexity
                 return x
 

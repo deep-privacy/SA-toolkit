@@ -1612,7 +1612,6 @@ def xtrain(dataset_description,
         # Process one epoch and return the current model
         if monitor.current_patience == 0:
             print(f"Stopping at epoch {epoch} for cause of patience")
-            monitor.display_final()
             sys.exit(0)
 
         sampler.set_epoch(epoch)

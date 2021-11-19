@@ -1,5 +1,5 @@
-expe_name="libri460_fast_vq_spkdelta_l2norm"
-template="libri460_fast_vq_spkdelta"
+expe_name="libri460_fast_vq_idonly"
+template="libri460_fast_vq"
 
 rsync -av --progress "$template/" "$expe_name/" --exclude "log" --exclude "model" --exclude "slurm*"
 

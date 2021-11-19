@@ -30,6 +30,7 @@
 #  ==> e2e_tdnnf_vq_spkdelta_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
 #  %WER 7.42 [ 4036 / 54402, 489 ins, 517 del, 3030 sub ] 
 
+import os
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -123,8 +124,10 @@ def build(args):
                 vq_loss, x, perplexity, _, _, encoding_indices, \
                             losses, _, _, _, concatenated_quantized = self.quant(x)
 
-                delta = torch.nn.functional.normalize((old_x - x), p=2, dim=2) # l2 norm on delta vec
-                #  delta = old_x - x
+                l2_norm = int(os.getenv("pk_bndelta_l2_norm", "0"))
+                delta = old_x - x
+                if l2_norm == 1:
+                    delta = torch.nn.functional.normalize((old_x - x), p=2, dim=2) # l2 norm on delta vec
                 x = torch.cat((x, delta), 2)
                 self.vq_loss = vq_loss
                 self.bottleneck_out = x

@@ -1,0 +1,9 @@
+numpy
+librosa==0.8.1
+scipy
+tensorboard
+soundfile
+amfm_decompy
+matplotlib
+ffmpeg
+tqdm

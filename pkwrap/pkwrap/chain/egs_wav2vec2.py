@@ -12,18 +12,21 @@ import torch
 import soundfile
 
 try:
-    from _pkwrap import kaldi # lazy import (kaldi-free decoding)
+    from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
 except ImportError as error:
     pass
 
+
 class WavInfo(object):
     """WavInfo objects hole information about each example without the supervision fst graph"""
+
     def __init__(self, name, wav):
         self.name = name
         self.wav = wav
 
     def prepare(self):
         return prepare_e2e(self)
+
 
 class EgsInfo(object):
     """EgsInfo objects hole information about each example"""
@@ -51,10 +54,7 @@ class EgsInfo(object):
 
         self.supervision = kaldi.chain.Supervision()
         kaldi.chain.TrainingGraphToSupervisionE2e(
-            self.fst,
-            trans_mdl,
-            self.num_output_frames,
-            self.supervision
+            self.fst, trans_mdl, self.num_output_frames, self.supervision
         )
 
     # TODO(srikanth): check if the supervision is already normalized to avoid
@@ -62,6 +62,7 @@ class EgsInfo(object):
     def normalize_supervision(self, normalize_fst):
         """Normalize supervision with fst"""
         kaldi.chain.AddWeightToSupervisionFst(normalize_fst, self.supervision)
+
 
 def prepare_e2e(egs):
     """returns a tuple of tensor and merged supervision
@@ -79,36 +80,33 @@ def prepare_e2e(egs):
     # load the audio
     if not egs:
         return None, None
-    devnull = open(os.devnull, 'w')
+    devnull = open(os.devnull, "w")
     if len(egs.wav) == 1:
-         sample, _ = soundfile.read(wav)
+        samples, _ = soundfile.read(" ".join(egs.wav))
     else:
         try:
             wav_read_process = subprocess.Popen(
-                ' '.join(egs.wav),
-                stdout=subprocess.PIPE,
-                shell=True,
-                stderr=devnull
+                " ".join(egs.wav), stdout=subprocess.PIPE, shell=True, stderr=devnull
             )
-            samples, _ = soundfile.read(
-                io.BytesIO(wav_read_process.communicate()[0])
-            )
+            samples, _ = soundfile.read(io.BytesIO(wav_read_process.communicate()[0]))
         except Exception:
             raise IOError("Error processing {}".format(egs.name))
     feats_torch = torch.tensor(samples, dtype=torch.float32, requires_grad=False)
     return (feats_torch, egs)
 
 
-def GetSupervisionFromWav2Vec2Egs(transition_model, normalization_fst, egs_list, num_output_frames):
-        batch = []
-        for item in egs_list:
-            item.num_output_frames = num_output_frames
-            item.create_supervision(transition_model)
-            item.normalize_supervision(normalization_fst)
-            batch.append(item.supervision)
-        merged_sup = kaldi.chain.Supervision()
-        kaldi.chain.MergeSupervisionE2e(batch, merged_sup)
-        return merged_sup
+def GetSupervisionFromWav2Vec2Egs(
+    transition_model, normalization_fst, egs_list, num_output_frames
+):
+    batch = []
+    for item in egs_list:
+        item.num_output_frames = num_output_frames
+        item.create_supervision(transition_model)
+        item.normalize_supervision(normalization_fst)
+        batch.append(item.supervision)
+    merged_sup = kaldi.chain.Supervision()
+    kaldi.chain.MergeSupervisionE2e(batch, merged_sup)
+    return merged_sup
 
 
 def Wav2vec2EgsCollectFn(batch):
@@ -116,7 +114,7 @@ def Wav2vec2EgsCollectFn(batch):
     elem_type = type(elem)
     if isinstance(elem, torch.Tensor):
         lengths = torch.tensor([t.shape[0] for t in batch])
-        if lengths.sum().item() != batch[0].shape[0]*len(batch):
+        if lengths.sum().item() != batch[0].shape[0] * len(batch):
             #  logging.warning("Padding tensor lengths={}".format(str(lengths)))
             return torch.nn.utils.rnn.pad_sequence(batch, batch_first=True)
         out = None
@@ -138,18 +136,25 @@ def Wav2vec2EgsCollectFn(batch):
         it = iter(batch)
         elem_size = len(next(it))
         if not all(len(elem) == elem_size for elem in it):
-            raise RuntimeError('each element in list of batch should be of equal size')
+            raise RuntimeError("each element in list of batch should be of equal size")
         transposed = zip(*batch)
         res = [Wav2vec2EgsCollectFn(samples) for samples in transposed]
         return res
-    raise TypeError("default_collate: batch must contain tensors, numpy arrays, numbers, dicts or lists; found {}".format(elem_type))
+    raise TypeError(
+        "default_collate: batch must contain tensors, numpy arrays, numbers, dicts or lists; found {}".format(
+            elem_type
+        )
+    )
 
 
-class Wav2vec2BatchSampler(torch.utils.data.BatchSampler): # pylint: disable=too-few-public-methods
+class Wav2vec2BatchSampler(
+    torch.utils.data.BatchSampler
+):  # pylint: disable=too-few-public-methods
     """An extension of BatchSampler to handle raw egs"""
+
     def __iter__(self):
         batch_by_length = defaultdict(list)
-        #for i in torch.utils.data.RandomSampler(range(len(self.sampler))):
+        # for i in torch.utils.data.RandomSampler(range(len(self.sampler))):
         for i in range(len(self.sampler)):
             idx = self.sampler[i]
             num_output_frames = idx.num_output_frames
@@ -165,10 +170,7 @@ class Wav2vec2BatchSampler(torch.utils.data.BatchSampler): # pylint: disable=too
 class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
     """A Pytorch Dataset class to prepare wav for Wav2vec2 decoding"""
 
-    def __init__(
-        self,
-        wav_spc_file
-    ):
+    def __init__(self, wav_spc_file):
         utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav_spc_file)
         self.holder = []
         for key, wavfile in utt2wav.items():
@@ -194,13 +196,13 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
 
     # TODO(srikanth): should reduce the number of parameters or reconfigure pylint
     def __init__(
-            self,
-            wav,
-            fst_file,
-            utt2len_file,
-            transition_model_filename,
-            normalization_fst_rxfilename,
-            shuffle=False,
+        self,
+        wav,
+        fst_file,
+        utt2len_file,
+        transition_model_filename,
+        normalization_fst_rxfilename,
+        shuffle=False,
     ):
         """instantiates a Pytorch Dataset for E2E training
 
@@ -234,7 +236,9 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         """Method to prepare egs_holder"""
         # egs file is wav.scp file
         utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav)
-        utt2len = Wav2vec2EgsDataset.read_utt2len_file("{}/utt2len".format(os.path.dirname(wav)))
+        utt2len = Wav2vec2EgsDataset.read_utt2len_file(
+            "{}/utt2len".format(os.path.dirname(wav))
+        )
         self.egs_holder = self.get_egs_holder(fst_file, utt2wav, utt2len)
 
     @staticmethod
@@ -251,7 +255,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         utt2wav = {}
         with open(wav_scp) as ipf:
             for line in ipf:
-                lns = line.strip().rstrip('|').split()
+                lns = line.strip().rstrip("|").split()
                 uttname = lns[0]
                 utt2wav[uttname] = lns[1:]
         return utt2wav
@@ -277,12 +281,16 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 try:
                     uttname, fstscp = lns
                 except Exception:
-                    logging.error("Excepted fst file %s to have only 2 columns", fst_file)
+                    logging.error(
+                        "Excepted fst file %s to have only 2 columns", fst_file
+                    )
                 if uttname not in utt2wav:
                     skipped += 1
                     continue
                 if uttname not in utt2len:
-                    logging.warning("Cannot find number of output frames for %s", uttname)
+                    logging.warning(
+                        "Cannot find number of output frames for %s", uttname
+                    )
                     skipped += 1
                     continue
 
@@ -294,18 +302,17 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 if min_path_length > num_output_frames:
                     logging.warning(
                         "get_egs_holder, %s has more labels than frames",
-                        this_egs_info.name
+                        this_egs_info.name,
                     )
                     skipped += 1
                     continue
 
-                this_egs_info = EgsInfo(uttname, utt2wav[uttname], fstscp, num_output_frames)
+                this_egs_info = EgsInfo(
+                    uttname, utt2wav[uttname], fstscp, num_output_frames
+                )
                 egs_holder.append(this_egs_info)
                 done += 1
             logging.info(
-                "In get_egs_holder: total=%d, done=%d, skipped=%d",
-                total,
-                done,
-                skipped
+                "In get_egs_holder: total=%d, done=%d, skipped=%d", total, done, skipped
             )
         return egs_holder

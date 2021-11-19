@@ -1,6 +1,6 @@
 [cmd]
-cpu_cmd = run.pl
-cuda_cmd = run.pl
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
 
 [exp]
 # 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically

@@ -10,7 +10,7 @@ asv_model="../../egs/libri460_fast2/model/best_model.pt"
 pkwrap_model="local/chain/e2e/tuning/tdnnf_vq_spkdelta.py"
 # pkwrap_bn_dim="256"
 pkwrap_bn_dim="512"
-pkwrap_vq_dim="128"
+pkwrap_vq_dim="16"
 
 # pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_sizeco_$pkwrap_vq_dim/"
 pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_$pkwrap_vq_dim/"
@@ -33,6 +33,9 @@ for suff in 'test'; do
   # Baseline on clear speech
   asv_test+=("libri_${suff}_enrolls,libri_${suff}_trials_f")
   asv_test+=("libri_${suff}_enrolls,libri_${suff}_trials_m")
+
+  # asv_test+=("vctk_${suff}_enrolls,vctk_${suff}_trials_f_common")
+  # asv_test+=("vctk_${suff}_enrolls,vctk_${suff}_trials_m_common")
 done
 
 for asv_row in "${asv_test[@]}"; do

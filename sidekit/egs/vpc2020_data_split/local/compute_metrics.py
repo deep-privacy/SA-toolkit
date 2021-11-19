@@ -1,4 +1,5 @@
 from performance import linkability, draw_scores, cllr, min_cllr
+import feerci
 import argparse
 import pandas
 
@@ -33,7 +34,9 @@ if args.draw_scores:
   draw_scores(matedScores, nonMatedScores, Dsys, D, bin_centers, bin_edges, output_file)
 
 
+feer, ci_lower, ci_upper, bootstrapped_eers = feerci.feerci(nonMatedScores, matedScores, is_sorted=False)
 
+print("EER_bootci: {:.2f} interval: [{:.2f}, {:.2f}]".format(feer*100, ci_lower*100, ci_upper*100))
 print("EER: {:.2f}".format(eer*100))
 print("Cllr (min/act): %f %f" % (cmin, cllr))
 print("linkability: %f" % (Dsys))

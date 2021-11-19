@@ -8,3 +8,6 @@ corpora
 kaldifeat
 *.egg-info/
 anonymization_metrics/
+feerci
+k2
+pychain

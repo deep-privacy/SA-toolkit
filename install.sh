@@ -122,6 +122,8 @@ mark=.done-python-requirements
 if [ ! -f $mark ]; then
   echo " == Installing python libraries =="
 
+  pip3 install numpy==1.20 # force numpy version to 1.20 (required by Numba)
+
   pip3 install scikit-learn==0.24.2
   pip3 install tensorboard
 
@@ -139,6 +141,20 @@ if [ ! -f $mark ]; then
   pip3 install PyYAML==5.4.1
   pip3 install h5py==3.2.1
   pip3 install ipython==7.27.0
+
+  # speech-resynthesis additional req
+  pip3 install librosa==0.8.1
+  pip3 install scipy==1.7.1
+  pip3 install soundfile
+  pip3 install amfm_decompy==1.0.11
+  pip3 install matplotlib
+  pip3 install ffmpeg==1.4
+  pip3 install tqdm
+
+  # demo req
+  pip3 install ipywebrtc==0.6.0
+  pip3 install ipywidgets==7.6.5
+  pip3 install notebook==6.4.5
 
   cd $home
   touch $mark
@@ -239,11 +255,24 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
+
+mark=.done-FEERCI
+if [ ! -f $mark ]; then
+  git clone https://github.com/feerci/feerci
+  cd feerci
+  pip install Cython
+	pip3 install -e .
+  cd $home
+  touch $mark
+fi
+
 mark=.done-speech-resynthesis
 if [ ! -f $mark ]; then
   git clone https://github.com/facebookresearch/speech-resynthesis.git
   cd speech-resynthesis
-  pip install -r requirements.txt
+  git checkout a5c97de
+  cd -
+  touch $mark
 fi
 
 echo " == Everything got installed successfully =="

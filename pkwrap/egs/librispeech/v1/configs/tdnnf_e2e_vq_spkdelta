@@ -27,7 +27,8 @@ final_combination_n_model = 5
 # train_stage = 30
 
 model_file = local/chain/e2e/tuning/tdnnf_vq_spkdelta.py
-dirname = e2e_tdnnf_vq_spkdelta_nonorm_addlayers_sizeco_768
+dirname = e2e_tdnnf_vq_spkdelta_nonorm_sizeco_768
+# dirname = e2e_tdnnf_vq_spkdelta_sizeco_768
 model_args = ["--freeze-encoder", "True", "--codebook-size", "768"]
 init_weight_model = "./exp/chain/e2e_tdnnf_vq_sizeco_768/final.pt"
 

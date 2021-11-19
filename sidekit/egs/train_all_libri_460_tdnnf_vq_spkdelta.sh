@@ -4,7 +4,7 @@
 if [ "$(hostname)" == "lst" ]; then
     for dim in 16 32 48 64 128 256 384 512 768
     do
-        sbatch -p non-k40 -c 49 --gres gpu:2 -C "gpu24gb|gpu48gb" -N 1 --mem 24G --constraint=noexcl --time 35:00:00 -o .log_parrallel_xvec_tdnnf_spkdelta_vq_$dim.out --job-name xvec_vq_sd_$dim --wrap="bash ./train_all_libri_460_tdnnf_vq_spkdelta.sh $dim"
+        sbatch -p non-k40 -c 32 --gres gpu:2 -C "gpu48gb" -N 1 --mem 24G --constraint=noexcl --time 35:00:00 -o .log_parrallel_xvec_tdnnf_spkdelta_vq_$dim.out --job-name xvec_vq_sd_$dim --wrap="bash ./train_all_libri_460_tdnnf_vq_spkdelta.sh $dim"
 
     done
     exit 0

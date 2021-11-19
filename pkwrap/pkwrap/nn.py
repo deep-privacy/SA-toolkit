@@ -17,12 +17,16 @@ class NGState:
     num_samples_history: float = 2000.0
     update_period: int = 4
 
+log_kaldi_warning = True
 def get_preconditioner_from_ngstate(ngstate):
     assert ngstate is not None
+    global log_kaldi_warning
     try:
         from _pkwrap import kaldi # lazy import (kaldi-free decoding)
     except ImportError as error:
-        logging.critical("pkwrap: -- Failed to import kaldi you better not be in training mode (no backward possible) --")
+        if log_kaldi_warning:
+            logging.critical("pkwrap: -- Failed to import kaldi you better not be in training mode (no backward possible) --")
+            log_kaldi_warning = False
         return None
         pass
     preconditioner = kaldi.nnet3.OnlineNaturalGradient()
