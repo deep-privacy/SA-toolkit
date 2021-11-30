@@ -22,7 +22,10 @@ logging.getLogger("matplotlib").setLevel(level=logging.CRITICAL)
 
 MAX_WAV_VALUE = 32768.0
 
-speech_resynthesis = __import__("speech-resynthesis")
+if os.path.basename(os.getcwd()) == "speech-resynthesis":
+    speech_resynthesis = __import__("__init__")
+else:
+    speech_resynthesis = __import__("speech-resynthesis")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -48,6 +51,7 @@ def init_speech_synthesis_model(config_file, weight_file, root_dir=os.getcwd()):
     generator.load_state_dict(checkpoint_dict["generator"])
     generator.eval()
     generator.remove_weight_norm()
+    generator.share_memory()
 
     @torch.no_grad()
     def _forward(bn, f0):
@@ -61,7 +65,7 @@ def init_speech_synthesis_model(config_file, weight_file, root_dir=os.getcwd()):
         audio = librosa.util.normalize(audio.astype(np.float32))
         return audio
 
-    return _forward, h.sampling_rate
+    return _forward, h.sampling_rate, generator
 
 
 def init_pkwrap_model(model, exp_path, pkwrap_vq_dim):
@@ -95,7 +99,7 @@ def init_pkwrap_model(model, exp_path, pkwrap_vq_dim):
             "base_model": pkwrap_path + exp_path + model_weight,
         },
     )
-    net = pkwrap_chain.get_forward(device=device)
+    net = pkwrap_chain.get_forward(device=device, share_memory=True)
 
     return net
 
@@ -202,7 +206,7 @@ if __name__ == "__main__":
         "pkwrap/egs/librispeech/v1/data/vctk_test/wav/p227/p227_001_mic2.wav"
     )
 
-    synthesis_model, synthesis_sr = init_speech_synthesis_model(
+    synthesis_model, synthesis_sr, generator = init_speech_synthesis_model(
         "checkpoints/lj_vq_tdnnf_asr/config.json",
         "checkpoints/lj_vq_tdnnf_asr/g_00080000",
         root_dir="speech-resynthesis/",
@@ -215,7 +219,7 @@ if __name__ == "__main__":
     )
 
     out, net = pk_model(waveform.to(device))
-    text = kaldi_asr_decode(out, rescore=True)
+    text = kaldi_asr_decode(out)
 
     f0 = get_f0(
         waveform, f0_stats_file="speech-resynthesis/datasets/LJSpeech/f0_stats.pth"
