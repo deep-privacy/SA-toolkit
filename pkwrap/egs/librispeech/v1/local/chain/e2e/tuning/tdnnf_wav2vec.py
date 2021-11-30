@@ -42,7 +42,6 @@ def build(args):
                 freeze=False,
                 freeze_feature_extractor=True,
             )
-            logging.info("Preprocessor (wav2vec2) frozzen: {}".format(self.preprocessor.freeze))
             input_dim = 768 # self.preprocessor output dim
             
 
@@ -100,6 +99,27 @@ def build(args):
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
             )
+            ####################
+            #  Bigger decoder  #
+            ####################
+            #  tdnnfs = []
+            #  for i in range(0, 1):
+                #  kernel_size = 3
+                #  subsampling_factor = 1
+                #  layer = TDNNFBatchNorm(
+                    #  hidden_dim,
+                    #  hidden_dim,
+                    #  bottleneck_dim=bottleneck_dim,
+                    #  context_len=kernel_size,
+                    #  subsampling_factor=subsampling_factor,
+                    #  orthonormal_constraint=-1.0,
+                #  )
+                #  tdnnfs.append(layer)
+                #  dropout_layer = nn.Dropout(p_dropout)
+                #  tdnnfs.append(dropout_layer)
+            #  # tdnnfs requires [N, C, T]
+            #  self.tdnnfs_decode = nn.ModuleList(tdnnfs)
+
             self.prefinal_xent = TDNNFBatchNorm(
                 hidden_dim, hidden_dim,
                 bottleneck_dim=prefinal_bottleneck_dim,
@@ -117,7 +137,29 @@ def build(args):
 
             self.validate_model()
 
-        def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay):
+
+            #  def additional_obj(self, deriv, should_log=False, print_interval=1, tensorboard=None):
+                #  if deriv == None or self.wav2vec2_loss:
+                    #  return
+                #  deriv += self.wav2vec2_loss.to(deriv.device)
+    
+                #  if should_log:
+                    #  logging.info("Wav2Vec2 loss ={}".format(self.acc_sum_wav2vec2_loss/print_interval))
+                    #  if tensorboard: tensorboard.add_scalar('wav2vec2/train', self.acc_sum_wav2vec2_loss/print_interval, mb_id)
+                    #  self.acc_sum_wav2vec2_loss.zero_()
+
+        def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay, iter=0):
+            TOTAL_ITER = 630
+
+            if iter < TOTAL_ITER * 0.10 and iter > TOTAL_ITER * 0.90:
+                #  For the first 10% updates only the output classifier is trained, after which the Transformer is also updated.
+                self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
+                    "facebook/wav2vec2-base-960h",
+                    freeze=True,
+                    freeze_feature_extractor=True,
+                )
+            logging.info("Preprocessor (wav2vec2) frozzen: {}".format(self.preprocessor.freeze))
+
             wav2vec = []
             tdnnf = []
             for name, param in self.named_parameters():
@@ -126,8 +168,10 @@ def build(args):
                 else:
                     tdnnf.append(param)
             opti = get_optimizer([{'params':wav2vec}, {'params':tdnnf}], lr, weight_decay)
+
             opti.param_groups[0]['lr'] = lr/2
             opti.param_groups[1]['lr'] = lr
+
             return opti
 
 
@@ -157,7 +201,8 @@ def build(args):
             # input x is of shape: [batch_size, wave] = [N, C]
 
             with torch.cuda.amp.autocast():
-                x = self.preprocessor(x, spec_aug=self.training)
+                x = self.preprocessor(x)
+                #  x = self.preprocessor(x, spec_aug=self.training)
 
             assert x.ndim == 3
             x = self.pad_input(x)
@@ -172,6 +217,12 @@ def build(args):
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
             xent_prefinal_out = self.prefinal_xent(x)
+
+            #  x = chain_prefinal_out
+            #  for i in range(len(self.tdnnfs_decode)):
+                #  x = self.tdnnfs_decode[i](x)
+            #  xent_prefinal_out = self.prefinal_xent(x)
+            #  chain_prefinal_out = x
 
             chain_out = self.chain_output(chain_prefinal_out)
             xent_out = self.xent_output(xent_prefinal_out)

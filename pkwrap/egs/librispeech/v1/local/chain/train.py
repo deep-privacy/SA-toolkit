@@ -10,6 +10,7 @@ description = """
 
 import os
 import sys
+import glob
 import shutil
 import datetime
 import math
@@ -20,6 +21,7 @@ import argparse
 import subprocess
 import configparser
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import concurrent
 import logging
 logging.basicConfig(level=logging.DEBUG, format='pkwrap %(levelname)s: %(message)s')
 
@@ -93,7 +95,7 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, train_set, job
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir, train_set,
     num_archives, num_archives_processed, minibatch_size, job_cmd, damped_tatal_job=1,
-            xent_regularize=0.025):
+            xent_regularize=0.025, grad_acc_steps="1", l2_regularize_factor=None):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
@@ -101,9 +103,15 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
     cuda_device = job_id-1
     if cuda_device >= torch.cuda.device_count():
         cuda_device = torch.cuda.device_count()-1 - (cuda_device - torch.cuda.device_count())
+    cuda_device = str(cuda_device)
+    if damped_tatal_job-1 == 1:
+        cuda_device = ",".join([str(k) for k in  range(torch.cuda.device_count())])
+    l2_reg = str(1.0/num_jobs)
+    if l2_regularize_factor:
+        l2_reg = l2_regularize_factor
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
-                "env", "CUDA_VISIBLE_DEVICES="+str(cuda_device), f"DAMPED_N_DOMAIN={damped_tatal_job-1}", f"DAMPED_DOMAIN={job_id}",
+                "env", "CUDA_VISIBLE_DEVICES="+cuda_device, f"DAMPED_N_DOMAIN={damped_tatal_job-1}", f"DAMPED_DOMAIN={job_id}",
                 *model_file,
                 "--dir", dirname,
                 "--mode", "training",
@@ -111,8 +119,9 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
                 "--frame-shift", str(frame_shift),
                 "--egs", "{}/fst_train.{}.scp".format(egs_dir, num_archives_processed%num_archives+1),
                 "--data", train_set,
-                "--l2-regularize-factor", str(1.0/num_jobs),
+                "--l2-regularize-factor", l2_reg,
                 "--minibatch-size", minibatch_size,
+                "--grad-acc-steps", grad_acc_steps,
                 "--new-model", os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
                 "--xent-regularize", str(xent_regularize),
                 os.path.join(dirname, "{}.pt".format(iter_no))])
@@ -163,6 +172,20 @@ def train():
     model_opts = pkwrap.trainer.ModelOpts().load_from_config(exp_cfg)
     frame_subsampling_factor = model_opts.frame_subsampling_factor
     trainer_opts = pkwrap.trainer.TrainerOpts().load_from_config(exp_cfg)
+    print(trainer_opts.train_stage)
+    if trainer_opts.train_stage == "last" or trainer_opts.train_stage == '"last"':
+        pattern = os.path.join(dirname, '*.pt')
+        cp_list = glob.glob(pattern)
+        cp_list = list(map(lambda x: x.split("/")[-1].split(".")[0], cp_list))
+        if "final" in cp_list:
+            cp_list.remove("final")
+        if len(cp_list) == 0:
+            trainer_opts.train_stage = "0"
+        cp_list = list(map(lambda x: int(x), cp_list))
+        trainer_opts.train_stage = str(sorted(cp_list)[-1])
+        logging.info(f"Resuming from stage: {trainer_opts.train_stage}")
+
+    trainer_opts.train_stage = int(trainer_opts.train_stage)
     
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
@@ -310,10 +333,14 @@ def train():
                     # damped sibling job
                     p = executor.submit(damped_job)
                     job_pool.append(p)
-                    # DEBUG damped:
-                    #  for p in as_completed(job_pool):
-                        #  if p.result() != 0:
-                            #  quit(p.result())
+
+                    add_praram = {}
+                    if "grad_acc_steps" in exp_cfg:
+                        add_praram["grad_acc_steps"] = exp_cfg["grad_acc_steps"]
+
+                    if "l2_regularize_factor" in exp_cfg:
+                        add_praram["l2_regularize_factor"] = exp_cfg["l2_regularize_factor"]
+
 
                     for job_id in range(1, num_jobs+1):
                         frame_shift = num_archives_processed%frame_subsampling_factor
@@ -321,11 +348,17 @@ def train():
                                         model_file, lr, frame_shift,
                                         egs_dir, train_set, num_archives, num_archives_processed,
                                         exp_cfg["minibatch_size"], cuda_cmd,
+                                        **add_praram,
                                         damped_tatal_job=num_jobs+1,
                                         xent_regularize=xent_regularize)
                         num_archives_processed += 1
                         job_pool.append(p)
-                    #  print("Pool size:", job_pool, flush=True)
+                    for j in job_pool:
+                        if j.running() == False:
+                            print(job_pool, flush=True)
+                            executor._threads.clear()
+                            concurrent.futures.thread._threads_queues.clear()
+                            quit(j.result())
                     for p in as_completed(job_pool):
                         if p.result() != 0:
                             quit(p.result())

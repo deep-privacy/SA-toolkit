@@ -39,3 +39,11 @@ env pkwrap_model="local/chain/e2e/tuning/tdnnf_vq.py" \
     --config configs/LJSpeech/vq_tdnnf_asr.json
 
 # sqg | grep pchamp | awk '{print $1}' | xargs scancel; \rm .log_parrallel*
+
+# dim=8
+# env pkwrap_model="local/chain/e2e/tuning/tdnnf_vq_bd.py" \
+    # pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_bd_sizeco_$dim/" \
+    # pkwrap_vq_dim="$dim" \
+    # python -m torch.distributed.launch --nproc_per_node $ngpu train.py \
+    # --checkpoint_path checkpoints/lj_vq_tdnnf_asr_vq_$dim \
+    # --config configs/LJSpeech/vq_tdnnf_asr.json

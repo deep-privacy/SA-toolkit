@@ -7,10 +7,12 @@
 
 import subprocess
 from .. import script_utils
+import sys
 import os
 from datetime import datetime
 
 run = script_utils.run
+
 
 def split_data(dirname, num_jobs=0):
     """Call's Kaldi's utils/split_data.sh script
@@ -25,6 +27,7 @@ def split_data(dirname, num_jobs=0):
     script_utils.run(["utils/split_data.sh", dirname, str(num_jobs)])
     return int(num_jobs)
 
+
 def num_lines(filename):
     """Find out the number of lines in a file using wc
 
@@ -33,20 +36,21 @@ def num_lines(filename):
 
     Args:
         filename: a string containing the path of the file
-    
+
     Returns:
-        An integer: the number of lines in the file. 
+        An integer: the number of lines in the file.
     """
     try:
         p = subprocess.check_output(["wc", "-l", filename])
         return int(p.decode().strip().split()[0])
     except subprocess.CalledProcessError as cpe:
-        quit(cpe.returncode)
+        sys.exit(cpe.returncode)
+
 
 def make_soft_link(src, dst, relative=False, extra_opts=[]):
     """Create soft link using ln -r -s command
 
-    The function calls quit(1) if execution fails
+    The function calls sys.exit(1) if execution fails
 
     Args:
         src: source file
@@ -64,27 +68,26 @@ def make_soft_link(src, dst, relative=False, extra_opts=[]):
         cmd += [src, dst]
         p = subprocess.run(cmd)
         if p.returncode != 0:
-            quit(p.returncode)
+            sys.exit(p.returncode)
     except:
-        quit(1)
+        sys.exit(1)
+
 
 def touch_file(file_path):
     """Touch a file
-    
+
     This function calls the touch command and quits if the call fails.
     """
     try:
         subprocess.run(["touch", file_path])
     except:
-        quit(1)
+        sys.exit(1)
+
 
 def cat(file_list, out_file):
-    with open(out_file, 'w') as opf:
-        subprocess.run([
-            "cat",
-            *file_list
-            ],
-            stdout=opf)
+    with open(out_file, "w") as opf:
+        subprocess.run(["cat", *file_list], stdout=opf)
+
 
 def creation_date_file(file):
     created = os.stat(file).st_ctime

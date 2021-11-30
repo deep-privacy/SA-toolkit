@@ -25,8 +25,11 @@ trans_mdl=$2
 graph=$3
 output=$4
 
+thread_string=
+thread_string="-parallel --num-threads=10"
+
 cat /dev/stdin | \
-    latgen-faster-mapped --minimize=$minimize \
+    latgen-faster-mapped$thread_string --minimize=$minimize \
         --max-active=$max_active \
         --min-active=$min_active --beam=$beam --lattice-beam=8.0 \
         --acoustic-scale=1.0 --allow-partial=true --word-symbol-table=$words \

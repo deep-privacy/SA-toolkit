@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-# NOTE: code for exponential branch of statements in get_learning_rate come from Kaldi. 
+# NOTE: code for exponential branch of statements in get_learning_rate come from Kaldi.
 # The copyright applies to original authors as below
 # Copyright 2016    Vijayaditya Peddinti.
 #           2016    Vimal Manohar
@@ -13,7 +13,7 @@
 """
 
 try:
-    from _pkwrap import kaldi # lazy import (kaldi-free decoding)
+    from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
 except ImportError as error:
     pass
 
@@ -21,6 +21,8 @@ import shutil
 import os
 import math
 import subprocess
+import sys
+
 
 def _add_simple_arg(args, name, default_value, type_name=None):
     """This function is called by add_chain_recipe_opts. Don't use this directly.
@@ -29,13 +31,14 @@ def _add_simple_arg(args, name, default_value, type_name=None):
     multiple times while changing the name and type of the argument.
     """
     #   TODO: add assertions to check type of name and type_name
-    if '-' not in name and '_' in name:
-        name = name.replace('_','-')
+    if "-" not in name and "_" in name:
+        name = name.replace("_", "-")
     if not name.startswith("--"):
         name = "--{}".format(name)
     if type_name is None:
         type_name = type(default_value)
     args.add_argument(name, default=default_value, type=type_name)
+
 
 def add_chain_recipe_opts(args):
     """Add command line options to chain training recipes
@@ -45,7 +48,7 @@ def add_chain_recipe_opts(args):
             as required by recipes to train chain models
     """
     #   TODO: add assertion to check if this is of type ArgumentParser
-#       TODO: add help statements
+    #       TODO: add help statements
     _add_simple_arg(args, "stage", 0, int)
     _add_simple_arg(args, "train-stage", 0, int)
     _add_simple_arg(args, "decode_nj", 30, int)
@@ -61,7 +64,7 @@ def add_chain_recipe_opts(args):
     _add_simple_arg(args, "num-epochs", 4)
     _add_simple_arg(args, "frames-per-iter", 1200000)
 
-#   TODO: support multiple chunk widths
+    #   TODO: support multiple chunk widths
     _add_simple_arg(args, "chunk-width", "140")
     _add_simple_arg(args, "xent-regularize", 0.01, float)
     _add_simple_arg(args, "frame-subsampling-factor", 3, int)
@@ -79,6 +82,7 @@ def add_chain_recipe_opts(args):
     _add_simple_arg(args, "l2_regularize", 10e-5)
     _add_simple_arg(args, "leaky_hmm_coefficient", 0.1)
 
+
 # for each argument in cfg, override the args default value
 def load_args_from_config(args, cfg):
     """Override the values of arguments from a config file
@@ -92,6 +96,7 @@ def load_args_from_config(args, cfg):
             type_of_key = type(args.__getattribute__(key))
             args.__setattr__(key, type_of_key(cfg[key]))
 
+
 # copied from kaldi. Copyright and license apply to the original authors
 def get_current_num_jobs(it, num_it, start, step, end):
     "Get number of jobs for iteration number 'it' of range('num_it')"
@@ -103,10 +108,16 @@ def get_current_num_jobs(it, num_it, start, step, end):
         return int(0.5 + ideal / step) * step
 
 
-def get_learning_rate(iter, num_jobs, num_iters, num_archives_processed,
-                      num_archives_to_process,
-                      initial_effective_lrate, final_effective_lrate,
-                      schedule_type='linear'):
+def get_learning_rate(
+    iter,
+    num_jobs,
+    num_iters,
+    num_archives_processed,
+    num_archives_to_process,
+    initial_effective_lrate,
+    final_effective_lrate,
+    schedule_type="linear",
+):
     """Get learning rate for current iteration based on the learning rate schedule.
 
     This function implements 3 learning rate schedules (see description of 'schedule_type'
@@ -131,22 +142,23 @@ def get_learning_rate(iter, num_jobs, num_iters, num_archives_processed,
         Effective learning rate: learning rate based on the schedule multiplied by the number
             of jobs based on the mode (for linear and exponential only)
     """
-    if schedule_type == 'none':
+    if schedule_type == "none":
         return initial_effective_lrate
-    elif schedule_type == 'linear':
+    elif schedule_type == "linear":
         epoch_no = (num_archives_processed // num_archives_to_process) + 1
-        return (initial_effective_lrate/epoch_no)*num_jobs
-    elif schedule_type == 'exponential':
+        return (initial_effective_lrate / epoch_no) * num_jobs
+    elif schedule_type == "exponential":
         if iter + 1 >= num_iters:
             effective_learning_rate = final_effective_lrate
         else:
-            effective_learning_rate = (
-                    initial_effective_lrate
-                    * math.exp(num_archives_processed
-                               * math.log(float(final_effective_lrate) / initial_effective_lrate)
-                               / num_archives_to_process))
+            effective_learning_rate = initial_effective_lrate * math.exp(
+                num_archives_processed
+                * math.log(float(final_effective_lrate) / initial_effective_lrate)
+                / num_archives_to_process
+            )
 
         return num_jobs * effective_learning_rate
+
 
 def get_egs_info(egs_dir):
     """Get number of archives in the egs directory
@@ -160,11 +172,12 @@ def get_egs_info(egs_dir):
         Number of archives in the egs directory
     """
     # TODO: use context manager
-    ipf = open(os.path.join(egs_dir, 'info', 'num_archives'))
+    ipf = open(os.path.join(egs_dir, "info", "num_archives"))
     num_archives = int(ipf.readline().strip())
     ipf.close()
 
     return num_archives
+
 
 def egs_reader(egs_rspec):
     """Read a compressed examples (cegs) file in kaldi
@@ -182,8 +195,9 @@ def egs_reader(egs_rspec):
     Returns:
         an iterable to iterate over each (key, utterance) tuple in egs_rspec
     """
-    reader = kaldi.nnet3.SequentialNnetChainExampleReader(egs_rspec);
+    reader = kaldi.nnet3.SequentialNnetChainExampleReader(egs_rspec)
     return reader
+
 
 def egs_reader_gen(egs_rspec):
     """A generator function that calls compressed feat_reader to return pytorch Tensors"""
@@ -191,6 +205,7 @@ def egs_reader_gen(egs_rspec):
     while not reader.Done():
         yield reader.Key(), kaldi.chain.GetFeaturesFromCompressedEgs(reader.Value())
         reader.Next()
+
 
 def feat_reader(feature_rspec):
     """Read a matrix scp file in kaldi
@@ -215,6 +230,7 @@ def feat_reader(feature_rspec):
     reader = kaldi.matrix.SequentialBaseFloatMatrixReader(feature_rspec)
     return reader
 
+
 def feat_reader_gen(feature_rspec):
     """A generator function that calls feat_reader to return pytorch Tensors"""
     reader = feat_reader(feature_rspec)
@@ -222,22 +238,25 @@ def feat_reader_gen(feature_rspec):
         yield reader.Key(), kaldi.matrix.KaldiMatrixToTensor(reader.Value())
         reader.Next()
 
+
 def feat_writer(feature_wspec):
     """Write kaldi matrices to feature_wspec"""
     writer = kaldi.matrix.BaseFloatMatrixWriter(feature_wspec)
     return writer
+
 
 def run(cmd, quit_on_error=True, shell=False):
     """Run a command using subprocess, quit if return code is non-zero"""
     # TODO(srikanth): test this function after merging into develop
     p = subprocess.run(cmd, shell=shell, stdout=subprocess.PIPE)
     if quit_on_error and p.returncode != 0:
-        quit(p.returncode)
+        sys.exit(p.returncode)
     return p
+
 
 def copy_file(src, dest):
     """Copy a file from source to destination
-    
+
     This function calls subprocess to use the 'cp' command
     in the shell. In the future we will just use the python
     function.
@@ -247,6 +266,7 @@ def copy_file(src, dest):
         dest: path to destination file, a string
     """
     subprocess.run(["cp", src, dest])
+
 
 def copy_folder(src, dest):
     """Copy src folder to destination
@@ -260,6 +280,7 @@ def copy_folder(src, dest):
         dest: destination folder
     """
     subprocess.run(["cp", "-r", src, dest])
+
 
 def read_single_param_file(src, typename=int):
     """Read a file with one value
@@ -276,7 +297,7 @@ def read_single_param_file(src, typename=int):
 
     Returns:
         Value in the "src" file casted into type "typename"
-         
+
     Raises:
         AssertionError if parameter value is empty.
     """
@@ -286,7 +307,8 @@ def read_single_param_file(src, typename=int):
     assert param is not None
     return param
 
+
 def write_single_param_file(value, filename):
-    with open(filename, 'w') as opf:
-        opf.write('{}'.format(value))
+    with open(filename, "w") as opf:
+        opf.write("{}".format(value))
         opf.close()

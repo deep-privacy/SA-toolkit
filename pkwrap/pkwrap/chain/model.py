@@ -2,6 +2,7 @@
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 import os
+import sys
 import json
 from collections import Counter
 import logging
@@ -29,6 +30,7 @@ class TrainerOpts:
     dir: str = ""
     lr: float = 0.001
     minibatch_size: int = 16
+    grad_acc_steps: int = 1
     base_model: str = ''
     init_weight_model: str = ''
 
@@ -50,6 +52,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     leaky_hmm_coefficient: float = 0.1
     xent_regularize: float = 0.025
     minibatch_size: int = 16
+    grad_acc_steps: int = 1
     frame_shift: int = 0
     output_dim: int = 1
     frame_subsampling_factor: int = 3
@@ -204,14 +207,14 @@ class ChainModel(nn.Module):
         except Exception as e:
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
-            quit(1)
+            sys.exit(1)
 
         if not hasattr(model, 'vq') or not model.vq():
             logging.error("Cannot analyise non VQ model: {}".format(base_model))
-            quit(1)
+            sys.exit(1)
         if not hasattr(model, 'codebook_analysis'):
             logging.error("Cannot analyise VQ model no 'codebook_analysis' attribute found in the model definition: {}".format(base_model))
-            quit(1)
+            sys.exit(1)
         codebook = model.codebook_analysis().embedding.weight.data.cpu()
 
         mds = MDS(n_components=2, random_state=0, metric='cosine')
@@ -230,7 +233,7 @@ class ChainModel(nn.Module):
         logging.info("saved scatters to {}".format(os.path.dirname(savepath)))
 
     @torch.no_grad()
-    def get_forward(self, device=torch.device("cpu")):
+    def get_forward(self, device=torch.device("cpu"), share_memory=False):
         chain_opts = self.chain_opts
 
         model = self.Net(chain_opts.output_dim)
@@ -241,9 +244,11 @@ class ChainModel(nn.Module):
         except Exception as e:
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
-            quit(1)
+            sys.exit(1)
 
         model.eval()
+        if share_memory:
+            model.share_memory()
 
         def _forward(waveform, spec_augment=lambda x: x):
             with torch.no_grad():
@@ -322,6 +327,7 @@ class ChainModel(nn.Module):
         parser.add_argument("--xent-regularize", default=0.025, type=float)
         parser.add_argument("--leaky-hmm-coefficient", default=0.1, type=float)
         parser.add_argument("--minibatch-size", default=32, type=int)
+        parser.add_argument("--grad-acc-steps", default=1, type=int)
         parser.add_argument("--decode-feats", default="data/test/feats.scp", type=str)
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
@@ -447,8 +453,9 @@ class ChainE2EModel(ChainModel):
         )
         logging.info("xent passed as {}".format(chain_opts.xent_regularize))
         model = model.cuda()
+        id_iter = int(chain_opts.base_model.split("/")[-1].split(".")[0])
         if hasattr(model, 'set_lr_layers_for_optim'):
-            optimizer = model.set_lr_layers_for_optim(self.get_optimizer, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
+            optimizer = model.set_lr_layers_for_optim(self.get_optimizer, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor, iter=id_iter)
         else:
             optimizer = self.get_optimizer(model.parameters(), lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
         dataset = Wav2vec2EgsDataset(
@@ -464,6 +471,7 @@ class ChainE2EModel(ChainModel):
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
+            grad_acc_steps=chain_opts.grad_acc_steps,
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
             frame_shift=chain_opts.frame_shift,

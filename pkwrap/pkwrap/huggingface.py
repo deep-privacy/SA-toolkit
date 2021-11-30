@@ -6,6 +6,8 @@ Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 """
 
+import os
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -65,24 +67,53 @@ class HuggingFaceWav2Vec2(nn.Module):
     ):
         super().__init__()
 
+        save_me = False
+        if os.path.exists("/tmp/featext_config.json"):
+            _source = "/tmp/featext_config.json"
+        else:
+            save_me = True
+
         # Download the extractor from HuggingFace.
         # The extractor is only used to retrieve the normalisation
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
-            source, revision=revision,
+            _source, revision=revision
         )
+        if save_me:
+            self.feature_extractor.save_pretrained("/tmp/featext_config.json")
+        _source = source
+
+        save_me = False
+        if os.path.exists("/tmp/processor_config.json"):
+            _source = "/tmp/processor_config.json"
+        else:
+            save_me = True
 
         # Download the processor from HuggingFace.
         if revision:
-            self.processor = Wav2Vec2Processor.from_pretrained(source, revision=revision)
-        self.processor = Wav2Vec2Processor.from_pretrained(source)
+            self.processor = Wav2Vec2Processor.from_pretrained(
+                _source, revision=revision
+            )
+        self.processor = Wav2Vec2Processor.from_pretrained(_source)
+        if save_me:
+            self.processor.save_pretrained("/tmp/processor_config.json")
+        _source = source
 
         # sampling rate
         self.sr = sr
 
+        save_me = False
+        if os.path.exists("/tmp/model_config.json"):
+            _source = "/tmp/model_config.json"
+        else:
+            save_me = True
+
         # Download the model from HuggingFace.
         if revision:
-            self.model = Wav2Vec2Model.from_pretrained(source, revision=revision)
-        self.model = Wav2Vec2Model.from_pretrained(source)
+            self.model = Wav2Vec2Model.from_pretrained(_source, revision=revision)
+        self.model = Wav2Vec2Model.from_pretrained(_source)
+        if save_me:
+            self.model.save_pretrained("/tmp/model_config.json")
+        _source = source
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
         self.normalize_wav = self.feature_extractor.do_normalize
@@ -113,7 +144,6 @@ class HuggingFaceWav2Vec2(nn.Module):
                 return self.extract_features(wav).detach()
 
         return self.extract_features(wav)
-
 
     def extract_features(self, wav):
         """Takes an input waveform and return its corresponding wav2vec encoding.

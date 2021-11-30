@@ -20,6 +20,8 @@ import io
 from math import ceil
 from .egs import prepare_minibatch
 from .egs_wav2vec2 import Wav2vec2BatchSampler, Wav2vec2EgsCollectFn, GetSupervisionFromWav2Vec2Egs
+from .. import nsg
+
 
 import damped
 
@@ -188,7 +190,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
             mb_T = mb*T
         else:
             mb_T, D = input.shape
-        input_temp = torch.zeros(mb_T, D+1, device=input.device, requires_grad=False).contiguous()
+        input_temp = torch.zeros(mb_T, D+1, device=grad_output.device, requires_grad=False).contiguous()
         input_temp[:,-1] = 1.0
         input_temp[:,:-1].copy_(input.reshape(mb_T, D))
         grad_weight = grad_bias = None
@@ -197,11 +199,30 @@ class OnlineNaturalGradient(torch.autograd.Function):
             grad_input = grad_input.reshape(mb, T, D)
         else:
             grad_input = grad_output.mm(weight)
-        in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp)
+
+        # Without kaldi
+        input_temp_copy = input_temp
+
+        if isinstance(in_state, nsg.OnlineNaturalGradient):
+            in_scale = in_state.precondition_directions(input_temp)
+        else:
+            in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.clone().detach())
+
+        #  logging.info("Kaldi run on: " + str(KALDI_GPU_DEVICE) + " GPU!")
+        #  global KALDI_GPU_DEVICE
+        #  in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.to(KALDI_GPU_DEVICE))
+        #  in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.clone().detach())
         out_dim = grad_output.shape[-1]
         grad_output_temp = grad_output.view(-1, out_dim)
-        out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp) # hope grad_output is continguous!
-        scale = in_scale*out_scale
+        #  out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp.to(KALDI_GPU_DEVICE)) # hope grad_output is continguous!
+
+        # Without kaldi
+        if isinstance(out_state, nsg.OnlineNaturalGradient):
+            out_scale = out_state.precondition_directions(grad_output_temp)
+        else:
+            out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp) # hope grad_output is continguous!
+
+        scale = torch.tensor(in_scale*out_scale, device=grad_output.device)
         grad_output.data.mul_(scale)
         # TODO: check if we should use data member instead?
         grad_weight = grad_output_temp.t().mm(input_temp[:,:-1])
@@ -214,6 +235,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
                          minibatch_size=16, lr=0.0001,
                          weight_decay=0.25, frame_shift=0,
                          print_interval=30,
+                         grad_acc_steps=1,
                          frame_subsampling_factor=3,
                          tensorboard = None,
                          optimizer = None,
@@ -230,6 +252,8 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         dataset: a Wav2vec2EgsDataset dataset
         den_fst_path: path to den.fst file
         training_opts: options of type ChainTrainingOpts
+        grad_acc_steps: Number of training steps for which the gradients should be accumulated.
+                        Useful to achieve larger effective batch sizes that would not fit in GPU memory.
         minibatch_size:
         lr: learning rate
         frame_shift: an integer (usually 0, 1, or 2) used to shift the training features
@@ -254,6 +278,14 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
     if torch.distributed.is_initialized():
         spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
+    _model = model
+
+    #  if torch.cuda.device_count() > 1:
+        #  logging.info("Let's use " + str(torch.cuda.device_count()) + " GPUs!")
+        #  model = nn.DataParallel(model.to("cuda:0"))
+        #  minibatch_size *= torch.cuda.device_count()
+        #  _model = model.module
+
     batch_sampler = Wav2vec2BatchSampler(
         dataset.egs_holder,
         batch_size=minibatch_size,
@@ -261,10 +293,14 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
     )
     dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=8)
 
+    global KALDI_GPU_DEVICE
+    KALDI_GPU_DEVICE = str(torch.rand((1)).cuda().device)
+
     #  for mb_id, data in enumerate(dataloader):
         #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
     #  sys.exit(0)
 
+    optimizer.zero_grad()
     for mb_id, data in enumerate(dataloader):
         features = data[0].cuda()
 
@@ -277,41 +313,55 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
         #  print(uttid_list, flush=True)
         if torch.distributed.is_initialized():
-            req = spk_branch.fork_detach(model.bottleneck_out.detach().cpu(),
+
+            req = spk_branch.fork_detach(_model.bottleneck_out.detach().cpu(),
                                    torch.tensor(uttid_list, dtype=torch.long),
                                    dtype=(torch.float32, torch.long))
 
         num_output_frames = output.shape[1]
         sup = GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], num_output_frames)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
+
+        if grad_acc_steps > 1:
+            deriv = deriv / grad_acc_steps
+
+        deriv.backward()
         
-        acc_sum.add_(deriv[0])
+        acc_sum.add_(deriv[0] * grad_acc_steps)
         if mb_id>0 and mb_id%print_interval==0:
             logging.info("Overall objf={}".format(acc_sum/print_interval))
             if tensorboard: tensorboard.add_scalar('ASR_objf/train', acc_sum/print_interval, mb_id)
             acc_sum.zero_()
 
-        if hasattr(model, 'additional_obj'):
-            model.additional_obj(deriv,
+        if hasattr(_model, 'additional_obj'):
+            _model.additional_obj(deriv,
                                  should_log=mb_id>0 and mb_id%print_interval==0,
                                  print_interval=print_interval,
                                  tensorboard=tensorboard, mb_id=mb_id)
 
-        optimizer.zero_grad()
-        #  scaler.scale(deriv.cuda()).backward()
-        deriv.backward()
-        #  scaler.unscale_(optimizer)
-        clip_grad_value_(model.parameters(), 5.0)
-        #  scaler.step(optimizer)
-        #  scaler.update()
-        optimizer.step()
+        if mb_id==0 or (mb_id + 1) % (len(dataloader) / 10) == 0:
+            SR = 16000
+            logging.info("Training with batch_size of:" + str((data[0][0].shape[0] * data[0].shape[0] * grad_acc_steps) / SR) + " seconds")
+        if (mb_id + 1) % grad_acc_steps == 0 or (mb_id + 1 == len(dataloader)):
+            clip_grad_value_(_model.parameters(), 5.0)
+            optimizer.step()
+            optimizer.zero_grad()
+
+        #  optimizer.zero_grad()
+        #  #  scaler.scale(deriv.cuda()).backward()
+        #  deriv.backward()
+        #  #  scaler.unscale_(optimizer)
+        #  clip_grad_value_(_model.parameters(), 5.0)
+        #  #  scaler.step(optimizer)
+        #  #  scaler.update()
+        #  optimizer.step()
 
         # pchampio wait for domain branch to fully have received the hidden state
         if torch.distributed.is_initialized():
             req.wait()
 
         #  return model # fast_test
-    model = model.cpu()
+    model = _model.cpu()
     if tensorboard: tensorboard.close()
     return model
 

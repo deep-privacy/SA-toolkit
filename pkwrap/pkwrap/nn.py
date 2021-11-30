@@ -9,23 +9,32 @@ from . import chain
 from dataclasses import dataclass
 from itertools import combinations, product
 import logging
+from . import nsg
+
 
 @dataclass
 class NGState:
     """NGState value container"""
+
     alpha: float = 4.0
     num_samples_history: float = 2000.0
     update_period: int = 4
 
+
 log_kaldi_warning = True
+
+
+# KALDI preconditioner
 def get_preconditioner_from_ngstate(ngstate):
     assert ngstate is not None
     global log_kaldi_warning
     try:
-        from _pkwrap import kaldi # lazy import (kaldi-free decoding)
+        from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
     except ImportError as error:
         if log_kaldi_warning:
-            logging.critical("pkwrap: -- Failed to import kaldi you better not be in training mode (no backward possible) --")
+            logging.critical(
+                "pkwrap: -- Failed to import kaldi you better not be in training mode (no backward possible) --"
+            )
             log_kaldi_warning = False
         return None
         pass
@@ -34,6 +43,7 @@ def get_preconditioner_from_ngstate(ngstate):
     preconditioner.SetNumSamplesHistory(ngstate.num_samples_history)
     preconditioner.SetUpdatePeriod(ngstate.update_period)
     return preconditioner
+
 
 class NaturalAffineTransform(nn.Module):
     """Linear layer wrapped in NG-SGD
@@ -51,13 +61,14 @@ class NaturalAffineTransform(nn.Module):
             num_samples_history: a floating point value (default is 2000.)
             update_period: an integer (default is 4)
     """
+
     def __init__(
-            self,
-            feat_dim,
-            out_dim,
-            bias=True,
-            ngstate=None,
-        ):
+        self,
+        feat_dim,
+        out_dim,
+        bias=True,
+        ngstate=None,
+    ):
         """Initialize NaturalGradientAffineTransform layer
 
         The function initializes NG-SGD states and parameters of the layer
@@ -83,25 +94,48 @@ class NaturalAffineTransform(nn.Module):
         # lazyinit (not required for decoding enables kaldi free execution)
         self.preconditioner_in = None
         self.preconditioner_out = None
+
+        # For pytorch only
+        self.all_preconditioner_in = {}
+        self.all_preconditioner_out = {}
         self.weight = nn.Parameter(torch.Tensor(out_dim, feat_dim))
         self.bias = None
         if bias:
             self.bias = nn.Parameter(torch.Tensor(1, out_dim))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
         self.init_parameters()
-    
+
     def init_parameters(self):
         """Initialize the parameters (weight and bias) of the layer"""
 
         self.weight.data.normal_()
-        self.weight.data.mul_(1.0/pow(self.feat_dim*self.out_dim, 0.5))
+        self.weight.data.mul_(1.0 / pow(self.feat_dim * self.out_dim, 0.5))
         self.bias.data.normal_()
-    
+
     def forward(self, input):
         """Forward pass"""
-        # lazyinit
-        if self.training and self.weight.requires_grad and self.preconditioner_in == None and self.preconditioner_out == None:
+
+        # PyTorch only
+        #  if torch.cuda.device_count() > 1:
+            #  if input.device not in self.all_preconditioner_in:
+                #  self.all_preconditioner_in[input.device] = nsg.OnlineNaturalGradient()
+                #  self.all_preconditioner_out[input.device] = nsg.OnlineNaturalGradient()
+            #  return chain.OnlineNaturalGradient.apply(
+                #  input,
+                #  self.weight,
+                #  self.bias,
+                #  self.all_preconditioner_in[input.device],
+                #  self.all_preconditioner_out[input.device],
+            #  )
+
+        # kaldi lazyinit (not used if OnlineNaturalGradient)
+        if (
+            self.training
+            and self.weight.requires_grad
+            and self.preconditioner_in == None
+            and self.preconditioner_out == None
+        ):
             self.preconditioner_in = get_preconditioner_from_ngstate(self.ngstate)
             self.preconditioner_out = get_preconditioner_from_ngstate(self.ngstate)
 
@@ -110,8 +144,9 @@ class NaturalAffineTransform(nn.Module):
             self.weight,
             self.bias,
             self.preconditioner_in,
-            self.preconditioner_out
+            self.preconditioner_out,
         )
+
 
 @torch.no_grad()
 def constrain_orthonormal(M, scale, update_speed=0.125):
@@ -123,35 +158,44 @@ def constrain_orthonormal(M, scale, update_speed=0.125):
     # we don't update it. we just compute the gradient
     P = M.mm(M.T)
 
-    if scale < 0.:
+    if scale < 0.0:
         trace_P_Pt = P.pow(2.0).sum()
         trace_P = P.trace()
-        ratio = trace_P_Pt/trace_P
+        ratio = trace_P_Pt / trace_P
         scale = ratio.sqrt()
         ratio = ratio * d / trace_P
         if ratio > 1.1:
             update_speed *= 0.25
         elif ratio > 1.02:
             update_speed *= 0.5
-    scale2 = scale**2
+    scale2 = scale ** 2
     P[range(d), range(d)] -= scale2
-    M.data.add_(P.mm(M), alpha=-4*update_speed/scale2)
+    M.data.add_(P.mm(M), alpha=-4 * update_speed / scale2)
+
 
 class OrthonormalLinear(NaturalAffineTransform):
-    def __init__(self, feat_dim, out_dim, bias=True, scale=0.0,
-                 ngstate=NGState(),
-                ):
-        super(OrthonormalLinear, self).__init__(feat_dim, out_dim, bias=bias, ngstate=ngstate)
+    def __init__(
+        self,
+        feat_dim,
+        out_dim,
+        bias=True,
+        scale=0.0,
+        ngstate=NGState(),
+    ):
+        super(OrthonormalLinear, self).__init__(
+            feat_dim, out_dim, bias=bias, ngstate=ngstate
+        )
         self.scale = torch.tensor(scale, requires_grad=False)
 
     def forward(self, input):
         """Forward pass"""
         # do it before forward pass
         if self.training and self.weight.requires_grad:
-           with torch.no_grad():
-               constrain_orthonormal(self.weight, self.scale)
+            with torch.no_grad():
+                constrain_orthonormal(self.weight, self.scale)
         x = super().forward(input)
         return x
+
 
 class TDNNF(nn.Module):
     def __init__(
@@ -163,41 +207,58 @@ class TDNNF(nn.Module):
         subsampling_factor=1,
         orthonormal_constraint=0.0,
         floating_scale=True,
-        bypass_scale=0.66):
+        bypass_scale=0.66,
+    ):
         super(TDNNF, self).__init__()
         # lets keep it context_len for now
-        self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthonormal_constraint)
+        self.linearB = OrthonormalLinear(
+            feat_dim * context_len, bottleneck_dim, scale=orthonormal_constraint
+        )
         self.linearA = nn.Linear(bottleneck_dim, output_dim)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
         self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
         self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
         self.subsampling_factor = torch.tensor(subsampling_factor, requires_grad=False)
         self.context_len = torch.tensor(context_len, requires_grad=False)
-        self.orthonormal_constraint = torch.tensor(orthonormal_constraint, requires_grad=False)
+        self.orthonormal_constraint = torch.tensor(
+            orthonormal_constraint, requires_grad=False
+        )
         self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
-        if bypass_scale>0. and feat_dim == output_dim:
+        if bypass_scale > 0.0 and feat_dim == output_dim:
             self.use_bypass = True
             if self.context_len > 1:
-                if self.context_len%2 == 1:
-                    self.identity_lidx = self.context_len//2
+                if self.context_len % 2 == 1:
+                    self.identity_lidx = self.context_len // 2
                     self.identity_ridx = -self.identity_lidx
                 else:
-                    self.identity_lidx = self.context_len//2
-                    self.identity_ridx = -self.identity_lidx+1
+                    self.identity_lidx = self.context_len // 2
+                    self.identity_ridx = -self.identity_lidx + 1
             else:
                 self.use_bypass = False
         else:
             self.use_bypass = False
 
-
     def forward(self, input):
         mb, T, D = input.shape
-        padded_input = input.reshape(mb, -1).unfold(1, D*self.context_len, D*self.subsampling_factor).contiguous()
+        padded_input = (
+            input.reshape(mb, -1)
+            .unfold(1, D * self.context_len, D * self.subsampling_factor)
+            .contiguous()
+        )
         x = self.linearB(padded_input)
         x = self.linearA(x)
         if self.use_bypass:
-            x = x + input[:,self.identity_lidx:self.identity_ridx:self.subsampling_factor,:]*self.bypass_scale
+            x = (
+                x
+                + input[
+                    :,
+                    self.identity_lidx : self.identity_ridx : self.subsampling_factor,
+                    :,
+                ]
+                * self.bypass_scale
+            )
         return x
+
 
 class TDNNFBatchNorm(nn.Module):
     def __init__(
@@ -208,7 +269,7 @@ class TDNNFBatchNorm(nn.Module):
         context_len=1,
         subsampling_factor=1,
         orthonormal_constraint=0.0,
-        bypass_scale=0.66
+        bypass_scale=0.66,
     ):
         super(TDNNFBatchNorm, self).__init__()
         self.tdnn = TDNNF(
@@ -252,39 +313,55 @@ class TDNNF_LD(nn.Module):
             bottleneck_ld_outdim = bottleneck_dim
         # lets keep it context_len for now
         self.bottleneck_ld = bottleneck_ld
-        self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthonormal_constraint)
+        self.linearB = OrthonormalLinear(
+            feat_dim * context_len, bottleneck_dim, scale=orthonormal_constraint
+        )
         self.linearA = nn.Linear(bottleneck_ld_outdim, output_dim)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
         self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
         self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
         self.subsampling_factor = torch.tensor(subsampling_factor, requires_grad=False)
         self.context_len = torch.tensor(context_len, requires_grad=False)
-        self.orthonormal_constraint = torch.tensor(orthonormal_constraint, requires_grad=False)
+        self.orthonormal_constraint = torch.tensor(
+            orthonormal_constraint, requires_grad=False
+        )
         self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
-        if bypass_scale>0. and feat_dim == output_dim:
+        if bypass_scale > 0.0 and feat_dim == output_dim:
             self.use_bypass = True
             if self.context_len > 1:
-                if self.context_len%2 == 1:
-                    self.identity_lidx = self.context_len//2
+                if self.context_len % 2 == 1:
+                    self.identity_lidx = self.context_len // 2
                     self.identity_ridx = -self.identity_lidx
                 else:
-                    self.identity_lidx = self.context_len//2
-                    self.identity_ridx = -self.identity_lidx+1
+                    self.identity_lidx = self.context_len // 2
+                    self.identity_ridx = -self.identity_lidx + 1
             else:
                 self.use_bypass = False
         else:
             self.use_bypass = False
 
-
     def forward(self, input):
         mb, T, D = input.shape
-        padded_input = input.reshape(mb, -1).unfold(1, D*self.context_len, D*self.subsampling_factor).contiguous()
+        padded_input = (
+            input.reshape(mb, -1)
+            .unfold(1, D * self.context_len, D * self.subsampling_factor)
+            .contiguous()
+        )
         x = self.linearB(padded_input)
         x = self.bottleneck_ld(x)
         x = self.linearA(x)
         if self.use_bypass:
-            x = x + input[:,self.identity_lidx:self.identity_ridx:self.subsampling_factor,:]*self.bypass_scale
+            x = (
+                x
+                + input[
+                    :,
+                    self.identity_lidx : self.identity_ridx : self.subsampling_factor,
+                    :,
+                ]
+                * self.bypass_scale
+            )
         return x
+
 
 class TDNNFBatchNorm_LD(nn.Module):
     def __init__(
@@ -355,8 +432,10 @@ class VectorQuantizerEMA(nn.Module):
         decay: float, decay for the moving averages.
         epsilon: small float constant to avoid numerical instability.
     """
-    
-    def __init__(self, num_embeddings, embedding_dim, commitment_cost, decay, epsilon=1e-5):
+
+    def __init__(
+        self, num_embeddings, embedding_dim, commitment_cost, decay, epsilon=1e-5
+    ):
         super(VectorQuantizerEMA, self).__init__()
 
         self._num_embeddings = num_embeddings
@@ -366,21 +445,23 @@ class VectorQuantizerEMA(nn.Module):
         self._embedding.weight.data.normal_()
         self._commitment_cost = commitment_cost
 
-        self.register_buffer('_ema_cluster_size', torch.zeros(num_embeddings))
+        self.register_buffer("_ema_cluster_size", torch.zeros(num_embeddings))
         self._ema_w = nn.Parameter(torch.Tensor(num_embeddings, self._embedding_dim))
         self._ema_w.data.normal_()
-        
+
         self._decay = decay
         self._epsilon = epsilon
         self.freeze = False
 
-    def forward(self, inputs, compute_distances_if_possible=False, record_codebook_stats=False):
+    def forward(
+        self, inputs, compute_distances_if_possible=False, record_codebook_stats=False
+    ):
         """
         Connects the module to some inputs.
         Args:
             inputs: Tensor, final dimension must be equal to embedding_dim. All other
                 leading dimensions will be flattened and treated as a large batch.
-        
+
         Returns:
             loss: Tensor containing the loss to optimize.
             quantize: Tensor containing the quantized version of the input.
@@ -390,18 +471,20 @@ class VectorQuantizerEMA(nn.Module):
             distances
         """
 
-        # input x is of shape: [N, T, C] 
+        # input x is of shape: [N, T, C]
 
         input_shape = inputs.shape
         batch_size, time, _ = input_shape
 
         # Flatten input
-        flat_input = inputs.view(-1, self._embedding_dim) # [T, C]
-        
+        flat_input = inputs.view(-1, self._embedding_dim)  # [T, C]
+
         # Compute distances between encoded audio frames and embedding vectors
-        distances = (torch.sum(flat_input**2, dim=1, keepdim=True)
-                    + torch.sum(self._embedding.weight**2, dim=1)
-                    - 2 * torch.matmul(flat_input, self._embedding.weight.t()))
+        distances = (
+            torch.sum(flat_input ** 2, dim=1, keepdim=True)
+            + torch.sum(self._embedding.weight ** 2, dim=1)
+            - 2 * torch.matmul(flat_input, self._embedding.weight.t())
+        )
 
         self._device = inputs.device
 
@@ -410,55 +493,76 @@ class VectorQuantizerEMA(nn.Module):
         which element of the quantized space each input element was mapped to.
         """
         encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
-        encodings = torch.zeros(encoding_indices.shape[0], self._num_embeddings, dtype=torch.float).to(self._device)
+        encodings = torch.zeros(
+            encoding_indices.shape[0], self._num_embeddings, dtype=torch.float
+        ).to(self._device)
         encodings.scatter_(1, encoding_indices, 1)
 
         # Compute distances between encoding vectors | n(n-1)/2 where n = T (i.e.: T = 10 -> len(encoding_distances) == 45)
         if not self.training and compute_distances_if_possible:
-            _encoding_distances = [torch.dist(items[0], items[1], 2).to(self._device) for items in combinations(flat_input, r=2)]
+            _encoding_distances = [
+                torch.dist(items[0], items[1], 2).to(self._device)
+                for items in combinations(flat_input, r=2)
+            ]
             encoding_distances = torch.tensor(_encoding_distances).to(self._device)
         else:
             encoding_distances = None
 
         # Compute distances between embedding vectors | n(n-1)/2 where n = num_embeddings (i.e.: num_embeddings = 2 -> len(embedding_distances) == 1)
         if not self.training and compute_distances_if_possible:
-            _embedding_distances = [torch.dist(items[0], items[1], 2).to(self._device) for items in combinations(self._embedding.weight, r=2)]
+            _embedding_distances = [
+                torch.dist(items[0], items[1], 2).to(self._device)
+                for items in combinations(self._embedding.weight, r=2)
+            ]
             embedding_distances = torch.tensor(_embedding_distances).to(self._device)
         else:
             embedding_distances = None
 
         # Sample nearest embedding | if T = 10 & num_embeddings == 2 -> 10*2 distance tensor
         if not self.training and compute_distances_if_possible:
-            _frames_vs_embedding_distances = [torch.dist(items[0], items[1], 2).to(self._device) for items in product(flat_input, self._embedding.weight.detach())]
-            frames_vs_embedding_distances = torch.tensor(_frames_vs_embedding_distances).to(self._device).view(batch_size, time, -1)
+            _frames_vs_embedding_distances = [
+                torch.dist(items[0], items[1], 2).to(self._device)
+                for items in product(flat_input, self._embedding.weight.detach())
+            ]
+            frames_vs_embedding_distances = (
+                torch.tensor(_frames_vs_embedding_distances)
+                .to(self._device)
+                .view(batch_size, time, -1)
+            )
         else:
             frames_vs_embedding_distances = None
-        
+
         # Use EMA to update the embedding vectors
         if self.training and not self.freeze:
-            self._ema_cluster_size = self._ema_cluster_size * self._decay + \
-                (1 - self._decay) * torch.sum(encodings, 0)
+            self._ema_cluster_size = self._ema_cluster_size * self._decay + (
+                1 - self._decay
+            ) * torch.sum(encodings, 0)
 
             n = torch.sum(self._ema_cluster_size.data)
             self._ema_cluster_size = (
                 (self._ema_cluster_size + self._epsilon)
-                / (n + self._num_embeddings * self._epsilon) * n
+                / (n + self._num_embeddings * self._epsilon)
+                * n
             )
 
             dw = torch.matmul(encodings.t(), flat_input)
-            self._ema_w = nn.Parameter(self._ema_w * self._decay + (1 - self._decay) * dw)
+            self._ema_w = nn.Parameter(
+                self._ema_w * self._decay + (1 - self._decay) * dw
+            )
 
-            self._embedding.weight = nn.Parameter(self._ema_w / self._ema_cluster_size.unsqueeze(1))
+            self._embedding.weight = nn.Parameter(
+                self._ema_w / self._ema_cluster_size.unsqueeze(1)
+            )
 
         # Quantize and unflatten
         quantized = torch.matmul(encodings, self._embedding.weight).view(input_shape)
         # TODO: Check if the more readable self._embedding.weight.index_select(dim=1, index=encoding_indices) works better
 
-        concatenated_quantized =None
+        concatenated_quantized = None
         #  concatenated_quantized = self._embedding.weight[torch.argmin(distances, dim=1).detach().cpu()] if not self.training or record_codebook_stats else None
 
         # Loss
-        e_latent_loss = torch.mean((quantized.detach() - inputs)**2)
+        e_latent_loss = torch.mean((quantized.detach() - inputs) ** 2)
         commitment_loss = self._commitment_cost * e_latent_loss
         vq_loss = commitment_loss
 
@@ -472,11 +576,19 @@ class VectorQuantizerEMA(nn.Module):
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
 
         # Convert quantized from [N, T, C] (image origin: BHWC) -> [C, T, N] (image origin: BCHW)
-        return vq_loss, quantized.contiguous(), \
-            perplexity, encodings, \
-            distances, encoding_indices, \
-            {'vq_loss': vq_loss.item()}, encoding_distances, embedding_distances, \
-            frames_vs_embedding_distances, concatenated_quantized
+        return (
+            vq_loss,
+            quantized.contiguous(),
+            perplexity,
+            encodings,
+            distances,
+            encoding_indices,
+            {"vq_loss": vq_loss.item()},
+            encoding_distances,
+            embedding_distances,
+            frames_vs_embedding_distances,
+            concatenated_quantized,
+        )
 
     @property
     def embedding(self):
