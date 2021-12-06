@@ -172,7 +172,6 @@ def train():
     model_opts = pkwrap.trainer.ModelOpts().load_from_config(exp_cfg)
     frame_subsampling_factor = model_opts.frame_subsampling_factor
     trainer_opts = pkwrap.trainer.TrainerOpts().load_from_config(exp_cfg)
-    print(trainer_opts.train_stage)
     if trainer_opts.train_stage == "last" or trainer_opts.train_stage == '"last"':
         pattern = os.path.join(dirname, '*.pt')
         cp_list = glob.glob(pattern)

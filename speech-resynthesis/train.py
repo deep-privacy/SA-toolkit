@@ -15,6 +15,7 @@ logging.getLogger('matplotlib').setLevel(level=logging.CRITICAL)
 
 import itertools
 import os
+import sys
 import time
 import argparse
 import json
@@ -30,8 +31,61 @@ from models import CodeGenerator, MultiPeriodDiscriminator, MultiScaleDiscrimina
 from utils import plot_spectrogram, scan_checkpoint, load_checkpoint, \
     save_checkpoint, build_env, AttrDict
 
+from torch._six import container_abcs, string_classes, int_classes
+
 #  torch.backends.cudnn.benchmark = True
 
+def collectFn(batch):
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        if len(elem.shape) == 2:
+            lengths = torch.tensor([t.shape[1] for t in batch])
+            if lengths.sum().item() != batch[0].shape[1] * len(batch):
+                logging.warning("Padding tensor lengths={}".format(str(lengths)))
+                l = [i.transpose(0, 1) for i in batch]
+                return torch.nn.utils.rnn.pad_sequence(l, batch_first=True).transpose(1, 2)
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum([x.numel() for x in batch])
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        return torch.stack(batch, 0, out=out)
+    elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
+            and elem_type.__name__ != 'string_':
+        if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
+            # array of string classes and object
+            if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
+                raise TypeError(default_collate_err_msg_format.format(elem.dtype))
+
+            return collectFn([torch.as_tensor(b) for b in batch])
+        elif elem.shape == ():  # scalars
+            return torch.as_tensor(batch)
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int_classes):
+        return torch.tensor(batch)
+    elif isinstance(elem, string_classes):
+        return batch
+    elif isinstance(elem, container_abcs.Mapping):
+        return {key: collectFn([d[key] for d in batch]) for key in elem}
+    elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
+        return elem_type(*(collectFn(samples) for samples in zip(*batch)))
+    elif isinstance(elem, container_abcs.Sequence):
+        # check to make sure that the elements in batch have consistent size
+        it = iter(batch)
+        elem_size = len(next(it))
+        if not all(len(elem) == elem_size for elem in it):
+            raise RuntimeError('each element in list of batch should be of equal size')
+        transposed = zip(*batch)
+        return [collectFn(samples) for samples in transposed]
+    raise TypeError(
+        "collectFn: batch must contain tensors, numpy arrays, numbers, dicts or lists; found {}".format(
+            elem_type
+        )
+    )
 
 def train(rank, local_rank, a, h):
     if h.num_gpus > 1:
@@ -105,7 +159,7 @@ def train(rank, local_rank, a, h):
     train_sampler = DistributedSampler(trainset) if h.num_gpus > 1 else None
 
     train_loader = DataLoader(trainset, num_workers=h.num_workers, shuffle=False, sampler=train_sampler,
-                              batch_size=h.batch_size, pin_memory=True, drop_last=True)
+                              batch_size=h.batch_size, pin_memory=True, drop_last=True, collate_fn=collectFn)
 
     if rank == 0:
         validset = CodeDataset(validation_filelist, h.segment_size, h.code_hop_size, h.n_fft, h.num_mels, h.hop_size,
@@ -116,7 +170,7 @@ def train(rank, local_rank, a, h):
                                f0_feats=h.get('f0_feats', False), f0_median=h.get('f0_median', False),
                                f0_interp=h.get('f0_interp', False), vqvae=h.get('code_vq_params', False))
         validation_loader = DataLoader(validset, num_workers=h.num_workers, shuffle=False, sampler=None,
-                                       batch_size=h.batch_size, pin_memory=True, drop_last=True)
+                                       batch_size=h.batch_size, pin_memory=True, drop_last=True, collate_fn=collectFn)
 
         audio_example_set = CodeDataset(validation_filelist, -1, h.code_hop_size, h.n_fft, h.num_mels, h.hop_size,
                                h.win_size, h.sampling_rate, h.fmin, h.fmax, False, n_cache_reuse=0,
@@ -131,6 +185,12 @@ def train(rank, local_rank, a, h):
     generator.train()
     mpd.train()
     msd.train()
+
+    #  Check dataloader working for all iter
+    #  for i, batch in enumerate(train_loader):
+        #  x, y, _, y_mel = batch
+
+
     for epoch in range(max(0, last_epoch), a.training_epochs):
         if rank == 0:
             start = time.time()
@@ -152,8 +212,8 @@ def train(rank, local_rank, a, h):
             if h.get('f0_vq_params', None) or h.get('code_vq_params', None):
                 y_g_hat, commit_losses, metrics = y_g_hat
 
+            assert y_g_hat.shape[2] >= y.shape[2] - 10 and y_g_hat.shape[2] <= y.shape[2] + 9000, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
             y_g_hat = y_g_hat[:,:,:y.shape[2]]
-            assert y_g_hat.shape[2] >= y.shape[2] - 5 and y_g_hat.shape[2] <= y.shape[2] + 5, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
             if h.get('f0_vq_params', None):
                 f0_commit_loss = commit_losses[1][0]
                 f0_metrics = metrics[1][0]
@@ -260,8 +320,13 @@ def train(rank, local_rank, a, h):
                                 code_commit_loss = commit_losses[0][0]
                                 val_err_tot += code_commit_loss * h.get('lambda_commit_code', None)
                             y_mel = torch.autograd.Variable(y_mel.to(device, non_blocking=False))
+
+                            assert y_g_hat.shape[2] >= y.shape[1] - 10 and y_g_hat.shape[2] <= y.shape[1] + 8000, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
+                            y_g_hat = y_g_hat[:,:,:y.shape[1]]
+
                             y_g_hat_mel = mel_spectrogram(y_g_hat.squeeze(1), h.n_fft, h.num_mels, h.sampling_rate,
                                                           h.hop_size, h.win_size, h.fmin, h.fmax_for_loss)
+
                             val_err_tot += F.l1_loss(y_mel, y_g_hat_mel).item()
 
                             if j <= 4:
@@ -270,6 +335,7 @@ def train(rank, local_rank, a, h):
                                 y_g_hat = generator(**x)
 
                                 if steps == 0:
+                                    print("Len generated audio:", y_g_hat.shape, "Len GT:", len(y))
                                     sw.add_audio('gt/y_{}'.format(j), y, steps, h.sampling_rate)
                                     sw.add_figure('gt/y_spec_{}'.format(j), plot_spectrogram(y_mel.cpu()), steps)
 
@@ -310,7 +376,7 @@ def main():
     parser.add_argument('--checkpoint_path', default='cp_hifigan')
     parser.add_argument('--config', default='')
     parser.add_argument('--training_epochs', default=2000, type=int)
-    parser.add_argument('--training_steps', default=400000, type=int)
+    parser.add_argument('--training_steps', default=90000, type=int)
     parser.add_argument('--stdout_interval', default=5, type=int)
     parser.add_argument('--checkpoint_interval', default=1000, type=int)
     parser.add_argument('--summary_interval', default=100, type=int)

@@ -21,7 +21,17 @@ cd ~/lab/asr-based-privacy-preserving-separation
 . ./env.sh
 cd speech-resynthesis
 
-ngpu=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
+ngpu=$(python3 -c "import torch; print(torch.cuda.device_count())")
+mibgpu=$(python3 -c "import torch; print(torch.cuda.get_device_properties(0).total_memory // 1024 ** 2)")
+
+batch_size=$(python - << EOF
+if $ngpu >= 2 and $mibgpu>40000: print(128)
+if $ngpu == 2 and $mibgpu<40000: print(64)
+if $ngpu > 2 and $mibgpu<40000: print(128)
+
+EOF
+)
+
 
 if [ "$dim" == "-1" ]; then
     python -m torch.distributed.launch --nproc_per_node $ngpu train.py \

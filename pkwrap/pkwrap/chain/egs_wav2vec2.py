@@ -65,14 +65,22 @@ class EgsInfo(object):
 
 
 def prepare_e2e(egs):
-    """returns a tuple of tensor and merged supervision
+    """Reads a wav.scp entry like kaldi with embeded unix command
+     and returns a pytorch tensor like it was open with torchaudio.load()
+     (within some tolerance due to numerical precision)
+     And a merged supervision for LF-MMI training
 
-    Args:
-        egs: a egs objects
+     signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
+     signalv2 = prepare(['flac', '-c', '-d', '-s', 'XX/1272-128104-0000.flac', "|"])
+     signalv3 = prepare(['XX/1272-128104-0000.flac'])
+     print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
+     print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))
 
-    Returns:
-        feats: a Tensor of size  time x dimension
-        sup: Supervision object to be used as target for LF-MMI
+     Args:
+         wav: a list containing the scp entry
+     Returns:
+         feats: a Tensor of size  time x dimension
+         sup: Supervision object to be used as target for LF-MMI
 
     Raises:
         IOError: when something wrong while read a file

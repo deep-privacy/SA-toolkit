@@ -3,34 +3,11 @@
 #  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-#  ==> e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 9.54 [ 5189 / 54402, 661 ins, 658 del, 3870 sub ] 
+# tg results on dev_clean
+#  ??
+# after fg rescoring
+#  ??
 
-#  ==> e2e_tdnnf_vq_sizeco_16/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 93.96 [ 51117 / 54402, 162 ins, 38922 del, 12033 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 8.61 [ 4686 / 54402, 656 ins, 553 del, 3477 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_32/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 32.48 [ 17672 / 54402, 2041 ins, 4561 del, 11070 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 8.15 [ 4433 / 54402, 534 ins, 561 del, 3338 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_48/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 12.76 [ 6942 / 54402, 958 ins, 781 del, 5203 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 8.08 [ 4395 / 54402, 630 ins, 477 del, 3288 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 11.93 [ 6489 / 54402, 852 ins, 783 del, 4854 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 7.88 [ 4289 / 54402, 575 ins, 551 del, 3163 sub ] 
-
-import os
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -42,9 +19,9 @@ from torch.nn.utils import clip_grad_value_
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import sys
+import os
 import configargparse
 
-import kaldifeat
 
 def build(args):
     class Net(nn.Module):
@@ -54,30 +31,25 @@ def build(args):
                      hidden_dim=1024,
                      bottleneck_dim=128,
                      prefinal_bottleneck_dim=256,
-                     kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3],
-                     subsampling_factor_list=[1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1],
+                     kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3],
+                     subsampling_factor_list=[1, 1, 1, 3, 1, 1, 1, 1, 1],
                      frame_subsampling_factor=3,
                      p_dropout=0.1):
             super().__init__()
 
-            # Preprocessor
-            opts = kaldifeat.FbankOptions()
-            self.features_opts = pkwrap.utils.kaldifeat_set_option(
-                opts,
-                pkwrap.__path__[0] + "/../egs/librispeech/v1/" + \
-                "./configs/fbank_hires.conf"
+            self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
+                "facebook/wav2vec2-base-960h",
+                freeze=False,
+                freeze_feature_extractor=True,
             )
-            self.fbank = kaldifeat.Fbank(self.features_opts)
+            input_dim = 768 # self.preprocessor output dim
+            
 
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
 
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
-            input_dim = self.features_opts.mel_opts.num_bins
-
-            self.cmvn = pkwrap.cmvn.UttCMVN()
-
 
             #input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
@@ -146,8 +118,9 @@ def build(args):
                 context_len=1,
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
-                #  bypass_scale=0.0, # no skip connection to constrain to the output of LD
+                bypass_scale=0.0, # no skip connection to constrain to the output of LD
             )
+            assert self.prefinal_chain_vq.tdnn.use_bypass == False
 
             ####################
             #  Bigger decoder  #
@@ -170,7 +143,7 @@ def build(args):
 
             # tdnnfs requires [N, C, T]
             self.tdnnfs_decode = nn.ModuleList(tdnnfs)
-            
+
 
             self.prefinal_xent = TDNNFBatchNorm(
                 hidden_dim, hidden_dim,
@@ -188,11 +161,13 @@ def build(args):
             self.xent_output.bias.data.zero_()
 
             if args.freeze_encoder == "True":
+                self.preprocessor.freeze = True
+                self.preprocessor.model.eval()
                 logging.info("Freezing encoder!")
 
                 switch_require_grad = False
                 for name, param in self.named_parameters():
-                    if name=="tdnnfs.18.tdnn.linearB.weight":
+                    if name=="tdnnfs.12.tdnn.linearB.weight":
                         switch_require_grad = True
                     param.requires_grad = switch_require_grad
                     logging.info(name + f" - requires_grad={param.requires_grad}")
@@ -234,17 +209,47 @@ def build(args):
                     if tensorboard: tensorboard.add_scalar('VQ_perplexity/train', self.acc_sum_perplexity/print_interval, mb_id)
                     self.acc_sum_perplexity.zero_()
 
+        def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay, iter=0):
+            TOTAL_ITER = 630
+
+            if iter < TOTAL_ITER * 0.10 and iter > TOTAL_ITER * 0.90:
+                #  For the first 10% updates only the output classifier is trained, after which the Transformer is also updated.
+                self.preprocessor = pkwrap.huggingface.HuggingFaceWav2Vec2(
+                    "facebook/wav2vec2-base-960h",
+                    freeze=True,
+                    freeze_feature_extractor=True,
+                )
+            logging.info("Preprocessor (wav2vec2) frozzen: {}".format(self.preprocessor.freeze))
+
+            wav2vec = []
+            tdnnf = []
+            for name, param in self.named_parameters():
+                if 'preprocessor' in name:
+                    wav2vec.append(param)
+                else:
+                    tdnnf.append(param)
+            opti = get_optimizer([{'params':wav2vec}, {'params':tdnnf}], lr, weight_decay)
+
+            if iter < TOTAL_ITER * 0.40:
+                opti.param_groups[0]['lr'] = lr/10
+
+            opti.param_groups[0]['lr'] = lr/2
+            opti.param_groups[1]['lr'] = lr
+
+            return opti
+
+
         @torch.no_grad()
         def validate_model(self):
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 13, f"{nnet_output.shape[1]} != expected frame subsampling"
+            assert nnet_output.shape[1] == 11, f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 13, f"{nnet_output.shape[1]} != expected frame subsampling"
+            assert nnet_output.shape[1] == 11, f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
         def pad_input(self, x):
@@ -263,21 +268,12 @@ def build(args):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            if self.features_opts.device != x.device:
-                self.features_opts.device = x.device
-                self.fbank = kaldifeat.Fbank(self.features_opts)
+            with torch.cuda.amp.autocast():
+                x = self.preprocessor(x)
+                #  x = self.preprocessor(x, spec_aug=self.training)
 
-
-            # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
-            x *= 32768
-            waveform = [*x] # batch processing with python list (required by kaldifeat)
-
-            x = self.fbank(waveform)
-            x = torch.stack(x) # back to tensor
             assert x.ndim == 3
             x = self.pad_input(x)
-            x = self.cmvn(x)
-            x = spec_augment(x)
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
             x = self.tdnn1(x)
@@ -288,8 +284,8 @@ def build(args):
                 x = self.tdnnfs[i](x)
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
-
             #  xent_prefinal_out = self.prefinal_xent(x)
+
             x = chain_prefinal_out
             for i in range(len(self.tdnnfs_decode)):
                 x = self.tdnnfs_decode[i](x)

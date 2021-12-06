@@ -68,7 +68,7 @@ def init_speech_synthesis_model(config_file, weight_file, root_dir=os.getcwd()):
     return _forward, h.sampling_rate, generator
 
 
-def init_pkwrap_model(model, exp_path, pkwrap_vq_dim):
+def init_pkwrap_model(model, exp_path, pkwrap_vq_dim, get_model_module=False):
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     model_weight = "final.pt"
 
@@ -99,9 +99,13 @@ def init_pkwrap_model(model, exp_path, pkwrap_vq_dim):
             "base_model": pkwrap_path + exp_path + model_weight,
         },
     )
-    net = pkwrap_chain.get_forward(device=device, share_memory=True)
+    forward, net = pkwrap_chain.get_forward(
+        device=device, share_memory=True, get_model_module=True
+    )
 
-    return net
+    if get_model_module:
+        return forward, net
+    return forward
 
 
 def kaldi_asr_decode(out, get_align=False):

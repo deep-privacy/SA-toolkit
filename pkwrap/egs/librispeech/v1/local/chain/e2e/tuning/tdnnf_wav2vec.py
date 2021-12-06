@@ -169,6 +169,9 @@ def build(args):
                     tdnnf.append(param)
             opti = get_optimizer([{'params':wav2vec}, {'params':tdnnf}], lr, weight_decay)
 
+            if iter < TOTAL_ITER * 0.40:
+                opti.param_groups[0]['lr'] = lr/10
+
             opti.param_groups[0]['lr'] = lr/2
             opti.param_groups[1]['lr'] = lr
 

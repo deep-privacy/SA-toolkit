@@ -233,7 +233,7 @@ class ChainModel(nn.Module):
         logging.info("saved scatters to {}".format(os.path.dirname(savepath)))
 
     @torch.no_grad()
-    def get_forward(self, device=torch.device("cpu"), share_memory=False):
+    def get_forward(self, device=torch.device("cpu"), share_memory=False, get_model_module=False):
         chain_opts = self.chain_opts
 
         model = self.Net(chain_opts.output_dim)
@@ -255,6 +255,8 @@ class ChainModel(nn.Module):
                 post, xent_output = model(waveform, spec_augment=spec_augment)
                 return post, model
 
+        if get_model_module:
+            return _forward, model
         return _forward
 
 

@@ -37,9 +37,6 @@ class HuggingFaceWav2Vec2(nn.Module):
         HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
     sr: int
         Sampling rate for the wav2vec2 processor
-    output_norm : bool (default: True)
-        If True, a layer_norm (affine) will be applied to the output obtained
-        from the wav2vec model.
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
@@ -61,15 +58,16 @@ class HuggingFaceWav2Vec2(nn.Module):
         source,
         revision=None,
         sr=16000,
-        output_norm=True,
         freeze=True,
         freeze_feature_extractor=False,
     ):
         super().__init__()
 
         save_me = False
-        if os.path.exists("/tmp/featext_config.json"):
-            _source = "/tmp/featext_config.json"
+        _source = source
+        model_hub = source
+        if os.path.exists(f"/tmp/{model_hub.replace('/', '-')}/featext_config.json"):
+            _source = f"/tmp/{model_hub.replace('/', '-')}/featext_config.json"
         else:
             save_me = True
 
@@ -79,40 +77,38 @@ class HuggingFaceWav2Vec2(nn.Module):
             _source, revision=revision
         )
         if save_me:
-            self.feature_extractor.save_pretrained("/tmp/featext_config.json")
-        _source = source
-
-        save_me = False
-        if os.path.exists("/tmp/processor_config.json"):
-            _source = "/tmp/processor_config.json"
-        else:
-            save_me = True
-
-        # Download the processor from HuggingFace.
-        if revision:
-            self.processor = Wav2Vec2Processor.from_pretrained(
-                _source, revision=revision
+            self.feature_extractor.save_pretrained(
+                f"/tmp/{model_hub.replace('/', '-')}/featext_config.json"
             )
-        self.processor = Wav2Vec2Processor.from_pretrained(_source)
-        if save_me:
-            self.processor.save_pretrained("/tmp/processor_config.json")
         _source = source
 
         # sampling rate
         self.sr = sr
 
         save_me = False
-        if os.path.exists("/tmp/model_config.json"):
-            _source = "/tmp/model_config.json"
+        if os.path.exists(f"/tmp/{model_hub.replace('/', '-')}/model_config.json"):
+            _source = f"/tmp/{model_hub.replace('/', '-')}/model_config.json"
         else:
             save_me = True
 
-        # Download the model from HuggingFace.
-        if revision:
-            self.model = Wav2Vec2Model.from_pretrained(_source, revision=revision)
-        self.model = Wav2Vec2Model.from_pretrained(_source)
+        try:
+            # Download the model from HuggingFace.
+            if revision:
+                self.model = Wav2Vec2Model.from_pretrained(_source, revision=revision)
+            self.model = Wav2Vec2Model.from_pretrained(_source)
+        except:
+            _source = source
+            if revision:
+                self.model = Wav2Vec2Model.from_pretrained(_source, revision=revision)
+            self.model = Wav2Vec2Model.from_pretrained(_source)
+            os.system(
+                f"rm -rf /tmp/{model_hub.replace('/', '-')}/featext_config.json; rm -rf /tmp/{model_hub.replace('/', '-')}/model_config.json"
+            )
+
         if save_me:
-            self.model.save_pretrained("/tmp/model_config.json")
+            self.model.save_pretrained(
+                f"/tmp/{model_hub.replace('/', '-')}/model_config.json"
+            )
         _source = source
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2

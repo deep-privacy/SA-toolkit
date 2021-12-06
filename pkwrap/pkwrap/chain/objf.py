@@ -291,7 +291,8 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         batch_size=minibatch_size,
         drop_last=False,
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=8)
+    # TODO: make the num_workers configurable (this can significantly speedup the training)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=4)
 
     global KALDI_GPU_DEVICE
     KALDI_GPU_DEVICE = str(torch.rand((1)).cuda().device)
@@ -341,7 +342,7 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
 
         if mb_id==0 or (mb_id + 1) % (len(dataloader) / 10) == 0:
             SR = 16000
-            logging.info("Training with batch_size of:" + str((data[0][0].shape[0] * data[0].shape[0] * grad_acc_steps) / SR) + " seconds")
+            logging.info("Training with batch_size of:" + str((data[0][0].shape[0] * data[0].shape[0] * grad_acc_steps) / SR) + " seconds (imprecise estimation)")
         if (mb_id + 1) % grad_acc_steps == 0 or (mb_id + 1 == len(dataloader)):
             clip_grad_value_(_model.parameters(), 5.0)
             optimizer.step()

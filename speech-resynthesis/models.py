@@ -284,9 +284,22 @@ class CodeGenerator(Generator):
                 if self.extract_bn == None:
                     self.extract_bn = get_extract_bn(device=kwargs["audio_pkwrap"].device)
                 input = torch.squeeze(kwargs["audio_pkwrap"], 1)
-                x = self.extract_bn(input)
+                #  subsamplig = []
+                #  for item in range(600,2900):
+                    #  _input = torch.rand((1,item)).to(kwargs["audio_pkwrap"].device)
+                    #  x = self.extract_bn(_input)
+                    #  subsamplig.append(_input.shape[1] / x.shape[2])
+                #  print(max(subsamplig))
+                #  print(min(subsamplig))
 
-            #  x = self.dict(kwargs['code']).transpose(1, 2)
+                #  print(input.shape)
+                x = self.extract_bn(input)
+                #  print(x.shape)
+
+            #  _x = self.dict(kwargs['code']).transpose(1, 2)
+            #  print(kwargs["audio_pkwrap"].shape)
+            #  print(_x.shape)
+            #  print(x.shape)
 
         f0_commit_losses = None
         f0_metrics = None
