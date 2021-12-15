@@ -131,6 +131,7 @@ if [ ! -f $mark ]; then
   pip3 install pytorch-memlab==0.2.3
   pip3 install kaldiio==2.15.1
   pip3 install git+https://github.com/huggingface/transformers.git@d5b82bb70c2e8c4b184a6f2a7d1c91d7fd156956
+  pip3 install resampy==0.2.2
 
   # damped additional req
   pip3 install ConfigArgParse==1.5.1
@@ -155,6 +156,8 @@ if [ ! -f $mark ]; then
   pip3 install ipywebrtc==0.6.0
   pip3 install ipywidgets==7.6.5
   pip3 install notebook==6.4.5
+  pip3 install holoviews==1.14.6
+  pip3 install filelock
 
   cd $home
   touch $mark
@@ -273,6 +276,21 @@ if [ ! -f $mark ]; then
   git checkout a5c97de
   cd -
   touch $mark
+fi
+
+
+mark=.done-fairseq
+if [ ! -f $mark ]; then
+    rm -rf fairseq || true
+
+    # FairSeq Commit id when making this PR: `commit 313ff0581561c7725ea9430321d6af2901573dfb`
+    # git clone --depth 1 https://github.com/pytorch/fairseq.git
+    # TODO(jiatong): to fix after the issue #4035 is fixed in fairseq
+    git clone https://github.com/pytorch/fairseq.git
+    cd fairseq
+    git checkout -b sync_commit 313ff0581561c7725ea9430321d6af2901573dfb
+    cd ..
+    python3 -m pip install --editable ./fairseq
 fi
 
 echo " == Everything got installed successfully =="

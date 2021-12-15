@@ -1,0 +1,4 @@
+.f0_cache
+data/*
+exp
+.f0_cache.lock

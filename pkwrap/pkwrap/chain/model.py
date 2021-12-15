@@ -399,12 +399,18 @@ class ChainModel(nn.Module):
                 for name, params in this_mdl.named_parameters():
                     model_acc[name].data.mul_((num_accumulated-1.)/(num_accumulated))
                     model_acc[name].data.add_(params.data.mul_(1./num_accumulated))
-                # with try/catch it works all the time, otherwise I might get some kaldi error
+                torch.cuda.empty_cache()
+                # with try/catch it works most of the time, otherwise I sometime get some kaldi error
                 try:
                     _, this_objf = compute_objf(moving_average)
                 except Exception as e:
-                    logging.warining("Error: ".format(str(e)))
-                    _, this_objf = compute_objf(moving_average)
+                    logging.warning("Error: ".format(str(e)))
+                    try:
+                        _, this_objf = compute_objf(moving_average)
+                    except Exception as e:
+                        logging.warning("2nd error ommiting this accumulation: ".format(str(e)))
+                        logging.info("Won't update best model")
+                        continue
                 if this_objf > best_objf:
                     best_objf = this_objf
                     best_mdl = moving_average

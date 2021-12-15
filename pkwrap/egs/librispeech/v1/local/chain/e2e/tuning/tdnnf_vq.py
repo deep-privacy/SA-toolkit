@@ -148,6 +148,8 @@ def build(args):
                 bottleneck_ld=bottleneck_ld,
             )
 
+            assert self.prefinal_chain_vq.tdnn.use_bypass == False
+
             self.prefinal_xent = TDNNFBatchNorm(
                 hidden_dim, hidden_dim,
                 bottleneck_dim=prefinal_bottleneck_dim,

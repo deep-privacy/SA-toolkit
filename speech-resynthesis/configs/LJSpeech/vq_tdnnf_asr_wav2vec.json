@@ -11,7 +11,7 @@
     "lr_decay": 0.999,
     "seed": 1234,
 
-    "upsample_rates": [6,5,4,4,2],
+    "upsample_rates": [5,5,4,3,3],
     "upsample_kernel_sizes": [11,8,8,6,4],
     "upsample_initial_channel": 512,
     "resblock_kernel_sizes": [3,7,11],
@@ -74,7 +74,7 @@
     "fmax": 8000,
     "fmax_for_loss": null,
 
-    "num_workers": 16,
+    "num_workers": 4,
 
     "dist_config": {
         "dist_backend": "nccl",

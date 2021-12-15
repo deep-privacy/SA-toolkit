@@ -104,7 +104,7 @@ def train(rank, local_rank, a, h):
     msd = MultiScaleDiscriminator().to(device)
 
     if rank == 0:
-        print(generator)
+        #  print(generator)
         os.makedirs(a.checkpoint_path, exist_ok=True)
         print("checkpoints directory : ", a.checkpoint_path)
 
@@ -212,7 +212,7 @@ def train(rank, local_rank, a, h):
             if h.get('f0_vq_params', None) or h.get('code_vq_params', None):
                 y_g_hat, commit_losses, metrics = y_g_hat
 
-            assert y_g_hat.shape[2] >= y.shape[2] - 10 and y_g_hat.shape[2] <= y.shape[2] + 9000, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
+            assert y_g_hat.shape[2] >= y.shape[2] - 300 and y_g_hat.shape[2] <= y.shape[2] + 9000, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
             y_g_hat = y_g_hat[:,:,:y.shape[2]]
             if h.get('f0_vq_params', None):
                 f0_commit_loss = commit_losses[1][0]
@@ -321,7 +321,7 @@ def train(rank, local_rank, a, h):
                                 val_err_tot += code_commit_loss * h.get('lambda_commit_code', None)
                             y_mel = torch.autograd.Variable(y_mel.to(device, non_blocking=False))
 
-                            assert y_g_hat.shape[2] >= y.shape[1] - 10 and y_g_hat.shape[2] <= y.shape[1] + 8000, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
+                            assert y_g_hat.shape[2] >= y.shape[1] - 300 and y_g_hat.shape[2] <= y.shape[1] + 8000, f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {y.shape}"
                             y_g_hat = y_g_hat[:,:,:y.shape[1]]
 
                             y_g_hat_mel = mel_spectrogram(y_g_hat.squeeze(1), h.n_fft, h.num_mels, h.sampling_rate,

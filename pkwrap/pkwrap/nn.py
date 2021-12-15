@@ -377,6 +377,10 @@ class TDNNFBatchNorm_LD(nn.Module):
         bottleneck_ld_outdim=None,
     ):
         super(TDNNFBatchNorm_LD, self).__init__()
+        self.in_dim = feat_dim
+        self.out_dim = output_dim
+        self.bottleneck_dim = bottleneck_dim
+        self.bottleneck_ld = bottleneck_ld
         self.tdnn = TDNNF_LD(
             feat_dim,
             output_dim,

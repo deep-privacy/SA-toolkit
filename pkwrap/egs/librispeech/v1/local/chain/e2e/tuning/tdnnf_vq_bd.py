@@ -3,33 +3,6 @@
 #  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-#  ==> e2e_tdnnf_vq_sizeco_128/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 9.54 [ 5189 / 54402, 661 ins, 658 del, 3870 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_16/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 93.96 [ 51117 / 54402, 162 ins, 38922 del, 12033 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_256/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 8.61 [ 4686 / 54402, 656 ins, 553 del, 3477 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_32/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 32.48 [ 17672 / 54402, 2041 ins, 4561 del, 11070 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_384/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 8.15 [ 4433 / 54402, 534 ins, 561 del, 3338 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_48/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 12.76 [ 6942 / 54402, 958 ins, 781 del, 5203 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_512/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 8.08 [ 4395 / 54402, 630 ins, 477 del, 3288 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_64/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 11.93 [ 6489 / 54402, 852 ins, 783 del, 4854 sub ] 
-
-#  ==> e2e_tdnnf_vq_sizeco_768/decode_dev_clean_fbank_hires_iterfinal_final_fg/best_wer <==
-#  %WER 7.88 [ 4289 / 54402, 575 ins, 551 del, 3163 sub ] 
-
 import os
 import torch
 import torch.nn.functional as F
@@ -146,8 +119,8 @@ def build(args):
                 context_len=1,
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
-                #  bypass_scale=0.0, # no skip connection to constrain to the output of LD
             )
+            assert self.prefinal_chain_vq.tdnn.use_bypass == False
 
             ####################
             #  Bigger decoder  #

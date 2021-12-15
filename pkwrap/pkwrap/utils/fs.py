@@ -10,6 +10,9 @@ from .. import script_utils
 import sys
 import os
 from datetime import datetime
+from tqdm import tqdm
+from pathlib import Path
+import logging
 
 run = script_utils.run
 
@@ -92,3 +95,21 @@ def cat(file_list, out_file):
 def creation_date_file(file):
     created = os.stat(file).st_ctime
     return datetime.fromtimestamp(created)
+
+
+def scans_directory_for_ext(root_data, extension):
+    logging.info(f"Locating {extension}(s)")
+    wavs_path = []
+    wav_count = 0
+    pbar = tqdm(os.walk(root_data))
+    for root, dirs, files in pbar:
+        if Path(root).parent == Path(root_data):
+            dataset = root.split("/")[-1]
+        for file in files:
+            file_path = os.path.join(root, file)
+            if os.path.splitext(file_path)[1] == f".{extension}":
+                wav_count += 1
+                pbar.set_description(f"file count : {wav_count}")
+                wavs_path.append(file_path)
+
+    return wavs_path

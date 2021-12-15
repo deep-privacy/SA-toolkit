@@ -4,6 +4,7 @@ import tempfile, os, subprocess
 import json
 
 import re
+import os
 import sys
 
 import pkwrap
@@ -15,9 +16,11 @@ import amfm_decompy.basic_tools as basic
 import amfm_decompy.pYAAPT as pYAAPT
 import librosa
 from scipy.io import wavfile
+from filelock import FileLock
 
 import logging
 
+logging.getLogger("filelock").setLevel(logging.INFO)
 logging.getLogger("matplotlib").setLevel(level=logging.CRITICAL)
 
 MAX_WAV_VALUE = 32768.0
@@ -54,16 +57,21 @@ def init_speech_synthesis_model(config_file, weight_file, root_dir=os.getcwd()):
     generator.share_memory()
 
     @torch.no_grad()
-    def _forward(bn, f0):
-        spk = torch.tensor([[0]]).to(device)  # single speaker for now
+    def _forward(bn, f0, real_shape=None):
+        spk = torch.tensor([[0]] * f0.shape[0]).to(device)  # single speaker for now
         y_g_hat = generator(asr_bn=bn, f0=f0, spkr=spk)
         if type(y_g_hat) is tuple:
             y_g_hat = y_g_hat[0]
-        audio = y_g_hat.squeeze()
-        audio = audio * MAX_WAV_VALUE
-        audio = audio.cpu().numpy().astype("int16")
-        audio = librosa.util.normalize(audio.astype(np.float32))
-        return audio
+        audios = []
+        for i in range(f0.shape[0]):
+            audio = y_g_hat[i].squeeze()
+            if real_shape != None:
+                audio = audio[: real_shape[i]]
+            audio = audio * MAX_WAV_VALUE
+            audio = audio.cpu().numpy().astype("int16")
+            audio = librosa.util.normalize(audio.astype(np.float32))
+            audios.append(audio)
+        return audios
 
     return _forward, h.sampling_rate, generator
 
@@ -150,9 +158,31 @@ def kaldi_asr_decode(out, get_align=False):
 
 
 f0_stats = None
+f0_cache = None
+f0_cache_lock = None
 
 
-def get_f0(audio, rate=16000, interp=False, f0_stats_file=None):
+def get_f0(
+    audio,
+    rate=16000,
+    interp=False,
+    f0_stats_file=None,
+    _device=device,
+    cache_with_filename=None,
+):
+    global f0_cache
+    global f0_cache_lock
+    if cache_with_filename != None:
+        if f0_cache == None and os.path.exists(".f0_cache"):
+            print("Loading .f0_cache")
+            f0_cache = dict(kaldiio.load_ark(".f0_cache"))
+        if f0_cache_lock == None:
+            f0_cache_lock = FileLock(".f0_cache.lock")
+
+        key = os.path.basename(cache_with_filename)
+        if f0_cache != None and key in f0_cache:
+            return torch.tensor(f0_cache[key]).unsqueeze(0).unsqueeze(0)
+
     audio = audio.squeeze().numpy()
     audio *= 2 ** 15
 
@@ -185,7 +215,7 @@ def get_f0(audio, rate=16000, interp=False, f0_stats_file=None):
 
     f0 = np.vstack(f0s)
 
-    f0 = torch.tensor(f0.astype(np.float32)).to(device)
+    f0 = torch.tensor(f0.astype(np.float32)).to(_device)
 
     if f0_stats_file == None:
         return f0
@@ -200,6 +230,14 @@ def get_f0(audio, rate=16000, interp=False, f0_stats_file=None):
     # Always mean normalize (TODO add other type of norm like in speech-resynthesis/dataset.py)
     ii = f0 != 0
     f0[ii] = (f0[ii] - mean) / std
+
+    if cache_with_filename != None:
+        with f0_cache_lock:
+            kaldiio.save_ark(
+                ".f0_cache",
+                {os.path.basename(cache_with_filename): f0.squeeze().numpy()},
+                append=True,
+            )
 
     return f0
 

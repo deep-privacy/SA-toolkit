@@ -180,9 +180,10 @@ def train():
             cp_list.remove("final")
         if len(cp_list) == 0:
             trainer_opts.train_stage = "0"
-        cp_list = list(map(lambda x: int(x), cp_list))
-        trainer_opts.train_stage = str(sorted(cp_list)[-1])
-        logging.info(f"Resuming from stage: {trainer_opts.train_stage}")
+        else:
+            cp_list = list(map(lambda x: int(x), cp_list))
+            trainer_opts.train_stage = str(sorted(cp_list)[-1])
+            logging.info(f"Resuming from stage: {trainer_opts.train_stage}")
 
     trainer_opts.train_stage = int(trainer_opts.train_stage)
     

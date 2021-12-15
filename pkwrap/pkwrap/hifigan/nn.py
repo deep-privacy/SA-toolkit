@@ -1,25 +1,22 @@
-# adapted from https://github.com/jik876/hifi-gan
-
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 
-try:
-    from modules.jukebox import Encoder, Decoder
-    from utils import init_weights, get_padding, AttrDict
-    from modules.vq import Bottleneck
-
-    from extract_bn import get_extract_bn
-except ImportError:
-    from .modules.jukebox import Encoder, Decoder
-    from .utils import init_weights, get_padding, AttrDict
-    from .modules.vq import Bottleneck
-
-    from .extract_bn import get_extract_bn
+from . import net_modules as nm
 
 LRELU_SLOPE = 0.1
+
+
+def init_weights(m, mean=0.0, std=0.01):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        m.weight.data.normal_(mean, std)
+
+
+def get_padding(kernel_size, dilation=1):
+    return int((kernel_size * dilation - dilation) / 2)
 
 
 class ResBlock1(torch.nn.Module):
@@ -229,9 +226,7 @@ class Generator(torch.nn.Module):
 class CodeGenerator(Generator):
     def __init__(self, h):
         super().__init__(h)
-        self.dict = nn.Embedding(h.num_embeddings, 256)
-        self.extract_bn = None
-
+        self.dict = nn.Embedding(h.num_embeddings, h.embedding_dim)
         self.f0 = h.get("f0", None)
         self.multispkr = h.get("multispkr", None)
 
@@ -242,14 +237,14 @@ class CodeGenerator(Generator):
         self.vq = None
         if h.get("lambda_commit", None):
             assert self.f0, "Requires F0 set"
-            self.encoder = Encoder(**h.f0_encoder_params)
-            self.vq = Bottleneck(**h.f0_vq_params)
+            self.encoder = nm.Encoder(**h.f0_encoder_params)
+            self.vq = nm.Bottleneck(**h.f0_vq_params)
 
         self.code_encoder = None
         self.code_vq = None
         if h.get("lambda_commit_code", None):
-            self.code_encoder = Encoder(**h.code_encoder_params)
-            self.code_vq = Bottleneck(**h.code_vq_params)
+            self.code_encoder = nm.Encoder(**h.code_encoder_params)
+            self.code_vq = nm.Bottleneck(**h.code_vq_params)
             self.dict = None
 
         self.quantizer = None
@@ -265,8 +260,26 @@ class CodeGenerator(Generator):
 
     @staticmethod
     def _upsample(signal, max_frames):
-        # Uses pytroch upsample method
-        return F.interpolate(signal, max_frames)
+        if signal.dim() == 3:
+            bsz, channels, cond_length = signal.size()
+        elif signal.dim() == 2:
+            signal = signal.unsqueeze(2)
+            bsz, channels, cond_length = signal.size()
+        else:
+            signal = signal.view(-1, 1, 1)
+            bsz, channels, cond_length = signal.size()
+
+        signal = signal.unsqueeze(3).repeat(1, 1, 1, max_frames // cond_length)
+
+        # pad zeros as needed (if signal's shape does not divide completely with max_frames)
+        reminder = (max_frames - signal.shape[2] * signal.shape[3]) // signal.shape[3]
+        if reminder > 0:
+            raise NotImplementedError(
+                "Padding condition signal - misalignment between condition features."
+            )
+
+        signal = signal.view(bsz, channels, max_frames)
+        return signal
 
     def forward(self, **kwargs):
         code_commit_losses = None
@@ -278,33 +291,7 @@ class CodeGenerator(Generator):
             _, code_h_q, code_commit_losses, code_metrics = self.code_vq(code_h)
             x = code_h_q[0]
         else:
-            if "asr_bn" in kwargs:
-                x = kwargs["asr_bn"]
-            else:
-                if self.extract_bn == None:
-                    self.extract_bn = get_extract_bn(
-                        device=kwargs["audio_pkwrap"].device
-                    )
-                input = torch.squeeze(kwargs["audio_pkwrap"], 1)
-
-                # DEV REMOVE IN PROD
-                #  subsamplig = []
-                #  for item in range(39000, 70000, 10):
-                    #  _input = torch.rand((1, item)).to(kwargs["audio_pkwrap"].device)
-                    #  x = self.extract_bn(_input)
-                    #  subsamplig.append(_input.shape[1] / x.shape[2])
-                    #  print(item, subsamplig[-1])
-                #  print("max subsamplig:", max(subsamplig))
-                #  print("min subsamplig:", min(subsamplig))
-
-                #  print(input.shape)
-                x = self.extract_bn(input)
-                #  print(x.shape)
-
-            #  _x = self.dict(kwargs['code']).transpose(1, 2)
-            #  print(kwargs["audio_pkwrap"].shape)
-            #  print(_x.shape)
-            #  print(x.shape)
+            x = self.dict(kwargs["code"]).transpose(1, 2)
 
         f0_commit_losses = None
         f0_metrics = None
@@ -335,7 +322,7 @@ class CodeGenerator(Generator):
             x = torch.cat([x, spkr], dim=1)
 
         for k, feat in kwargs.items():
-            if k in ["spkr", "code", "f0", "audio_pkwrap", "asr_bn"]:
+            if k in ["spkr", "code", "f0"]:
                 continue
 
             feat = self._upsample(feat, x.shape[-1])
@@ -511,22 +498,6 @@ class MultiScaleDiscriminator(torch.nn.Module):
             fmap_gs.append(fmap_g)
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
-
-
-class Quantizer(nn.Module):
-    def __init__(self, h):
-        super().__init__()
-
-        self.encoder = Encoder(**h.f0_encoder_params)
-        self.vq = Bottleneck(**h.f0_vq_params)
-        self.decoder = Decoder(**h.f0_decoder_params)
-
-    def forward(self, **kwargs):
-        f0_h = self.encoder(kwargs["f0"])
-        _, f0_h_q, f0_commit_losses, f0_metrics = self.vq(f0_h)
-        f0 = self.decoder(f0_h_q)
-
-        return f0, f0_commit_losses, f0_metrics
 
 
 def feature_loss(fmap_r, fmap_g):
