@@ -61,7 +61,7 @@ def collate_fn_padd(f0_stats_file, get_func=None):
     return _func_pad
 
 
-def sample_interval(seqs, seq_len):
+def sample_interval(seqs, seq_len, max_len=None):
     N = max([v.shape[-1] for v in seqs])
 
     hops = [N // v.shape[-1] for v in seqs]
@@ -70,7 +70,8 @@ def sample_interval(seqs, seq_len):
     # Randomly pickup with the batch_max_steps length of the part
     interval_start = 0
     interval_end = N // lcm - seq_len // lcm
-
+    if max_len != None:
+        interval_end = (max_len // lcm) - seq_len // lcm
     start_step = random.randint(interval_start, interval_end)
 
     new_seqs = []

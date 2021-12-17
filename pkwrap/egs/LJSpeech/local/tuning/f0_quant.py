@@ -17,7 +17,7 @@ def build(args):
     class Net(nn.Module):
         def __init__(self):
             super().__init__()
-            self.encoder = pkwrap.hifigan.net_modules.Encoder(
+            self.encoder = pkwrap.nn.Encoder(
                 input_emb_width=1,
                 output_emb_width=128,
                 levels=1,
@@ -28,10 +28,8 @@ def build(args):
                 m_conv=1.0,
                 dilation_growth_rate=3,
             )
-            self.vq = pkwrap.hifigan.net_modules.Bottleneck(
-                l_bins=20, emb_width=128, mu=0.99, levels=1
-            )
-            self.decoder = pkwrap.hifigan.net_modules.Decoder(
+            self.vq = pkwrap.nn.Bottleneck(l_bins=20, emb_width=128, mu=0.99, levels=1)
+            self.decoder = pkwrap.nn.Decoder(
                 input_emb_width=1,
                 output_emb_width=128,
                 levels=1,
@@ -42,13 +40,12 @@ def build(args):
                 m_conv=1.0,
                 dilation_growth_rate=3,
             )
-            self.validate_model()
 
         @torch.no_grad()
-        def validate_model(self):
+        def validate_model(self, device="cpu"):
             N = 2
             C = 10 * 2740
-            x = torch.arange(N * C).reshape(N, 1, C).float()
+            x = torch.arange(N * C).reshape(N, 1, C).float().to(device)
             nnet_output, _, _ = self.forward(f0=x)
             assert nnet_output.shape == (
                 2,
@@ -98,10 +95,10 @@ if __name__ == "__main__":
         build(args),
         **{
             "mode": "train",
-            "num_workers": 16,
+            "num_workers": 4,
             "rank": args.local_rank,
             "checkpoint_path": args.checkpoint_path,
-            "init_weight_model": "last",
+            #  "init_weight_model": "last",
             "train_utterances": train_list,
             "test_utterances": dev_list,
         },

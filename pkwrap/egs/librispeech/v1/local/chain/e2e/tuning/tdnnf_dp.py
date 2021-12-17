@@ -18,6 +18,8 @@ import sys
 import configargparse
 
 import kaldifeat
+from scipy.stats import laplace
+
 
 def build(args):
     class Net(nn.Module):
@@ -89,39 +91,30 @@ def build(args):
             self.tdnnfs = nn.ModuleList(tdnnfs)
 
 
-            self.acc_sum_vq = torch.tensor(0., requires_grad=False)
-            self.acc_sum_perplexity = torch.tensor(0., requires_grad=False)
-            self.quant = VectorQuantizerEMA(args.codebook_size, prefinal_bottleneck_dim, 0.25, 0.99)
+            logging.info("Using epsilon: " + args.epsilon)
+            self.eps = float(args.epsilon)
             def bottleneck_ld(x):
-                quant_id_as_bn = int(os.getenv("qant_id_as_bn", "0"))
-                show_bn = int(os.getenv("show_bn", "0"))
-                vq_loss, x, perplexity, _, _, encoding_indices, \
-                            losses, _, _, _, concatenated_quantized = self.quant(x)
-                self.encoding_indices = encoding_indices
-                if show_bn == 1:
-                    encoding_indices_l = torch.flatten(encoding_indices).tolist()
-                    if len(encoding_indices_l) != 34: # for valid
-                        logging.info("enc indices: len: " + str(len(encoding_indices_l)) + " id: " + str(" ".join(map(str, encoding_indices_l))))
-                        
-                self.vq_loss = vq_loss
+                x = F.normalize(x, p=1, dim=2) # L1 norm
+                mu=0
+                delta = [(1-(0))*(x.shape[0]*x.shape[1])/self.eps]
+                dist = laplace(mu, delta)
+                noises = dist.rvs(size=x.shape)
+                x = x + torch.from_numpy(noises).float().to(x.device)
+                x = F.normalize(x, p=1, dim=2) # L1 norm
                 self.bottleneck_out = x
-                if quant_id_as_bn == 1:
-                    reshape_like = list(x.shape)
-                    reshape_like[-1] = 1
-                    self.bottleneck_out = torch.reshape(encoding_indices, tuple(reshape_like)).to(torch.float32)
-                self.perplexity = perplexity
+
                 return x
 
             # prefinal_l affine requires [N, C, T]
-            self.prefinal_chain_vq = TDNNFBatchNorm_LD(
+            self.prefinal_chain_ld = TDNNFBatchNorm_LD(
                 hidden_dim, hidden_dim,
                 bottleneck_dim=prefinal_bottleneck_dim,
                 context_len=1,
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
-                bypass_scale=0.0, # no skip connection to constrain to the output of LD
             )
-            assert self.prefinal_chain_vq.tdnn.use_bypass == False
+            assert self.prefinal_chain_ld.tdnn.use_bypass == False
+
 
             ####################
             #  Bigger decoder  #
@@ -173,41 +166,6 @@ def build(args):
 
             self.validate_model()
 
-        def codebook_analysis(self):
-            return self.quant
-
-        def additional_obj(self, deriv, should_log=False, print_interval=1, tensorboard=None, mb_id=1, for_valid=False):
-            if deriv != None and self.vq_loss != None:
-
-                if for_valid and print_interval > 1:
-                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq/print_interval))
-                    if tensorboard: tensorboard.add_scalar('VQ_objf/valid', self.acc_sum_vq/print_interval, mb_id)
-                    logging.info("VQ perplexity ={}".format(self.acc_sum_perplexity/print_interval))
-                    if tensorboard: tensorboard.add_scalar('VQ_perplexity/valid', self.acc_sum_perplexity/print_interval, mb_id)
-                    self.acc_sum_vq.zero_()
-                    self.acc_sum_perplexity.zero_()
-                    return
-
-                if for_valid:
-                    self.acc_sum_vq.add_(self.vq_loss.item()*deriv) # deriv here is the mini_batchsize*num_seq
-                    self.acc_sum_perplexity.add_(self.perplexity.item()*deriv)
-                    return
-
-                self.acc_sum_vq.add_(self.vq_loss.item())
-                self.acc_sum_perplexity.add_(self.perplexity.item())
-
-                if not self.quant.freeze:
-                    deriv += self.vq_loss.to(deriv.device)
-                if should_log:
-                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq/print_interval))
-                    if tensorboard: tensorboard.add_scalar('VQ_objf/train', self.acc_sum_vq/print_interval, mb_id)
-                    self.acc_sum_vq.zero_()
-
-                if should_log:
-                    logging.info("VQ perplexity ={}".format(self.acc_sum_perplexity/print_interval))
-                    if tensorboard: tensorboard.add_scalar('VQ_perplexity/train', self.acc_sum_perplexity/print_interval, mb_id)
-                    self.acc_sum_perplexity.zero_()
-
         @torch.no_grad()
         def validate_model(self):
             N = 2
@@ -228,10 +186,6 @@ def build(args):
                 right_pad = x[:,-1,:].repeat(1,self.padding,1).reshape(N, -1, C)
                 x = torch.cat([left_pad, x, right_pad], axis=1)
             return x
-
-
-        def vq(self):
-            return True
 
         def forward(self, x, spec_augment=lambda x: x):
             assert x.ndim == 2
@@ -261,7 +215,7 @@ def build(args):
             for i in range(len(self.tdnnfs)):
                 x = self.tdnnfs[i](x)
 
-            chain_prefinal_out = self.prefinal_chain_vq(x)
+            chain_prefinal_out = self.prefinal_chain_ld(x)
 
             #  xent_prefinal_out = self.prefinal_xent(x)
             x = chain_prefinal_out
@@ -279,7 +233,7 @@ def build(args):
 if __name__ == '__main__':
     parser = configargparse.ArgumentParser(description="Model config args")
     parser.add("--freeze-encoder", default="False", type=str)
-    parser.add("--codebook-size", default=255, type=int)
+    parser.add("--epsilon", default="1.0", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1]+remaining_argv
     ChainE2EModel(build(args), cmd_line=True)

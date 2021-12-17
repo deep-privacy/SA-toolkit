@@ -23,25 +23,25 @@ lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
 minibatch_size = 16
- # finetune, last epcho usualy best model -> also to not break the vq prototypes
-final_combination_n_model = 1
+ # finetune, 5 last epoch checkpoints
+final_combination_n_model = 5
 # train_stage = 15
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf_vq_bd.py
-dirname = e2e_tdnnf_vq_1024
-model_args = ["--freeze-encoder", "True", "--codebook-size", "1024"]
+model_file = local/chain/e2e/tuning/tdnnf_dp.py
+dirname = e2e_tdnnf_dp_e160000
+model_args = ["--freeze-encoder", "True", "--epsilon", "160000.0"]
 init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 # sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
-# tail e2e_tdnnf_vq_*/decode_dev*_fg/scoringDetails/best_wer
+# tail e2e_tdnnf_vq_bd_sizeco_*/decode_dev*_fg/scoringDetails/best_wer
 
 [test]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
-test_set = data/test_clean_fbank_hires
-# test_set = data/test_other_fbank_hires
+# test_set = data/test_clean_fbank_hires
+test_set = data/dev_clean_fbank_hires
 suffix = _final
 # decode on gpus
 num_jobs = 3
