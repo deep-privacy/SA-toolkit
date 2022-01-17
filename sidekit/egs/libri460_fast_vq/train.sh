@@ -5,11 +5,11 @@ export NUM_GPUS_PER_NODE=2
 export NODE_RANK=0
 export WORLD_SIZE=$(($NUM_NODES * $NUM_GPUS_PER_NODE))
 
-export pkwrap_model="local/chain/e2e/tuning/tdnnf_vq.py"
-export pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_sizeco_256/"
+export pkwrap_model="local/chain/e2e/tuning/tdnnf_vq_bd.py"
+export pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_512/"
 export pkwrap_bn_dim="256"
-export pkwrap_vq_dim="256"
-trainingcfg="cfg/training_256.yaml"
+export pkwrap_vq_dim="512"
+trainingcfg="cfg/training_512.yaml"
 
 # env DEV4S=True WORLD_SIZE=1 ipython3 train_xtractor.py # DEV
 

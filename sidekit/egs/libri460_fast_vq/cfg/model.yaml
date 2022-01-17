@@ -11,6 +11,7 @@ loss:
 
 # Initialize model from file, reset and freeze parts of it
 # initial_model_name: ./model/best_model.pt_epoch12
+# initial_model_name: ./model/tmp_model_vq_512.pt
 # initial_model_name:
 reset_parts: []
 freeze_parts: []

@@ -1,10 +1,19 @@
 import torch
 import torchaudio
 
+from librosa.filters import mel as librosa_mel_fn
+import librosa
+
 import numpy as np
 import random
 
 from . import f0
+
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pylab as plt
 
 
 class WavList(torch.utils.data.Dataset):
@@ -40,6 +49,7 @@ def collate_fn_padd(f0_stats_file, get_func=None):
             feats = torch.unsqueeze(feats, 0)
 
         f0s = []
+        acc_y = []
         for i, b in enumerate(batch):
             f0s.append(
                 f0.get_f0(
@@ -51,12 +61,23 @@ def collate_fn_padd(f0_stats_file, get_func=None):
                 .permute(1, 0),
             )
 
+            # normalize feats for hifigan grount truth
+            _feats_norm = b.squeeze().numpy()
+            _feats_norm = _feats_norm * 2 ** 15
+            _feats_norm = _feats_norm / f0.MAX_WAV_VALUE
+            _feats_norm = librosa.util.normalize(_feats_norm) * 0.95
+            _feats_norm = torch.FloatTensor(_feats_norm).unsqueeze(0)
+            acc_y.append(_feats_norm.permute(1, 0))
+
         f0spad = torch.nn.utils.rnn.pad_sequence(f0s, batch_first=True, padding_value=0)
         f0s = f0spad.permute(0, 2, 1)
 
+        ypad = torch.nn.utils.rnn.pad_sequence(acc_y, batch_first=True, padding_value=0)
+        ys = ypad.permute(0, 2, 1)
+
         if get_func != None:
-            return get_func(feats, lengths, filenames, f0s)
-        return feats, lengths, filenames, f0s
+            return get_func(feats, lengths, filenames, f0s, ys)
+        return feats, lengths, filenames, f0s, ys
 
     return _func_pad
 
@@ -75,9 +96,91 @@ def sample_interval(seqs, seq_len, max_len=None):
     start_step = random.randint(interval_start, interval_end)
 
     new_seqs = []
+    new_iterval = []
     for i, v in enumerate(seqs):
         start = start_step * (lcm // hops[i])
         end = (start_step + seq_len // lcm) * (lcm // hops[i])
         new_seqs += [v[..., start:end]]
+        new_iterval += [(start, end)]
 
-    return new_seqs
+    return new_seqs, new_iterval
+
+
+mel_basis = {}
+hann_window = {}
+
+
+def mel_spectrogram(
+    y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False
+):
+    if torch.min(y) < -1.0:
+        logging.error("min value is ", torch.min(y))
+    if torch.max(y) > 1.0:
+        logging.error("max value is ", torch.max(y))
+
+    global mel_basis, hann_window
+    if fmax not in mel_basis:
+        mel = librosa_mel_fn(sampling_rate, n_fft, num_mels, fmin, fmax)
+        mel_basis[str(fmax) + "_" + str(y.device)] = (
+            torch.from_numpy(mel).float().to(y.device)
+        )
+        hann_window[str(y.device)] = torch.hann_window(win_size).to(y.device)
+
+    y = torch.nn.functional.pad(
+        y.unsqueeze(1),
+        (int((n_fft - hop_size) / 2), int((n_fft - hop_size) / 2)),
+        mode="reflect",
+    )
+    y = y.squeeze(1)
+
+    spec = torch.stft(
+        y,
+        n_fft,
+        hop_length=hop_size,
+        win_length=win_size,
+        window=hann_window[str(y.device)],
+        center=center,
+        pad_mode="reflect",
+        normalized=False,
+        onesided=True,
+        return_complex=False,
+    )
+
+    spec = torch.sqrt(spec.pow(2).sum(-1) + (1e-9))
+
+    spec = torch.matmul(mel_basis[str(fmax) + "_" + str(y.device)], spec)
+    spec = spectral_normalize_torch(spec)
+
+    return spec
+
+
+def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
+    return torch.log(torch.clamp(x, min=clip_val) * C)
+
+
+def spectral_normalize_torch(magnitudes):
+    output = dynamic_range_compression_torch(magnitudes)
+    return output
+
+
+def plot_spectrogram(audio):
+    spectrogram = mel_spectrogram(
+        y=audio,
+        n_fft=1024,
+        num_mels=80,
+        sampling_rate=16000,
+        hop_size=256,
+        win_size=1024,
+        fmin=0,
+        fmax=8000,
+    )
+    spectrogram = spectrogram.squeeze(0).cpu().numpy()
+
+    fig, ax = plt.subplots(figsize=(10, 2))
+    im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")
+    plt.colorbar(im, ax=ax)
+
+    fig.canvas.draw()
+    plt.close()
+
+    return fig

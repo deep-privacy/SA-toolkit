@@ -1,6 +1,0 @@
-__pycache__/
-*.pyc
-checkpoints
-data/
-generations
-generated_*

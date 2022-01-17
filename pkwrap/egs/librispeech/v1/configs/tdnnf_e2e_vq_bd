@@ -29,18 +29,18 @@ final_combination_n_model = 1
 # train_stage = last
 
 model_file = local/chain/e2e/tuning/tdnnf_vq_bd.py
-dirname = e2e_tdnnf_vq_1024
-model_args = ["--freeze-encoder", "True", "--codebook-size", "1024"]
+dirname = e2e_tdnnf_vq_512_test
+model_args = ["--freeze-encoder", "True", "--codebook-size", "512"]
 init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 # sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
-# tail e2e_tdnnf_vq_*/decode_dev*_fg/scoringDetails/best_wer
+# tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
 
 [test]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
-test_set = data/test_clean_fbank_hires
+test_set = data/test_other_fbank_hires
 # test_set = data/test_other_fbank_hires
 suffix = _final
 # decode on gpus

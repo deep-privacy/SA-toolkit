@@ -27,9 +27,12 @@ def get_f0(
     global f0_cache
     global f0_cache_lock
     if cache_with_filename != None:
-        if f0_cache == None and os.path.exists(".f0_cache"):
-            logging.debug("Loading .f0_cache")
-            f0_cache = dict(kaldiio.load_ark(".f0_cache"))
+        if f0_cache == None:
+            if os.path.exists(".f0_cache"):
+                logging.debug("Loading .f0_cache")
+                f0_cache = dict(kaldiio.load_ark(".f0_cache"))
+            else:
+                f0_cache = {}
         if f0_cache_lock == None:
             f0_cache_lock = FileLock(".f0_cache.lock")
 
@@ -92,5 +95,6 @@ def get_f0(
                 {os.path.basename(cache_with_filename): f0.squeeze().numpy()},
                 append=True,
             )
+            f0_cache[os.path.basename(cache_with_filename)] = f0.squeeze().numpy()
 
     return f0

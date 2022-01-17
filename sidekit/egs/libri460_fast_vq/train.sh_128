@@ -5,8 +5,8 @@ export NUM_GPUS_PER_NODE=2
 export NODE_RANK=0
 export WORLD_SIZE=$(($NUM_NODES * $NUM_GPUS_PER_NODE))
 
-export pkwrap_model="local/chain/e2e/tuning/tdnnf_vq.py"
-export pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_sizeco_128/"
+export pkwrap_model="local/chain/e2e/tuning/tdnnf_vq_bd.py"
+export pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_128/"
 export pkwrap_bn_dim="256"
 export pkwrap_vq_dim="128"
 trainingcfg="cfg/training_128.yaml"

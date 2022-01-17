@@ -51,7 +51,7 @@ def build(args):
                 2,
                 1,
                 27392,
-            ), f"{nnet_output.shape[1]} != expected frame subsampling"
+            ), f"{nnet_output.shape} != expected frame subsampling"
 
             self.eval()
             nnet_output, _, _ = self.forward(f0=x)
@@ -59,7 +59,7 @@ def build(args):
                 2,
                 1,
                 27392,
-            ), f"{nnet_output.shape[1]} != expected frame subsampling"
+            ), f"{nnet_output.shape} != expected frame subsampling"
             self.train()
 
         def forward(self, **kwargs):
@@ -76,6 +76,7 @@ if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument("--checkpoint_path", default="exp/f0_vq", type=str)
+    parser.add_argument("--training_epochs", default=100, type=int)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
 
@@ -95,10 +96,11 @@ if __name__ == "__main__":
         build(args),
         **{
             "mode": "train",
+            "training_epochs": args.training_epochs,
             "num_workers": 4,
             "rank": args.local_rank,
             "checkpoint_path": args.checkpoint_path,
-            #  "init_weight_model": "last",
+            "init_weight_model": "last",
             "train_utterances": train_list,
             "test_utterances": dev_list,
         },

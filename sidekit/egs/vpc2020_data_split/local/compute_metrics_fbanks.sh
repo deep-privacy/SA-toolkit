@@ -7,25 +7,8 @@ echo "--"
 asv_model="../../egs/libri460_fast2/model/best_model.pt"
 # asv_model="../../egs/libri460_fast2/model/best_model.pt"
 
-# pkwrap_model="local/chain/e2e/tuning/tdnnf_vq.py"
-pkwrap_model="local/chain/e2e/tuning/tdnnf_vq_spkdelta.py"
-# pkwrap_bn_dim="256"
-pkwrap_bn_dim="512"
-pkwrap_vq_dim="16"
-
-# pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_sizeco_$pkwrap_vq_dim/"
-pkwrap_exp_dir="exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_$pkwrap_vq_dim/"
-
-# asv_model="../../egs/libri460_fast_vq/model/best_model_vq_$pkwrap_vq_dim.pt"
-asv_model="../../egs/libri460_fast_vq_spkdelta/model/best_model_vq_$pkwrap_vq_dim.pt"
-
 . ./local/parse_options.sh
 
-
-export pkwrap_model=$pkwrap_model
-export pkwrap_bn_dim=$pkwrap_bn_dim
-export pkwrap_vq_dim=$pkwrap_vq_dim
-export pkwrap_exp_dir=$pkwrap_exp_dir
 
 asv_test=()
 # librispeech

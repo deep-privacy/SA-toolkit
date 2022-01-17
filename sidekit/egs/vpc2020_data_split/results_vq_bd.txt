@@ -1,0 +1,127 @@
+--pkwrap_model local/chain/e2e/tuning/tdnnf.py --pkwrap_bn_dim 256 --pkwrap_vq_dim -1 --pkwrap_exp_dir exp/chain/e2e_tdnnf/ --asv_model ../../egs/libri460_fast2/model/best_model.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 9.32 interval: [8.78, 9.87]
+EER: 8.90
+Cllr (min/act): 0.272010 0.863254
+linkability: 0.852012
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 4.24 interval: [3.35, 5.36]
+EER: 4.12
+Cllr (min/act): 0.142232 0.864739
+linkability: 0.891831
+WER bootci dev_clean: Set1: %WER 5.15 95% Conf Interval [ 4.88, 5.42 ]
+WER bootci test_clean: Set1: %WER 5.76 95% Conf Interval [ 5.47, 6.04 ]
+WER bootci test_other: Set1: %WER 19.48 95% Conf Interval [ 18.84, 20.11 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 1024 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_1024/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_1024.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 17.92 interval: [16.82, 19.93]
+EER: 17.78
+Cllr (min/act): 0.550625 0.923586
+linkability: 0.592430
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 18.30 interval: [16.74, 20.16]
+EER: 17.93
+Cllr (min/act): 0.531345 0.929913
+linkability: 0.568611
+WER bootci test_clean: Set1: %WER 7.16 95% Conf Interval [ 6.84, 7.49 ]
+WER bootci test_other: Set1: %WER 24.73 95% Conf Interval [ 24.04, 25.43 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 16 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_16/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_16.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 29.92 interval: [27.97, 32.18]
+EER: 29.66
+Cllr (min/act): 0.823591 1.170814
+linkability: 0.304089
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 32.37 interval: [30.58, 34.71]
+EER: 31.95
+Cllr (min/act): 0.850887 1.170959
+linkability: 0.242034
+WER bootci test_clean: Set1: %WER 15.90 95% Conf Interval [ 15.37, 16.44 ]
+WER bootci test_other: Set1: %WER 42.54 95% Conf Interval [ 41.69, 43.39 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 32 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_32/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_32.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 25.59 interval: [23.40, 27.61]
+EER: 25.29
+Cllr (min/act): 0.702736 0.955972
+linkability: 0.412530
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 27.36 interval: [25.45, 29.24]
+EER: 26.96
+Cllr (min/act): 0.744984 0.963577
+linkability: 0.377289
+WER bootci test_clean: Set1: %WER 9.81 95% Conf Interval [ 9.42, 10.20 ]
+WER bootci test_other: Set1: %WER 31.41 95% Conf Interval [ 30.60, 32.23 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 48 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_48/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_48.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 21.99 interval: [20.29, 23.58]
+EER: 21.59
+Cllr (min/act): 0.655499 0.945428
+linkability: 0.488234
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 22.60 interval: [20.76, 25.00]
+EER: 22.11
+Cllr (min/act): 0.667852 0.950738
+linkability: 0.476071
+WER bootci test_clean: Set1: %WER 8.68 95% Conf Interval [ 8.31, 9.04 ]
+WER bootci test_other: Set1: %WER 28.83 95% Conf Interval [ 28.08, 29.59 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 64 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_64/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_64.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 21.94 interval: [20.11, 23.77]
+EER: 21.75
+Cllr (min/act): 0.640656 0.941039
+linkability: 0.490499
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 22.77 interval: [20.76, 24.11]
+EER: 21.93
+Cllr (min/act): 0.634732 0.947122
+linkability: 0.486692
+WER bootci test_clean: Set1: %WER 8.50 95% Conf Interval [ 8.14, 8.85 ]
+WER bootci test_other: Set1: %WER 28.48 95% Conf Interval [ 27.71, 29.25 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 128 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_128/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_128.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 21.13 interval: [19.56, 22.67]
+EER: 20.65
+Cllr (min/act): 0.613508 0.936115
+linkability: 0.514526
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 20.84 interval: [18.97, 22.99]
+EER: 20.65
+Cllr (min/act): 0.608103 0.941918
+linkability: 0.518387
+WER bootci test_clean: Set1: %WER 8.04 95% Conf Interval [ 7.70, 8.38 ]
+WER bootci test_other: Set1: %WER 27.29 95% Conf Interval [ 26.53, 28.06 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 256 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_256/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_256.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 19.20 interval: [17.92, 21.21]
+EER: 19.10
+Cllr (min/act): 0.594007 0.933819
+linkability: 0.541288
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 19.64 interval: [17.86, 21.88]
+EER: 19.56
+Cllr (min/act): 0.595310 0.939140
+linkability: 0.524083
+WER bootci test_clean: Set1: %WER 7.62 95% Conf Interval [ 7.29, 7.96 ]
+WER bootci test_other: Set1: %WER 26.10 95% Conf Interval [ 25.36, 26.83 ]
+--pkwrap_model local/chain/e2e/tuning/tdnnf_vq_bd.py --pkwrap_bn_dim 256 --pkwrap_vq_dim 512 --pkwrap_exp_dir exp/chain/e2e_tdnnf_vq_512/ --asv_model ../../egs/libri460_fast_vq/model/best_model_vq_512.pt
+--
+ASV: libri_test_enrolls - libri_test_trials_f
+EER_bootci: 19.56 interval: [18.10, 21.39]
+EER: 19.44
+Cllr (min/act): 0.593955 0.927828
+linkability: 0.546589
+ASV: libri_test_enrolls - libri_test_trials_m
+EER_bootci: 19.17 interval: [17.19, 20.76]
+EER: 18.56
+Cllr (min/act): 0.564762 0.934848
+linkability: 0.552597
+WER bootci test_clean: Set1: %WER 7.60 95% Conf Interval [ 7.27, 7.92 ]
+WER bootci test_other: Set1: %WER 25.38 95% Conf Interval [ 24.67, 26.09 ]

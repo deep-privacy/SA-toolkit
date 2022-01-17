@@ -14,6 +14,11 @@ from tqdm import tqdm
 from pathlib import Path
 import logging
 
+from filelock import FileLock
+import torch
+import numpy as np
+import kaldiio
+
 run = script_utils.run
 
 
@@ -113,3 +118,38 @@ def scans_directory_for_ext(root_data, extension):
                 wavs_path.append(file_path)
 
     return wavs_path
+
+
+_cache = {}
+
+
+def put_in_cache(feat, key, file, put_in_ram=False):
+    global _cache
+
+    if not os.path.exists(file):
+        os.makedirs(file, exist_ok=True)
+
+    cache_path = os.path.join(file, "%s.mat" % os.path.basename(key))
+    kaldiio.save_mat(cache_path, feat.cpu().numpy())
+    if file not in _cache:
+        _cache[file] = {}
+    if put_in_ram:
+        _cache[file][key] = feat.cpu()
+
+
+def get_from_cache(key, file, put_in_ram=False):
+    global _cache
+    if file in _cache and key in _cache[file]:
+        return _cache[file][key]
+    cache_path = os.path.join(file, "%s.mat" % os.path.basename(key))
+    if os.path.exists(cache_path):
+        try:
+            feat = torch.tensor(kaldiio.load_mat(cache_path))
+            if file not in _cache:
+                _cache[file] = {}
+            if put_in_ram and key not in _cache[file]:
+                _cache[file][key] = feat.cpu()
+            return feat
+        except Exception as e:
+            raise Exception(f"Failed to load: {cache_path}")
+    return None

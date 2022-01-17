@@ -19,16 +19,19 @@ import subprocess
 import io
 from math import ceil
 from .egs import prepare_minibatch
-from .egs_wav2vec2 import Wav2vec2BatchSampler, Wav2vec2EgsCollectFn, GetSupervisionFromWav2Vec2Egs
+from .egs_wav2vec2 import (
+    Wav2vec2BatchSampler,
+    Wav2vec2EgsCollectFn,
+    GetSupervisionFromWav2Vec2Egs,
+)
 from .. import nsg
 
 
-import damped
-
 try:
-    from _pkwrap import kaldi # lazy import (kaldi-free decoding)
+    from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
 except ImportError as error:
     pass
+
 
 class KaldiChainObjfFunction(torch.autograd.Function):
     """LF-MMI objective function for pytorch
@@ -44,10 +47,10 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         lfmmi_loss(chain_opts, den_graph, egs, nnet_output, xent_output)
     ```
     """
+
     @staticmethod
     @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
-    def forward(ctx, opts, den_graph, supervision, nnet_output_tensor,
-                xent_out_tensor):
+    def forward(ctx, opts, den_graph, supervision, nnet_output_tensor, xent_out_tensor):
         """This function computes the loss for a single minibatch.
 
         This function calls Kaldi's ComputeChainObjfAndDeriv through our
@@ -74,7 +77,9 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         mb, T, D = nnet_output_tensor.shape
         # Kaldi expects the outputs to be groups by time frames. So
         # we need to permut the output
-        nnet_output_copy = nnet_output_tensor.permute(1, 0, 2).reshape(-1, D).contiguous()
+        nnet_output_copy = (
+            nnet_output_tensor.permute(1, 0, 2).reshape(-1, D).contiguous()
+        )
         nnet_deriv = torch.zeros_like(nnet_output_copy).contiguous()
         if xent_out_tensor is not None:
             xent_deriv = torch.zeros_like(nnet_output_copy).contiguous()
@@ -91,16 +96,20 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             )
             nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
             xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
-            xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
-            objf[0] = objf[0]/weight[0]
+            xent_objf = (xent_out_tensor * xent_deriv).sum() / (mb * T)
+            objf[0] = objf[0] / weight[0]
             logging.info(
                 "objf={}, l2={}, xent_objf={}".format(
                     objf[0],
-                    l2_term[0]/weight[0],
+                    l2_term[0] / weight[0],
                     xent_objf,
                 )
             )
-            ctx.save_for_backward(nnet_deriv, xent_deriv, torch.tensor(opts.xent_regularize, requires_grad=False))
+            ctx.save_for_backward(
+                nnet_deriv,
+                xent_deriv,
+                torch.tensor(opts.xent_regularize, requires_grad=False),
+            )
         else:
             kaldi.chain.ComputeChainObjfAndDerivNoXent(
                 opts,
@@ -114,11 +123,11 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             )
             nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
             xent_deriv = None
-            objf[0] = objf[0]/weight[0]
+            objf[0] = objf[0] / weight[0]
             logging.info(
                 "objf={}, l2={}".format(
                     objf[0],
-                    l2_term[0]/weight[0],
+                    l2_term[0] / weight[0],
                 )
             )
             ctx.save_for_backward(nnet_deriv)
@@ -131,10 +140,11 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         """returns the derivatives"""
         if len(ctx.saved_tensors) == 3:
             nnet_deriv, xent_deriv, xent_regularize = ctx.saved_tensors
-            return None, None, None, -nnet_deriv, -xent_regularize*xent_deriv
+            return None, None, None, -nnet_deriv, -xent_regularize * xent_deriv
         else:
             nnet_deriv = ctx.saved_tensors[0]
             return None, None, None, -nnet_deriv, None
+
 
 class OnlineNaturalGradient(torch.autograd.Function):
     """A wrapper to NG-SGD class in Kaldi
@@ -144,6 +154,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
     When implemented as an autograd Function we can easily wrap
     it in a Linear layer. See pkwrap.nn.NaturalAffineTransform.
     """
+
     @staticmethod
     @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
     def forward(ctx, input, weight, bias, in_state, out_state):
@@ -183,16 +194,22 @@ class OnlineNaturalGradient(torch.autograd.Function):
         """
         input, weight, _ = ctx.saved_tensors
         in_state, out_state = ctx.states
-        assert in_state != None, "in_state == None - libkaldi-base.so should be in LD_PATH (source ./path.sh)"
-        assert out_state != None, "out_state == None - libkaldi-base.so should be in LD_PATH (source ./path.sh)"
+        assert (
+            in_state != None
+        ), "in_state == None - libkaldi-base.so should be in LD_PATH (source ./path.sh)"
+        assert (
+            out_state != None
+        ), "out_state == None - libkaldi-base.so should be in LD_PATH (source ./path.sh)"
         if input.dim() == 3:
             mb, T, D = input.shape
-            mb_T = mb*T
+            mb_T = mb * T
         else:
             mb_T, D = input.shape
-        input_temp = torch.zeros(mb_T, D+1, device=grad_output.device, requires_grad=False).contiguous()
-        input_temp[:,-1] = 1.0
-        input_temp[:,:-1].copy_(input.reshape(mb_T, D))
+        input_temp = torch.zeros(
+            mb_T, D + 1, device=grad_output.device, requires_grad=False
+        ).contiguous()
+        input_temp[:, -1] = 1.0
+        input_temp[:, :-1].copy_(input.reshape(mb_T, D))
         grad_weight = grad_bias = None
         if grad_output.dim() == 3:
             grad_input = grad_output.matmul(weight)
@@ -206,7 +223,9 @@ class OnlineNaturalGradient(torch.autograd.Function):
         if isinstance(in_state, nsg.OnlineNaturalGradient):
             in_scale = in_state.precondition_directions(input_temp)
         else:
-            in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.clone().detach())
+            in_scale = kaldi.nnet3.precondition_directions(
+                in_state, input_temp.clone().detach()
+            )
 
         #  logging.info("Kaldi run on: " + str(KALDI_GPU_DEVICE) + " GPU!")
         #  global KALDI_GPU_DEVICE
@@ -220,27 +239,36 @@ class OnlineNaturalGradient(torch.autograd.Function):
         if isinstance(out_state, nsg.OnlineNaturalGradient):
             out_scale = out_state.precondition_directions(grad_output_temp)
         else:
-            out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp) # hope grad_output is continguous!
+            out_scale = kaldi.nnet3.precondition_directions(
+                out_state, grad_output_temp
+            )  # hope grad_output is continguous!
 
-        scale = torch.tensor(in_scale*out_scale, device=grad_output.device)
+        scale = torch.tensor(in_scale * out_scale, device=grad_output.device)
         grad_output.data.mul_(scale)
         # TODO: check if we should use data member instead?
-        grad_weight = grad_output_temp.t().mm(input_temp[:,:-1])
-        grad_bias = grad_output_temp.t().mm(input_temp[:,-1].reshape(-1,1))
+        grad_weight = grad_output_temp.t().mm(input_temp[:, :-1])
+        grad_bias = grad_output_temp.t().mm(input_temp[:, -1].reshape(-1, 1))
         grad_weight.data.mul_(scale)
         grad_bias.data.mul_(scale)
         return grad_input, grad_weight, grad_bias.t(), None, None
 
-def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
-                         minibatch_size=16, lr=0.0001,
-                         weight_decay=0.25, frame_shift=0,
-                         print_interval=30,
-                         grad_acc_steps=1,
-                         frame_subsampling_factor=3,
-                         tensorboard = None,
-                         optimizer = None,
-                         e2e = False,
-    ):
+
+def train_lfmmi_one_iter(
+    model,
+    dataset,
+    den_fst_path,
+    training_opts,
+    minibatch_size=16,
+    lr=0.0001,
+    weight_decay=0.25,
+    frame_shift=0,
+    print_interval=30,
+    grad_acc_steps=1,
+    frame_subsampling_factor=3,
+    tensorboard=None,
+    optimizer=None,
+    e2e=False,
+):
     """Run one iteration of LF-MMI training
 
     The function loads the latest model, takes a list of egs, path to denominator
@@ -272,19 +300,16 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
     model = model.cuda()
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
-    acc_sum = torch.tensor(0., requires_grad=False)
+    acc_sum = torch.tensor(0.0, requires_grad=False)
     #  scaler = torch.cuda.amp.GradScaler()
-
-    if torch.distributed.is_initialized():
-        spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
 
     _model = model
 
     #  if torch.cuda.device_count() > 1:
-        #  logging.info("Let's use " + str(torch.cuda.device_count()) + " GPUs!")
-        #  model = nn.DataParallel(model.to("cuda:0"))
-        #  minibatch_size *= torch.cuda.device_count()
-        #  _model = model.module
+    #  logging.info("Let's use " + str(torch.cuda.device_count()) + " GPUs!")
+    #  model = nn.DataParallel(model.to("cuda:0"))
+    #  minibatch_size *= torch.cuda.device_count()
+    #  _model = model.module
 
     batch_sampler = Wav2vec2BatchSampler(
         dataset.egs_holder,
@@ -292,13 +317,18 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         drop_last=False,
     )
     # TODO: make the num_workers configurable (this can significantly speedup the training)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_sampler=batch_sampler,
+        collate_fn=Wav2vec2EgsCollectFn,
+        num_workers=4,
+    )
 
     global KALDI_GPU_DEVICE
     KALDI_GPU_DEVICE = str(torch.rand((1)).cuda().device)
 
     #  for mb_id, data in enumerate(dataloader):
-        #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
+    #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
     #  sys.exit(0)
 
     optimizer.zero_grad()
@@ -308,41 +338,45 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         output, xent_output = model(features)
         #  print("OUT:", output.shape, flush=True)
 
-        # pchampio send the hidden state to domain task (async)
-        uttid_list = list(map(lambda x: x.name, data[1]))
-        #  print(uttid_list, flush=True)
-        uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
-        #  print(uttid_list, flush=True)
-        if torch.distributed.is_initialized():
-
-            req = spk_branch.fork_detach(_model.bottleneck_out.detach().cpu(),
-                                   torch.tensor(uttid_list, dtype=torch.long),
-                                   dtype=(torch.float32, torch.long))
-
         num_output_frames = output.shape[1]
-        sup = GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], num_output_frames)
+        sup = GetSupervisionFromWav2Vec2Egs(
+            dataset.transition_model,
+            dataset.normalization_fst,
+            data[1],
+            num_output_frames,
+        )
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
 
         if grad_acc_steps > 1:
             deriv = deriv / grad_acc_steps
 
         deriv.backward()
-        
+
         acc_sum.add_(deriv[0] * grad_acc_steps)
-        if mb_id>0 and mb_id%print_interval==0:
-            logging.info("Overall objf={}".format(acc_sum/print_interval))
-            if tensorboard: tensorboard.add_scalar('ASR_objf/train', acc_sum/print_interval, mb_id)
+        if mb_id > 0 and mb_id % print_interval == 0:
+            logging.info("Overall objf={}".format(acc_sum / print_interval))
+            if tensorboard:
+                tensorboard.add_scalar(
+                    "ASR_objf/train", acc_sum / print_interval, mb_id
+                )
             acc_sum.zero_()
 
-        if hasattr(_model, 'additional_obj'):
-            _model.additional_obj(deriv,
-                                 should_log=mb_id>0 and mb_id%print_interval==0,
-                                 print_interval=print_interval,
-                                 tensorboard=tensorboard, mb_id=mb_id)
+        if hasattr(_model, "additional_obj"):
+            _model.additional_obj(
+                deriv,
+                should_log=mb_id > 0 and mb_id % print_interval == 0,
+                print_interval=print_interval,
+                tensorboard=tensorboard,
+                mb_id=mb_id,
+            )
 
-        if mb_id==0 or (mb_id + 1) % (len(dataloader) / 10) == 0:
+        if mb_id == 0 or (mb_id + 1) % (len(dataloader) / 10) == 0:
             SR = 16000
-            logging.info("Training with batch_size of:" + str((data[0][0].shape[0] * data[0].shape[0] * grad_acc_steps) / SR) + " seconds (imprecise estimation)")
+            logging.info(
+                "Training with batch_size of:"
+                + str((data[0][0].shape[0] * data[0].shape[0] * grad_acc_steps) / SR)
+                + " seconds (imprecise estimation)"
+            )
         if (mb_id + 1) % grad_acc_steps == 0 or (mb_id + 1 == len(dataloader)):
             clip_grad_value_(_model.parameters(), 5.0)
             optimizer.step()
@@ -357,21 +391,24 @@ def train_lfmmi_one_iter(model, dataset, den_fst_path, training_opts,
         #  #  scaler.update()
         #  optimizer.step()
 
-        # pchampio wait for domain branch to fully have received the hidden state
-        if torch.distributed.is_initialized():
-            req.wait()
-
         #  return model # fast_test
     model = _model.cpu()
-    if tensorboard: tensorboard.close()
+    if tensorboard:
+        tensorboard.close()
     return model
 
+
 @torch.no_grad()
-def compute_chain_objf(model, dataset, den_fst_path, training_opts,
-    minibatch_size=16, frame_shift=0,
+def compute_chain_objf(
+    model,
+    dataset,
+    den_fst_path,
+    training_opts,
+    minibatch_size=16,
+    frame_shift=0,
     frame_subsampling_factor=3,
-    tensorboard = None
-    ):
+    tensorboard=None,
+):
     """Function to compute objective value from a minibatch, useful for diagnositcs.
 
     Args:
@@ -386,56 +423,53 @@ def compute_chain_objf(model, dataset, den_fst_path, training_opts,
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
     criterion = KaldiChainObjfFunction.apply
     model = model.cuda()
-    acc_sum = torch.tensor(0., requires_grad=False)
-    tot_weight = 0.
-
-    if torch.distributed.is_initialized():
-        spk_branch = damped.disturb.DomainTask(name="speaker_identificaion", to_rank=0)
+    acc_sum = torch.tensor(0.0, requires_grad=False)
+    tot_weight = 0.0
 
     batch_sampler = Wav2vec2BatchSampler(
         dataset.egs_holder,
         batch_size=minibatch_size,
         drop_last=False,
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=Wav2vec2EgsCollectFn, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_sampler=batch_sampler,
+        collate_fn=Wav2vec2EgsCollectFn,
+        num_workers=4,
+    )
 
     for mb_id, data in enumerate(dataloader):
         features = data[0].cuda()
 
         output, xent_output = model(features)
 
-        # pchampio send the hidden state to domain task (async)
-        if torch.distributed.is_initialized():
-            uttid_list = list(map(lambda x: x.name, data[1]))
-            uttid_list = list(map(lambda x: damped.utils.str_int_encoder.encode(x), uttid_list))
-
-            req = spk_branch.fork_detach(model.bottleneck_out.detach().cpu(),
-                                   torch.tensor(uttid_list, dtype=torch.long),
-                                   dtype=(torch.float32, torch.long))
-
         num_output_frames = output.shape[1]
-        sup = GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], num_output_frames)
+        sup = GetSupervisionFromWav2Vec2Egs(
+            dataset.transition_model,
+            dataset.normalization_fst,
+            data[1],
+            num_output_frames,
+        )
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
 
         mb, num_seq = features.shape
-        tot_weight += mb*num_seq
-        acc_sum.add_(deriv[0]*mb*num_seq)
+        tot_weight += mb * num_seq
+        acc_sum.add_(deriv[0] * mb * num_seq)
 
-        if hasattr(model, 'additional_obj'):
-            model.additional_obj(mb*num_seq, for_valid=True)
+        if hasattr(model, "additional_obj"):
+            model.additional_obj(mb * num_seq, for_valid=True)
 
-        # pchampio wait for domain branch to fully have received the hidden state
-        if torch.distributed.is_initialized():
-            req.wait()
-
-    objf = acc_sum/tot_weight
+    objf = acc_sum / tot_weight
     logging.info("Objective = {}".format(objf))
-    if tensorboard: tensorboard.add_scalar('ASR_objf/valid', objf, 1)
-    if tensorboard: tensorboard.close()
+    if tensorboard:
+        tensorboard.add_scalar("ASR_objf/valid", objf, 1)
+    if tensorboard:
+        tensorboard.close()
 
-    if hasattr(model, 'additional_obj'):
-        model.additional_obj(0, for_valid=True, print_interval=tot_weight, tensorboard=tensorboard)
+    if hasattr(model, "additional_obj"):
+        model.additional_obj(
+            0, for_valid=True, print_interval=tot_weight, tensorboard=tensorboard
+        )
 
     model = model.cpu()
     return model, objf
-

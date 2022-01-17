@@ -8,8 +8,8 @@ numpy_seed: 42
 random_seed: 42
 deterministic: false
 
-patience: 25
-epochs: 300
+patience: 300
+epochs: 500
 
 multi_gpu: true
 num_cpu: 8
