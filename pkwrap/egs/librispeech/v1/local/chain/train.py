@@ -25,6 +25,8 @@ import concurrent
 import logging
 
 logging.basicConfig(level=logging.INFO, format="pkwrap %(levelname)s: %(message)s")
+logging.getLogger("geocoder").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 from dataclasses import dataclass
 from carbontracker.tracker import CarbonTracker
@@ -328,11 +330,10 @@ def train():
     logging.info(
         f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={frame_subsampling_factor}, num_epochs={num_epochs}"
     )
-    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
-    carbonTracker.epoch_start()
-
     #   start the training
     if stage <= 5 and trainer_opts.train_stage == 0:
+        carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
+        carbonTracker.epoch_start()
         logging.info("Initializing model")
         additional_ops = []
         if "init_weight_model" in exp_cfg and exp_cfg["init_weight_model"] != "":
@@ -509,8 +510,8 @@ def train():
                 ",".join(model_list),
             ]
         )
-    carbonTracker.epoch_end()
-    carbonTracker.stop()
+        carbonTracker.epoch_end()
+        carbonTracker.stop()
 
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
@@ -560,6 +561,10 @@ def train():
 
         feats_scp = "{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
 
+        tqdm = subprocess.Popen(
+            f"sleep 10 && tail -f {dirname}/log/tqdm 2> /dev/null", shell=True
+        )
+
         pkwrap.script_utils.run(
             [
                 *cpu_cmd.split(),
@@ -582,6 +587,7 @@ def train():
                 os.path.join(out_dir, "lat.JOB.gz"),
             ]
         )
+        tqdm.terminate()
         opf = open(os.path.join(out_dir, "num_jobs"), "w")
         opf.write("{}".format(num_jobs))
         opf.close()

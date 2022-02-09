@@ -31,8 +31,8 @@ def build(args):
                      hidden_dim=1024,
                      bottleneck_dim=128,
                      prefinal_bottleneck_dim=256,
-                     kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3],
-                     subsampling_factor_list=[1, 1, 1, 3, 1, 1, 1, 1, 1],
+                     kernel_size_list=[3, 3, 3, 3, 1, 3],
+                     subsampling_factor_list=[1, 1, 1, 1, 3, 1],
                      frame_subsampling_factor=3,
                      p_dropout=0.1):
             super().__init__()
@@ -98,27 +98,32 @@ def build(args):
                 context_len=1,
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
+                bypass_scale=0.0, # no skip connection to constrain to the output of LD
             )
+            assert self.prefinal_chain_vq.tdnn.use_bypass == False
+
             ####################
             #  Bigger decoder  #
             ####################
-            #  tdnnfs = []
-            #  for i in range(0, 1):
-                #  kernel_size = 3
-                #  subsampling_factor = 1
-                #  layer = TDNNFBatchNorm(
-                    #  hidden_dim,
-                    #  hidden_dim,
-                    #  bottleneck_dim=bottleneck_dim,
-                    #  context_len=kernel_size,
-                    #  subsampling_factor=subsampling_factor,
-                    #  orthonormal_constraint=-1.0,
-                #  )
-                #  tdnnfs.append(layer)
-                #  dropout_layer = nn.Dropout(p_dropout)
-                #  tdnnfs.append(dropout_layer)
-            #  # tdnnfs requires [N, C, T]
-            #  self.tdnnfs_decode = nn.ModuleList(tdnnfs)
+            tdnnfs = []
+            for i in range(0, 2):
+                kernel_size = 3
+                subsampling_factor = 1
+                layer = TDNNFBatchNorm(
+                    hidden_dim,
+                    hidden_dim,
+                    bottleneck_dim=bottleneck_dim,
+                    context_len=kernel_size,
+                    subsampling_factor=subsampling_factor,
+                    orthonormal_constraint=-1.0,
+                )
+                tdnnfs.append(layer)
+                dropout_layer = nn.Dropout(p_dropout)
+                tdnnfs.append(dropout_layer)
+
+            # tdnnfs requires [N, C, T]
+            self.tdnnfs_decode = nn.ModuleList(tdnnfs)
+
 
             self.prefinal_xent = TDNNFBatchNorm(
                 hidden_dim, hidden_dim,
@@ -149,7 +154,7 @@ def build(args):
                     #  self.acc_sum_wav2vec2_loss.zero_()
 
         def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay, iter=0):
-            TOTAL_ITER = 630
+            TOTAL_ITER = 210
 
             if iter < TOTAL_ITER * 0.10 and iter > TOTAL_ITER * 0.90:
                 #  For the first 10% updates only the output classifier is trained, after which the Transformer is also updated.
@@ -184,11 +189,11 @@ def build(args):
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 15, f"{nnet_output.shape[1]} != expected frame subsampling"
+            assert nnet_output.shape[1] == 18, f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
-            assert nnet_output.shape[1] == 15, f"{nnet_output.shape[1]} != expected frame subsampling"
+            assert nnet_output.shape[1] == 18, f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
         def pad_input(self, x):
@@ -202,7 +207,7 @@ def build(args):
         def forward(self, x, spec_augment=lambda x: x):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
-
+            shape_f = x.shape[1]
             with torch.cuda.amp.autocast():
                 x = self.preprocessor(x)
                 #  x = self.preprocessor(x, spec_aug=self.training)
@@ -219,13 +224,15 @@ def build(args):
                 x = self.tdnnfs[i](x)
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
-            xent_prefinal_out = self.prefinal_xent(x)
 
-            #  x = chain_prefinal_out
-            #  for i in range(len(self.tdnnfs_decode)):
-                #  x = self.tdnnfs_decode[i](x)
+            #  print(shape_f / chain_prefinal_out.shape[1])
             #  xent_prefinal_out = self.prefinal_xent(x)
-            #  chain_prefinal_out = x
+
+            x = chain_prefinal_out
+            for i in range(len(self.tdnnfs_decode)):
+                x = self.tdnnfs_decode[i](x)
+            xent_prefinal_out = self.prefinal_xent(x)
+            chain_prefinal_out = x
 
             chain_out = self.chain_output(chain_prefinal_out)
             xent_out = self.xent_output(xent_prefinal_out)

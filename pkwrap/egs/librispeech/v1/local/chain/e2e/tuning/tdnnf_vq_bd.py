@@ -246,6 +246,8 @@ def build(args):
             x *= 32768
             waveform = [*x] # batch processing with python list (required by kaldifeat)
 
+            shape_f = x.shape[1]
+
             x = self.fbank(waveform)
             x = torch.stack(x) # back to tensor
             assert x.ndim == 3
@@ -262,6 +264,8 @@ def build(args):
                 x = self.tdnnfs[i](x)
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
+
+            #  print(shape_f / chain_prefinal_out.shape[1])
 
             #  xent_prefinal_out = self.prefinal_xent(x)
             x = chain_prefinal_out

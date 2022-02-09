@@ -543,8 +543,8 @@ class HifiGanModel(_AbstractModel):
                 )
 
                 assert (
-                    y_g_hat.shape[2] >= ys.shape[-1] - 500
-                    and y_g_hat.shape[2] <= ys.shape[-1] + 500
+                    y_g_hat.shape[2] >= ys.shape[-1] - 4000
+                    and y_g_hat.shape[2] <= ys.shape[-1] + 4000
                 ), f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {ys.shape}"
 
                 # Trucate vocoder output
@@ -655,8 +655,8 @@ class HifiGanModel(_AbstractModel):
                                 y_g_hat = generator(f0=f0s, audio=feats)
 
                                 assert (
-                                    y_g_hat.shape[2] >= ys.shape[-1] - 500
-                                    and y_g_hat.shape[2] <= ys.shape[-1] + 500
+                                    y_g_hat.shape[2] >= ys.shape[-1] - 8000
+                                    and y_g_hat.shape[2] <= ys.shape[-1] + 8000
                                 ), f"Mismatch too high in vocoder output shape - {y_g_hat.shape} != {ys.shape}"
 
                                 # Trucate vocoder output

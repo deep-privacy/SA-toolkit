@@ -2,7 +2,7 @@
 
 
 # Gerenal options
-log_file: log/training_vq_128_t.log
+log_file: log/training_dp_180000.log
 torch_seed: 42
 numpy_seed: 42
 random_seed: 42
@@ -40,6 +40,6 @@ log_interval: 10
 validation_frequency: 2
 
 # Save options
-tmp_model_name: model/tmp_model_vq_128_t.pt
-best_model_name: model/best_model_vq_128_t.pt
+tmp_model_name: model/tmp_model_dp_180000.pt
+best_model_name: model/best_model_dp_180000.pt
 checkpoint_frequency:

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
 from torch.nn.utils import weight_norm, remove_weight_norm
 
 import random
@@ -127,8 +128,11 @@ def build(args):
         def __init__(self, load_f0_asr_weight=True, asr_bn_model=None):
             super().__init__()
 
+            self.sample_size = None
             # Hifigan Model
-            self.core_hifigan = CoreHifiGan()
+            self.core_hifigan = CoreHifiGan(
+                upsample_rates=list(map(int, args.hifigan_upsample_rates.split(",")))
+            )
 
             # No spk features (any/many to one speaker conversion)
             #  self.spkr = nn.Embedding(num_spkr, embedding_dim)
@@ -147,6 +151,11 @@ def build(args):
                     bnargs = SimpleNamespace(
                         freeze_encoder=True,
                         codebook_size=args.asrbn_tdnnf_vq,  # eg: 16
+                    )
+                if args.asrbn_tdnnf_dp != -1:
+                    bnargs = SimpleNamespace(
+                        freeze_encoder=True,
+                        epsilon=str(args.asrbn_tdnnf_dp),  # eg: 180000
                     )
 
                 pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
@@ -180,27 +189,25 @@ def build(args):
         @torch.no_grad()
         def validate_model(self, device="cpu"):
             N = 2
-            C = 9120 // 80
+            C = 86640 // 80
             f0 = torch.arange(N * C).reshape(N, 1, C).float().to(device)
 
             N = 2
-            C = 9120
+            C = 86640
             x = torch.arange(N * C).reshape(N, C).float().to(device)
 
             nnet_output = self.forward(f0=f0, audio=x)
-            assert nnet_output.shape == (
-                2,
-                1,
-                9122,
-            ), f"{nnet_output.shape} != expected frame subsampling"
+            assert (
+                nnet_output.shape[2] >= x.shape[-1] - 10000
+                and nnet_output.shape[2] <= x.shape[-1] + 10000
+            ), f"Mismatch too high in vocoder output shape - {nnet_output.shape} != {x.shape}"
 
             self.eval()
             nnet_output = self.forward(f0=f0, audio=x)
-            assert nnet_output.shape == (
-                2,
-                1,
-                9122,
-            ), f"{nnet_output.shape} != expected frame subsampling"
+            assert (
+                nnet_output.shape[2] >= x.shape[-1] - 10000
+                and nnet_output.shape[2] <= x.shape[-1] + 10000
+            ), f"Mismatch too high in vocoder output shape - {nnet_output.shape} != {x.shape}"
             self.train()
 
         def get_feat_f0_len(self, kwargs, b_id):
@@ -234,7 +241,6 @@ def build(args):
             f0_h_q = self.extract_f0_only(kwargs["f0"])
 
             bn_asr_h = []
-            sample_size = None
             asrbn_cache = os.path.join(args.checkpoint_path, "cache_asrbn_train")
             for b_id in range(len(kwargs["filenames"])):
                 feat_len, f0_len = self.get_feat_f0_len(kwargs, b_id)
@@ -254,12 +260,16 @@ def build(args):
                 feats_start, feats_end = _feats_idx
 
                 # fmt: off
-                if sample_size == None:
-                    sample_size = int(feats_end / feat_subsampling) - int(feats_start / feat_subsampling)
-                bn_asr_h += [bn_asr_h_ori[ ..., int(feats_start / feat_subsampling) : int( feats_start / feat_subsampling + sample_size ), ].to(kwargs["audio"].device)]
-                # fmt: on
+                if self.sample_size == None:
+                    logging.info("ASR subsampling:" + str(feat_subsampling))
+                    self.sample_size = int(int(feats_end - feats_start) / feat_subsampling)
+                start = int(feats_start / feat_subsampling)
+                end = start + self.sample_size
+                #  print(feat_len / bn_asr_h_ori.shape[-1], start, start + sample_size, sample_size)
+                bn_asr_h += [bn_asr_h_ori[ ..., start : end, ].to(kwargs["audio"].device).permute(1,0)]
 
-            bn_asr_h = torch.stack(bn_asr_h)
+            bn_asr_h = pad_sequence(bn_asr_h, batch_first=True).permute(0,2,1)
+            # fmt: on
             f0_h_q = F.interpolate(f0_h_q, bn_asr_h.shape[-1])
             return f0_h_q, bn_asr_h
 
@@ -335,6 +345,8 @@ if __name__ == "__main__":
         "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf/", type=str
     )
     parser.add_argument("--asrbn_tdnnf_vq", default=-1, type=int)
+    parser.add_argument("--asrbn_tdnnf_dp", default=-1, type=int)
+    parser.add_argument("--hifigan_upsample_rates", default="5, 4, 4, 3, 2", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
 

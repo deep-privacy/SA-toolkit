@@ -117,15 +117,6 @@ if [ ! -f $mark ]; then
   pip3 install git+https://github.com/huggingface/transformers.git@d5b82bb70c2e8c4b184a6f2a7d1c91d7fd156956
   pip3 install resampy==0.2.2
   pip3 install ConfigArgParse==1.5.1
-
-  # sidekit additional req
-  pip3 install matplotlib==3.4.3
-  pip3 install SoundFile==0.10.3.post1
-  pip3 install PyYAML==5.4.1
-  pip3 install h5py==3.2.1
-  pip3 install ipython==7.27.0
-
-  # speech-resynthesis additional req
   pip3 install librosa==0.8.1
   pip3 install scipy==1.7.1
   pip3 install soundfile
@@ -133,6 +124,14 @@ if [ ! -f $mark ]; then
   pip3 install matplotlib
   pip3 install ffmpeg==1.4
   pip3 install tqdm
+
+
+  # sidekit additional req
+  pip3 install matplotlib==3.4.3
+  pip3 install SoundFile==0.10.3.post1
+  pip3 install PyYAML==5.4.1
+  pip3 install h5py==3.2.1
+  pip3 install ipython==7.27.0
 
   # demo req
   pip3 install ipywebrtc==0.6.0

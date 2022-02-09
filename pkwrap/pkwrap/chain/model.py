@@ -25,6 +25,7 @@ from .egs_wav2vec2 import (
 
 import kaldiio
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 
 @dataclass
@@ -317,6 +318,10 @@ class ChainModel(nn.Module):
             dataset, collate_fn=Wav2vec2EgsCollectFn, num_workers=8
         )
 
+        if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
+            tqdm_file = open(self.chain_opts.dir + "/log/tqdm", "w")
+            dataloader = tqdm(dataloader, file=tqdm_file)
+
         for feats, key in dataloader:
             if chain_opts.use_gpu:
                 feats = feats.to(device)
@@ -478,7 +483,6 @@ class ChainE2EModel(ChainModel):
 
         #           load model
         model = self.Net(self.chain_opts.output_dim)
-        model.load_state_dict(torch.load(chain_opts.base_model))
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
             chain_opts.l2_regularize,
@@ -502,6 +506,7 @@ class ChainE2EModel(ChainModel):
                 lr=chain_opts.lr,
                 weight_decay=chain_opts.l2_regularize_factor,
             )
+        model.load_state_dict(torch.load(chain_opts.base_model))
         dataset = Wav2vec2EgsDataset(
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,

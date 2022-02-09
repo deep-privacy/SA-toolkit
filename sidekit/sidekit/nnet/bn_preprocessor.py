@@ -44,6 +44,11 @@ def get_extract_bn(device=torch.device("cuda")):
             freeze_encoder=True,
             codebook_size=int(os.getenv("pkwrap_vq_dim", "-1")),
         )
+    if int(os.getenv("pkwrap_dp_e", "-1")) != -1:
+        args = SimpleNamespace(
+            freeze_encoder=True,
+            epsilon=os.getenv("pkwrap_dp_e", "-1"),
+        )
 
     asr_net = asr_model_file.build(args)
     pkwrap_chain = pkwrap.chain.ChainE2EModel(
@@ -68,6 +73,7 @@ def get_extract_bn(device=torch.device("cuda")):
     net = pkwrap_chain.get_forward(device=device)
 
     def _apply(waveform, is_eval=False):
+        shape_f = waveform.shape[1]
 
         data_aug = spec_augment
         if is_eval:
@@ -75,8 +81,14 @@ def get_extract_bn(device=torch.device("cuda")):
 
         out, model = net(waveform, data_aug)
 
+        out = model.bottleneck_out.permute(0, 2, 1).contiguous()
+        """
+        target_fr = shape_f / 483  # Original VQ exp sub_sampling
+        out = torch.nn.functional.interpolate(out, int(target_fr))
+        """
+
         global ECHO_TIMES
-        if ECHO_TIMES < 3 and random.randint(1, 100) == 1:
+        if ECHO_TIMES == 0 or (ECHO_TIMES < 3 and random.randint(1, 100) == 1):
             ECHO_TIMES += 1
             tmpname = next(tempfile._get_candidate_names())
             writer = kaldiio.WriteHelper(f"ark,t:/tmp/asr_am_out_{tmpname}.ark")
@@ -92,9 +104,9 @@ def get_extract_bn(device=torch.device("cuda")):
                 f"cat /tmp/asr_am_out_{tmpname}.ark | {pkwrap_path}/shutil/decode/latgen-faster-mapped.sh {pkwrap_path}/exp/chain/e2e_biphone_tree/graph_tgsmall/words.txt {pkwrap_path}/exp/chain/e2e_tdnnf/0.trans_mdl exp/chain/e2e_biphone_tree/graph_tgsmall/HCLG.fst /tmp/decode_{tmpname}_lat.1.gz",
                 file=sys.stderr,
             )
-        #  sys.exit()
+            print(out.shape, shape_f / out.shape[2])
 
-        out = model.bottleneck_out.permute(0, 2, 1).contiguous()
+        #  sys.exit()
         return out
 
     return _apply

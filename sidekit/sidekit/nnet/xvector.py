@@ -1222,8 +1222,10 @@ def get_loaders(dataset_opts, training_opts, model_opts, local_rank=0):
         dataset_opts["batch_size"] = 4
     if os.environ.get('DEV4S') == 'True' and os.path.isfile(train_DEV4S) and os.environ.get('DEV4S_KeepDataPrep') != "True":
         with open(train_DEV4S, "rb") as f:
+            import pickle
             training_set = pickle.load(f)
         with open(val_DEV4S, "rb") as f:
+            import pickle
             validation_set = pickle.load(f)
     else:
         training_set = SideSet(dataset_opts,
@@ -1242,8 +1244,10 @@ def get_loaders(dataset_opts, training_opts, model_opts, local_rank=0):
 
     if os.environ.get('DEV4S') == 'True' and not os.path.isfile(train_DEV4S):
         with open(train_DEV4S, "wb") as f:
+            import pickle
             pickle.dump(training_set, f)
         with open(val_DEV4S, "wb") as f:
+            import pickle
             pickle.dump(validation_set, f)
 
     if model_opts["loss"]["type"] == 'aps':
