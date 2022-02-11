@@ -18,7 +18,10 @@ import matplotlib.pylab as plt
 
 class WavList(torch.utils.data.Dataset):
     def __init__(self, wavs_paths):
-        self.wavs_path = wavs_paths.split(",")
+        if isinstance(wavs_paths, str):
+            self.wavs_path = wavs_paths.split(",")
+        else:
+            self.wavs_path = wavs_paths
 
     def __len__(self):
         return len(self.wavs_path)

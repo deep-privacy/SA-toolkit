@@ -10,6 +10,11 @@ import librosa
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def split(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
 def init_asr_model(model, exp_path, pkwrap_vq_dim=-1, get_model_module=False):
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     model_weight = "final.pt"
@@ -96,7 +101,7 @@ def init_synt_model(
         for i in range(kwargs["f0"].shape[0]):
             audio = y_g_hat[i].squeeze()
             if "real_shape" in kwargs:
-                audio = audio[: real_shape[i]]
+                audio = audio[: kwargs["real_shape"][i]]
             audio = audio * pkwrap.hifigan.f0.MAX_WAV_VALUE
             audio = audio.cpu().numpy().astype("int16")
             audio = librosa.util.normalize(audio.astype(np.float32))

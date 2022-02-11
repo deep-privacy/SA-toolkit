@@ -10,6 +10,8 @@ import kaldiio
 import os
 import logging
 
+logging.getLogger("filelock").setLevel(logging.INFO)
+
 MAX_WAV_VALUE = 32768.0
 
 f0_stats = None
@@ -55,16 +57,28 @@ def get_f0(
     f0s = []
     for y in audio.astype(np.float64):
         y_pad = np.pad(y.squeeze(), (to_pad, to_pad), "constant", constant_values=0)
-        signal = basic.SignalObj(y_pad, rate)
-        pitch = pYAAPT.yaapt(
-            signal,
-            **{
-                "frame_length": frame_length,
-                "frame_space": 5.0,
-                "nccf_thresh1": 0.25,
-                "tda_frame_length": 25.0,
-            },
-        )
+        try:
+            signal = basic.SignalObj(y_pad, rate)
+            pitch = pYAAPT.yaapt(
+                signal,
+                **{
+                    "frame_length": frame_length,
+                    "frame_space": 5.0,
+                    "nccf_thresh1": 0.25,
+                    "tda_frame_length": 25.0,
+                },
+            )
+        except Exception as e:
+            print(
+                "Error occured while computing: "
+                + str(cache_with_filename)
+                + " f0 | "
+                + str(audio.shape)
+                + "\n",
+                flush=True,
+            )
+            raise e
+
         if interp:
             f0s += [pitch.samp_interp[None, None, :]]
         else:

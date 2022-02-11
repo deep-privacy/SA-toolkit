@@ -2,3 +2,4 @@
 data/*
 exp
 .f0_cache.lock
+generated_*
