@@ -121,6 +121,8 @@ if [ ! -f $mark ]; then
   pip3 install scipy==1.7.1
   pip3 install soundfile
   pip3 install amfm_decompy==1.0.11
+  # HACK PATCHING pYAAPT.py
+  cp .pYAAPT.py > ./venv/lib/python3.8/site-packages/amfm_decompy/pYAAPT.py
   pip3 install matplotlib
   pip3 install ffmpeg==1.4
   pip3 install tqdm

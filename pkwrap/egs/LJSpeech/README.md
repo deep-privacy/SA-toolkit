@@ -84,3 +84,8 @@ do
  python3 ./convert.py --num-workers 4 --batch-size 64 --vq-dim $dim --out generated_train-clean-360_vq_$dim --in /lium/home/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360
 done
 ```
+
+### Share
+```
+zip hifigan_model.zip -r **/hifigan_vq_*/g_00075000
+```

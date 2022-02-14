@@ -25,7 +25,7 @@ checkpoint_interval =  20
 minibatch_size = 14
 grad_acc_steps = 10
 # train_stage = last
-# train_stage = 66
+train_stage = 15
 
 xent_regularize = 0.02
 # xent_regularize = 0
