@@ -71,8 +71,13 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=2)
     parser.add_argument("--extract-f0-only", action="store_true")
     parser.add_argument("--in", type=str, dest="_in")
+    parser.add_argument("--in-wavscp", type=str, dest="_in_scp", default=None)
+    parser.add_argument("--ext", type=str, dest="ext", default="flac")
     parser.add_argument("--out", type=str, dest="_out")
     parser.add_argument("--vq-dim", type=int, dest="vq_dim")
+    parser.add_argument(
+        "--f0-stats-file", type=str, dest="f0_stats", default="exp/f0_stats.pth"
+    )
     args = parser.parse_args()
 
     global forward_synt
@@ -80,43 +85,53 @@ if __name__ == "__main__":
     synthesis_sr = 16000
     global out_dir
 
-    f0_stats_file = "exp/f0_stats.pth"
+    f0_stats_file = args.f0_stats
 
     #  dim = 128
     #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
     #  out_dir = "generated_train-clean-360_vq_" + str(dim)
 
-    audio_extension = "flac"
+    audio_extension = args.ext
     dim = args.vq_dim
-    root_data = args._in
     out_dir = args._out
 
     os.makedirs(out_dir, exist_ok=True)
 
-    print(f"Locating {audio_extension}(s)")
-    wavs_path = []
-    wav_count = 0
-    pbar = tqdm(os.walk(root_data))
-    for root, dirs, files in pbar:
-        if Path(root).parent == Path(root_data):
-            dataset = root.split("/")[-1]
-        for file in files:
-            file_path = os.path.join(root, file)
-            if os.path.splitext(file_path)[1] == f".{audio_extension}":
-                wav_count += 1
-                pbar.set_description(f"audio file count : {wav_count}")
-                wavs_path.append(file_path)
+    if args._in_scp != None:
+        wavs_path = list(pkwrap.utils.kaldi.read_wav_scp(args._in_scp).values())
+        wavs_path = list(demo.split(wavs_path, args.of))[args.part]
+        torch_dataset = pkwrap.hifigan.dataset.WavList(
+            wavs_path, load_func=pkwrap.utils.kaldi.load_wav_from_scp
+        )
+    else:
+        root_data = args._in
+        print(f"Locating {audio_extension}(s)")
+        wavs_path = []
+        wav_count = 0
+        pbar = tqdm(os.walk(root_data))
+        for root, dirs, files in pbar:
+            if Path(root).parent == Path(root_data):
+                dataset = root.split("/")[-1]
+            for file in files:
+                file_path = os.path.join(root, file)
+                if os.path.splitext(file_path)[1] == f".{audio_extension}":
+                    wav_count += 1
+                    pbar.set_description(f"audio file count : {wav_count}")
+                    wavs_path.append(file_path)
+            if len(wavs_path) > 10:
+                break
+
+        wavs_path = list(demo.split(wavs_path, args.of))[args.part]
+        torch_dataset = pkwrap.hifigan.dataset.WavList(wavs_path)
 
     seed = 42
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    wavs_path = list(demo.split(wavs_path, args.of))[args.part]
-
     batch_size = args.batch_size
     dataloader = torch.utils.data.DataLoader(
-        pkwrap.hifigan.dataset.WavList(wavs_path),
+        torch_dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=args.num_workers,

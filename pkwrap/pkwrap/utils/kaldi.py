@@ -2,6 +2,9 @@
 from ..script_utils import run
 import subprocess
 import configparser
+import torch
+import soundfile
+import io
 import sys
 
 
@@ -118,3 +121,59 @@ def kaldifeat_set_option(opts, filename):
             sys.exit(1)
 
     return opts
+
+
+def read_wav_scp(wav_scp):
+    """Reads wav.scp file and returns a dictionary
+
+    Args:
+        wav_scp: a string, contains the path to wav.scp
+
+    Returns:
+        utt2wav: a dictionary, keys are the first column of wav.scp
+            and values are the second column
+    """
+    utt2wav = {}
+    with open(wav_scp) as ipf:
+        for line in ipf:
+            lns = line.strip().split()
+            uttname = lns[0]
+            utt2wav[uttname] = " ".join(lns[1:])
+    return utt2wav
+
+
+def load_wav_from_scp(wav):
+    """Reads a wav.scp entry like kaldi with embeded unix command
+    and returns a pytorch tensor like it was open with torchaudio.load()
+    (within some tolerance due to numerical precision)
+
+    signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
+    signalv2 = prepare('flac -c -d -s XX/1272-128104-0000.flac |')
+    signalv3 = prepare('XX/1272-128104-0000.flac')
+
+    print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
+    print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))
+
+    Args:
+        wav: a list containing the scp entry
+
+    Returns:
+        feats_torch torch.tensor dtype float32
+    """
+    if wav.strip().endswith("|"):
+        devnull = open(os.devnull, "w")
+        try:
+            wav_read_process = subprocess.Popen(
+                wav.strip()[:-1], stdout=subprocess.PIPE, shell=True, stderr=devnull
+            )
+            sample, sr = soundfile.read(
+                io.BytesIO(wav_read_process.communicate()[0]),
+            )
+        except Exception as e:
+            raise IOError("Error processing wav file: {}\n{}".format(wav, e))
+    else:
+        sample, sr = soundfile.read(wav)
+    feats_torch = torch.tensor(
+        sample, dtype=torch.float32, requires_grad=False
+    ).unsqueeze(0)
+    return feats_torch, sr

@@ -17,18 +17,26 @@ import matplotlib.pylab as plt
 
 
 class WavList(torch.utils.data.Dataset):
-    def __init__(self, wavs_paths):
+    def __init__(self, wavs_paths, load_func=None):
         if isinstance(wavs_paths, str):
             self.wavs_path = wavs_paths.split(",")
         else:
             self.wavs_path = wavs_paths
+        if load_func == None:
+
+            def _load(filename):
+                return torchaudio.load(filename)
+
+            self.load = _load
+        else:
+            self.load = load_func
 
     def __len__(self):
         return len(self.wavs_path)
 
     def __getitem__(self, idx):
         filename = self.wavs_path[idx]
-        waveform, sr = torchaudio.load(filename)
+        waveform, sr = self.load(filename)
         return (waveform, filename)
 
 
