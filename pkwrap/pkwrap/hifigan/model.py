@@ -174,9 +174,10 @@ class F0QuantModel(_AbstractModel):
 
         self.Net = model_cls
         self.num_gpus = int(os.getenv("WORLD_SIZE", "1"))
-        self.call_by_mode()
 
         self.opts.f0_stats = json.loads(self.opts.f0_stats.replace("'", '"'))
+
+        self.call_by_mode()
 
     def call_by_mode(self):
         if self.opts.mode in ["train", "training"]:
@@ -401,6 +402,9 @@ class HifiGanModel(_AbstractModel):
 
         self.Net = model_cls
         self.num_gpus = int(os.getenv("WORLD_SIZE", "1"))
+
+        self.opts.f0_stats = json.loads(self.opts.f0_stats.replace("'", '"'))
+
         self.call_by_mode()
 
     def call_by_mode(self):
