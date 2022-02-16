@@ -40,7 +40,7 @@ class WavList(torch.utils.data.Dataset):
         return (waveform, filename)
 
 
-def collate_fn_padd(f0_stats_file, get_func=None):
+def collate_fn_padd(f0_stats, get_func=None):
     def _func_pad(batch):
         filenames = [b[1] for b in batch]
         batch = [b[0] for b in batch]
@@ -65,7 +65,7 @@ def collate_fn_padd(f0_stats_file, get_func=None):
             f0s.append(
                 f0.get_f0(
                     b.permute(0, 1),
-                    f0_stats_file=f0_stats_file,
+                    f0_stats=f0_stats,
                     cache_with_filename=filenames[i],
                 )
                 .squeeze(dim=1)

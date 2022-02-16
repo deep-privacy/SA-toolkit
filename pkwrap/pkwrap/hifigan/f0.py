@@ -14,16 +14,15 @@ logging.getLogger("filelock").setLevel(logging.INFO)
 
 MAX_WAV_VALUE = 32768.0
 
-f0_stats = None
 f0_cache = None
 f0_cache_lock = None
 
 
 def get_f0(
     audio,
+    f0_stats,
     rate=16000,
     interp=False,
-    f0_stats_file=None,
     cache_with_filename=None,
 ):
     global f0_cache
@@ -87,13 +86,6 @@ def get_f0(
     f0 = np.vstack(f0s)
 
     f0 = torch.tensor(f0.astype(np.float32))
-
-    if f0_stats_file == None:
-        return f0
-
-    global f0_stats
-    if f0_stats == None:
-        f0_stats = torch.load(f0_stats_file)
 
     mean = f0_stats["f0_mean"]
     std = f0_stats["f0_std"]

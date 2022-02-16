@@ -2,6 +2,7 @@ import pkwrap.infer_helper as demo
 import pkwrap
 
 import argparse
+import json
 import sys
 import os
 from multiprocessing import Manager, Pool
@@ -76,7 +77,10 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=str, dest="_out")
     parser.add_argument("--vq-dim", type=int, dest="vq_dim")
     parser.add_argument(
-        "--f0-stats-file", type=str, dest="f0_stats", default="exp/f0_stats.pth"
+        "--f0-stats",
+        type=str,
+        dest="f0_stats",
+        default="{'f0_mean': 209.04119886766213, 'f0_std': 58.75603900262766}",
     )
     args = parser.parse_args()
 
@@ -85,7 +89,7 @@ if __name__ == "__main__":
     synthesis_sr = 16000
     global out_dir
 
-    f0_stats_file = args.f0_stats
+    f0_stats = json.loads(args.f0_stats.replace("'", '"'))
 
     #  dim = 128
     #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
@@ -135,7 +139,7 @@ if __name__ == "__main__":
         batch_size=batch_size,
         shuffle=False,
         num_workers=args.num_workers,
-        collate_fn=pkwrap.hifigan.dataset.collate_fn_padd(f0_stats_file),
+        collate_fn=pkwrap.hifigan.dataset.collate_fn_padd(f0_stats),
         persistent_workers=True,
     )
 

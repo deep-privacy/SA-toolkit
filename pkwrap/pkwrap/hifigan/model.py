@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.distributed import init_process_group
 from torch.utils.tensorboard import SummaryWriter
 import os
+import json
 from pathlib import Path
 import glob
 import copy
@@ -42,7 +43,7 @@ class ModelOpts:
     training_epochs: int = 1500
     checkpoint_interval: int = 1000  # in step (iter)
     quant_commit: float = 0.02
-    f0_stats: str = "exp/f0_stats.pth"
+    f0_stats: str = "{'f0_mean': 209.04119886766213, 'f0_std': 58.75603900262766}"  # single speaker f0 adaptation
     num_workers: int = 4
     train_utterances: list = "utt1.wav,utt2.wav"
     test_utterances: list = "utt1.wav,utt2.wav"
@@ -174,6 +175,8 @@ class F0QuantModel(_AbstractModel):
         self.Net = model_cls
         self.num_gpus = int(os.getenv("WORLD_SIZE", "1"))
         self.call_by_mode()
+
+        self.opts.f0_stats = json.loads(self.opts.f0_stats.replace("'", '"'))
 
     def call_by_mode(self):
         if self.opts.mode in ["train", "training"]:
