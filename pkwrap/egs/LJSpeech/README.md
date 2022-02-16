@@ -75,6 +75,18 @@ python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan
     --init_weight_model ./exp/hifigan/g_best
 ```
 
+# Wav2vec2 vq
+```bash
+python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py \
+    --checkpoint_path exp/hifigan_wav2vec2_highbitrate \
+    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate_vq.py \
+    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_hibitrate_vq_256/ \
+    --asrbn_tdnnf_vq 256 \
+    --hifigan_upsample_rates "5,4,4,2,2" \
+    --batch_size 8 \
+    --asrbn_interpol_bitrate 320
+```
+
 ### convert
 ```bash
 python convert.py

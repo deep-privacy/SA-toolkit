@@ -331,6 +331,8 @@ class ChainModel(nn.Module):
             writer(key[0], tensor_to_writer(post))
             logging.info("Wrote {}".format(key[0]))
         close()
+        tqdm_file.seek(0)
+        tqdm_file.truncate()
 
     def reset_dims(self):
         # what if the user wants to pass it? Just override this function

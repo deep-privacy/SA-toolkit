@@ -24,6 +24,8 @@ import logging
 import time
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("geocoder").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def build(args):
@@ -128,6 +130,7 @@ def build(args):
         def __init__(self, load_f0_asr_weight=True, asr_bn_model=None):
             super().__init__()
 
+            self.validating = False
             self.sample_size = None
             # Hifigan Model
             self.core_hifigan = CoreHifiGan(
@@ -188,12 +191,13 @@ def build(args):
 
         @torch.no_grad()
         def validate_model(self, device="cpu"):
+            self.validating = True
             N = 2
             C = 86640 // 80
             f0 = torch.arange(N * C).reshape(N, 1, C).float().to(device)
 
             N = 2
-            C = 86640
+            C = 125760
             x = torch.arange(N * C).reshape(N, C).float().to(device)
 
             nnet_output = self.forward(f0=f0, audio=x)
@@ -209,6 +213,7 @@ def build(args):
                 and nnet_output.shape[2] <= x.shape[-1] + 10000
             ), f"Mismatch too high in vocoder output shape - {nnet_output.shape} != {x.shape}"
             self.train()
+            self.validating = False
 
         def get_feat_f0_len(self, kwargs, b_id):
             if "full_audio_to_cache" not in kwargs:
@@ -277,6 +282,14 @@ def build(args):
         def extract_bn_only(self, audio):
             post, asr_out_xent = self.bn_asr(audio)
             bn_asr_h = self.bn_asr.bottleneck_out.permute(0, 2, 1)
+            if self.validating:
+                logging.info("ASR subsampling:" + str(audio.shape[1] / bn_asr_h.shape[-1]))
+            if args.asrbn_interpol_bitrate != -1:
+                target_fr = audio.shape[1] / args.asrbn_interpol_bitrate  # Original VQ exp sub_sampling
+                bn_asr_h = torch.nn.functional.interpolate(bn_asr_h, int(target_fr))
+                if self.validating:
+                    logging.info("ASR subsampling after interpol:" + str(audio.shape[1] / bn_asr_h.shape[-1]))
+
             return bn_asr_h
 
         @torch.no_grad()
@@ -343,6 +356,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf/", type=str
+    )
+    parser.add_argument(
+        "--asrbn_interpol_bitrate", default=-1, type=int
     )
     parser.add_argument("--asrbn_tdnnf_vq", default=-1, type=int)
     parser.add_argument("--asrbn_tdnnf_dp", default=-1, type=int)

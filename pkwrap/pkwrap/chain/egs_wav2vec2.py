@@ -2,6 +2,7 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
+import time
 import logging
 import os
 from collections import defaultdict
@@ -98,7 +99,22 @@ def prepare_e2e(egs):
             )
             samples, _ = soundfile.read(io.BytesIO(wav_read_process.communicate()[0]))
         except Exception:
-            raise IOError("Error processing {}".format(egs.name))
+            logging.warning(
+                "Error processing.. Trying a second time..  {}".format(egs.name)
+            )
+            try:
+                time.sleep(5)
+                wav_read_process = subprocess.Popen(
+                    " ".join(egs.wav),
+                    stdout=subprocess.PIPE,
+                    shell=True,
+                    stderr=devnull,
+                )
+                samples, _ = soundfile.read(
+                    io.BytesIO(wav_read_process.communicate()[0])
+                )
+            except Exception:
+                raise IOError("Error processing {}".format(egs.name))
     feats_torch = torch.tensor(samples, dtype=torch.float32, requires_grad=False)
     return (feats_torch, egs)
 

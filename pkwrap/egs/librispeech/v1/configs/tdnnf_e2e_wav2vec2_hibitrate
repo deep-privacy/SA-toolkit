@@ -25,7 +25,7 @@ checkpoint_interval =  20
 minibatch_size = 14
 grad_acc_steps = 10
 # train_stage = last
-train_stage = 40
+# train_stage = 365
 
 xent_regularize = 0.02
 # xent_regularize = 0
@@ -36,8 +36,8 @@ model_file = local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate.py
 dirname = e2e_tdnnf_wav2vec_hibitrate
 
 [test]
-# test_set = data/test_clean_fbank_hires
-test_set = data/test_other_fbank_hires
+test_set = data/test_clean_fbank_hires
+# test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
 # test_set = data/dev_clean_fbank_hires
 # test_set = data/dev_clean_fbank_hires
@@ -45,7 +45,7 @@ test_set = data/test_other_fbank_hires
 # decode on gpus
 num_jobs = 3
 gpu = True
-# iter = 560
+# iter = 428
 
 
 # vim:set et sw=2 ts=2 ft=toml:

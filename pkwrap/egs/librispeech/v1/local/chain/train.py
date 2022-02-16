@@ -327,11 +327,11 @@ def train():
         num_archives * (num_epochs - 1) * frame_subsampling_factor * 2
     ) // (trainer_opts.num_jobs_initial + trainer_opts.num_jobs_final)
 
-    logging.info(
-        f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={frame_subsampling_factor}, num_epochs={num_epochs}"
-    )
     #   start the training
     if stage <= 5 and trainer_opts.train_stage == 0:
+        logging.info(
+            f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={frame_subsampling_factor}, num_epochs={num_epochs}"
+        )
         carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
         carbonTracker.epoch_start()
         logging.info("Initializing model")
