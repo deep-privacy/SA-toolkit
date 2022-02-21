@@ -91,7 +91,7 @@ def run_diagnostics(
             + str(
                 [
                     i
-                    for i, value in enumerate(["train_diagnositc", "valid"])
+                    for i, value in enumerate(["valid", "train_diagnositc"])
                     if value == diagnostic_name
                 ][0]
             ),
@@ -112,11 +112,16 @@ def run_diagnostics(
 
 
 def submit_diagnostic_jobs(
-    dirname, model_file, iter_no, egs_dir, train_set, job_cmd, exp_cfg
+    dirname, model_file, iter_no, egs_dir, train_set, job_cmd, exp_cfg, args
 ):
     job_pool = []
     with ThreadPoolExecutor(max_workers=2) as executor:
         for diagnostic_name in ["train_diagnositc", "valid"]:
+            if (
+                args.skip_train_diagnositc == "yes"
+                and diagnostic_name == "train_diagnositc"
+            ):
+                continue
             egs_file = os.path.join(egs_dir, "fst_{}.scp".format(diagnostic_name))
             p = executor.submit(
                 run_diagnostics,
@@ -210,6 +215,7 @@ def train():
     )
     parser.add_argument("--decode-iter", default="final")
     parser.add_argument("--config", default="configs/default")
+    parser.add_argument("--skip-train-diagnositc", default="no")
     args = parser.parse_args()
 
     logging.info("Reading config")
@@ -388,7 +394,14 @@ def train():
                 or (iter_no + 1 == num_iters)
             ):
                 diagnostic_job_pool = submit_diagnostic_jobs(
-                    dirname, model_file, iter_no, egs_dir, train_set, cuda_cmd, exp_cfg
+                    dirname,
+                    model_file,
+                    iter_no,
+                    egs_dir,
+                    train_set,
+                    cuda_cmd,
+                    exp_cfg,
+                    args,
                 )
                 for p in as_completed(diagnostic_job_pool):
                     if p.result() != 0:

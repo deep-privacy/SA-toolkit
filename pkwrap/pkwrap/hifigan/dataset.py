@@ -40,7 +40,7 @@ class WavList(torch.utils.data.Dataset):
         return (waveform, filename)
 
 
-def collate_fn_padd(f0_stats, get_func=None):
+def collate_fn_padd(f0_stats, get_func=None, get_f0=True):
     def _func_pad(batch):
         filenames = [b[1] for b in batch]
         batch = [b[0] for b in batch]
@@ -62,15 +62,16 @@ def collate_fn_padd(f0_stats, get_func=None):
         f0s = []
         acc_y = []
         for i, b in enumerate(batch):
-            f0s.append(
-                f0.get_f0(
-                    b.permute(0, 1),
-                    f0_stats=f0_stats,
-                    cache_with_filename=filenames[i],
+            if get_f0:
+                f0s.append(
+                    f0.get_f0(
+                        b.permute(0, 1),
+                        f0_stats=f0_stats,
+                        cache_with_filename=filenames[i],
+                    )
+                    .squeeze(dim=1)
+                    .permute(1, 0),
                 )
-                .squeeze(dim=1)
-                .permute(1, 0),
-            )
 
             # normalize feats for hifigan grount truth
             _feats_norm = b.squeeze().numpy()
@@ -80,8 +81,11 @@ def collate_fn_padd(f0_stats, get_func=None):
             _feats_norm = torch.FloatTensor(_feats_norm).unsqueeze(0)
             acc_y.append(_feats_norm.permute(1, 0))
 
-        f0spad = torch.nn.utils.rnn.pad_sequence(f0s, batch_first=True, padding_value=0)
-        f0s = f0spad.permute(0, 2, 1)
+        if get_f0:
+            f0spad = torch.nn.utils.rnn.pad_sequence(
+                f0s, batch_first=True, padding_value=0
+            )
+            f0s = f0spad.permute(0, 2, 1)
 
         ypad = torch.nn.utils.rnn.pad_sequence(acc_y, batch_first=True, padding_value=0)
         ys = ypad.permute(0, 2, 1)

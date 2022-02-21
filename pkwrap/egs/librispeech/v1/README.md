@@ -39,3 +39,8 @@ Add results to git:
 ```
 git add e2e_tdnnf*/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/wer_details/* -f
 ```
+
+### Share models
+```bash
+find exp/chain/e2e_tdnnf/ exp/chain/e2e_tdnnf_vq_16 exp/chain/e2e_tdnnf_vq_32 exp/chain/e2e_tdnnf_vq_64 exp/chain/e2e_tdnnf_vq_48 exp/chain/e2e_tdnnf_vq_128 exp/chain/e2e_tdnnf_vq_256 exp/chain/e2e_tdnnf_vq_512 exp/chain/e2e_tdnnf_vq_1024  -not -path "*decode*" -not -name "*[0-9].pt" -not -path "*log*" -not -path "*runs*" -not -path "*egs*"  -exec zip asr_models.zip {} +
+```

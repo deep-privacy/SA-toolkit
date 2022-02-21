@@ -15,7 +15,7 @@ graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
 # train params
-num_epochs = 1
+num_epochs = 5
 num_jobs_initial = 2
 num_jobs_final = 5
 lr_initial = 0.0005
@@ -24,14 +24,14 @@ diagnostics_interval = 10
 checkpoint_interval = 20
 minibatch_size = 16
  # finetune, last epcho usualy best model -> also to not break the vq prototypes
-final_combination_n_model = 1
+# final_combination_n_model = 1
 # train_stage = 15
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf_vq_bd.py
-dirname = e2e_tdnnf_vq_1024
+model_file = local/chain/e2e/tuning/tdnnf_vq_highbitrate.py
+dirname = e2e_tdnnf_vq_highbitrate_1024
 model_args = ["--freeze-encoder", "True", "--codebook-size", "1024"]
-init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
+# init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 # sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
 # tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
@@ -42,7 +42,7 @@ init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 # test_set = data/dev_other_fbank_hires
 test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
-suffix = _final
+# suffix = _final
 # decode on gpus
 num_jobs = 3
 gpu = True

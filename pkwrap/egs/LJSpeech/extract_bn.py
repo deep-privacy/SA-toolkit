@@ -18,6 +18,9 @@ import torchaudio
 
 from multiprocessing import Process
 
+import pkwrap.utils.ioTools as readwrite
+from kaldiio import WriteHelper, ReadHelper
+
 
 def stream(message):
     sys.stdout.write(f"\r{message}")
@@ -34,17 +37,15 @@ def progbar(i, n, size=16):
 def convert(sample):
     waveform, lengths, filename, f0, ys = sample
 
-    audio = forward_synt(
-        audio=waveform.to(demo.device).clone(),
-        f0=f0.to(demo.device),
-        real_shape=lengths,
+    asr_out, net = forward_asr(
+        waveform.to(demo.device).clone(),
     )
+    mat = net.bottleneck_out.squeeze(0).cpu().numpy()
 
     def parallel_write():
         for i, f in enumerate(filename):
             fname_out_name = Path(f).stem
-            output_file = os.path.join(out_dir, fname_out_name + "_gen.wav")
-            wavfile.write(output_file, synthesis_sr, audio[i])
+            readwrite.write_raw_mat(mat, os.path.join(out_dir, fname_out_name + ".ppg"))
 
     p = Process(target=parallel_write, args=())
     p.start()
@@ -55,42 +56,21 @@ if __name__ == "__main__":
 
     print("Initializing Inference Process..")
 
-    """
-    Multi node (3 here) F0 extraction (CPU only and very intensive):
-    python3 ./convert.py  --part 0 --of 3 --extract-f0-only
-    python3 ./convert.py  --part 1 --of 3 --extract-f0-only
-    python3 ./convert.py  --part 2 --of 3 --extract-f0-only
-
-    Convert with high batch-size (you can also do multi node conversion with part/of):
-    python3 ./convert.py --num-workers 4 --batch-size 64
-    """
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--part", type=int, default=0)
     parser.add_argument("--of", type=int, default=1)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=1)  # don't touch
     parser.add_argument("--num-workers", type=int, default=2)
-    parser.add_argument("--extract-f0-only", action="store_true")
     parser.add_argument("--in", type=str, dest="_in")
     parser.add_argument("--in-wavscp", type=str, dest="_in_scp", default=None)
     parser.add_argument("--ext", type=str, dest="ext", default="flac")
     parser.add_argument("--out", type=str, dest="_out")
     parser.add_argument("--vq-dim", type=int, dest="vq_dim")
     parser.add_argument("--model-type", type=str, default="tdnnf")
-    parser.add_argument(
-        "--f0-stats",
-        type=str,
-        dest="f0_stats",
-        default="{'f0_mean': 209.04119886766213, 'f0_std': 58.75603900262766}",
-    )
     args = parser.parse_args()
 
-    global forward_synt
-    global synthesis_sr
-    synthesis_sr = 16000
+    global forward_asr
     global out_dir
-
-    f0_stats = json.loads(args.f0_stats.replace("'", '"'))
 
     #  dim = 128
     #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
@@ -124,8 +104,8 @@ if __name__ == "__main__":
                     pbar.set_description(f"audio file count : {wav_count}")
                     wavs_path.append(file_path)
 
-            #  if len(wavs_path) > 10:
-            #  break
+            if len(wavs_path) > 10:
+                break
 
         wavs_path = list(demo.split(wavs_path, args.of))[args.part]
         torch_dataset = pkwrap.hifigan.dataset.WavList(wavs_path)
@@ -135,23 +115,15 @@ if __name__ == "__main__":
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    batch_size = args.batch_size
+    batch_size = 1  # ONLY a batch_size of 1 is supported!
     dataloader = torch.utils.data.DataLoader(
         torch_dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=args.num_workers,
-        collate_fn=pkwrap.hifigan.dataset.collate_fn_padd(f0_stats),
+        collate_fn=pkwrap.hifigan.dataset.collate_fn_padd(f0_stats=None, get_f0=None),
         persistent_workers=True,
     )
-
-    if args.extract_f0_only:
-        print("Only extracting F0 features")
-        for i, sample in enumerate(dataloader):
-            bar = progbar(i * batch_size, len(wavs_path))
-            message = f"{bar} {i*batch_size}/{len(wavs_path)} "
-            stream(message)
-        sys.exit(0)
 
     if args.model_type == "tdnnf":
         if dim == -1 or dim == 0:
@@ -159,23 +131,11 @@ if __name__ == "__main__":
                 model=f"local/chain/e2e/tuning/tdnnf.py",
                 exp_path=f"exp/chain/e2e_tdnnf/",
             )
-            forward_synt, synt_model = demo.init_synt_model(
-                model=f"local/tuning/hifi_gan.py",
-                exp_path=f"exp/hifigan",
-                asr_bn_model=pk_model,
-                model_weight="g_00102000",
-            )
         else:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
                 exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
                 pkwrap_vq_dim=dim,
-            )
-            forward_synt, synt_model = demo.init_synt_model(
-                model=f"local/tuning/hifi_gan.py",
-                exp_path=f"exp/hifigan_vq_{dim}_finetuned",
-                asr_bn_model=pk_model,
-                model_weight="g_00075000",
             )
     if args.model_type == "wav2vec2":
         if dim == -1 or dim == 0:
@@ -183,14 +143,12 @@ if __name__ == "__main__":
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_hibitrate/",
             )
-            raise NotImplementedError("vocoder model not avaialble")
         else:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate_vq.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_hibitrate_vq_{dim}/",
                 pkwrap_vq_dim=dim,
             )
-            raise NotImplementedError("vocoder model not avaialble")
 
     for i, sample in enumerate(dataloader):
         p = convert(sample)

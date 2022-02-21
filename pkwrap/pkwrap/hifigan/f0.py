@@ -28,6 +28,8 @@ def get_f0(
     global f0_cache
     global f0_cache_lock
     if cache_with_filename != None:
+        if cache_with_filename.endswith("|"):
+            cache_with_filename = cache_with_filename.split("/")[-1].split()[0]
         if f0_cache == None:
             if os.path.exists(".f0_cache"):
                 logging.debug("Loading .f0_cache")

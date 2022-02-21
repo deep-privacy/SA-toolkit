@@ -344,6 +344,7 @@ def build(args):
 if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
     parser.add_argument("--local_rank", default=0, type=int)
+    parser.add_argument("--lr", default=0.0002, type=float)
     parser.add_argument("--checkpoint_path", default="exp/hifigan", type=str)
     parser.add_argument("--init_weight_model", default="last", type=str)
     parser.add_argument("--f0_quant_state", default="exp/f0_vq/g_best", type=str)
@@ -382,6 +383,7 @@ if __name__ == "__main__":
         build(args),
         **{
             "mode": "train",
+            "lr": args.lr,
             "training_epochs": args.training_epochs,
             "cold_restart": args.cold_restart,
             "num_workers": 4,

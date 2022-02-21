@@ -60,6 +60,7 @@ def init_synt_model(
     f0_quant_state="exp/f0_vq/g_best",
     model_weight="g_best",
     hifigan_upsample_rates="5, 4, 4, 3, 2",
+    asrbn_interpol_bitrate=-1,
 ):
     pkwrap_path_asr = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     pkwrap_path = pkwrap.__path__[0] + "/../egs/LJSpeech/"
@@ -76,6 +77,7 @@ def init_synt_model(
     args = SimpleNamespace(
         f0_quant_state=pkwrap_path + "/" + f0_quant_state,
         hifigan_upsample_rates=hifigan_upsample_rates,
+        asrbn_interpol_bitrate=asrbn_interpol_bitrate,
     )
 
     synt_net = model_file.build(args)(
