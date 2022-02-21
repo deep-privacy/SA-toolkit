@@ -13,6 +13,7 @@ if [ "$(id -g --name)" == "lium" ]; then
   echo "Using local \$CUDAROOT: $CUDAROOT"
 fi
 cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
 echo "Cuda version: $cuda_version_witout_dot"
 
 # CONDA
