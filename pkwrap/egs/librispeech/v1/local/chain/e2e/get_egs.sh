@@ -9,12 +9,12 @@ frames_per_iter=3000000 # each iteration of training, see this many frames per
                         # used.  This is just a guideline; it will pick a number
                         # that divides the number of samples in the entire data.
 
-. ./utils/parse_options.sh
 
 data=$1
 fstdir=$2
 dir=$3
 
+. ./utils/parse_options.sh
 mkdir -p $dir $dir/info
 
 utils/data/get_utt2dur.sh $data

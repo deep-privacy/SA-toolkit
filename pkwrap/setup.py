@@ -14,9 +14,6 @@ from torch.utils import cpp_extension
 import torch
 PYTORCH_VERSION = torch.__version__
 PYTORCH_MAJOR_VER, PYTORCH_MIN_VER = list(map(int, PYTORCH_VERSION.split('.')[:2]))
-if PYTORCH_MAJOR_VER != 1 or PYTORCH_MIN_VER > 8:
-    sys.stderr.write("We support pytorch version until 1.8 only\n")
-    quit(1)
 
 KALDI_ROOT = os.getenv('KALDI_ROOT')
 if not KALDI_ROOT:

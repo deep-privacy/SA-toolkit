@@ -7,7 +7,6 @@ if [ ! -L ./utils ]; then
   echo "Kaldi root: ${KALDI_ROOT}"
   ./make_links.sh $KALDI_ROOT || exit 1
   echo "Succesfuly created ln links"
-  exit 0
 fi
 . ./cmd.sh
 . ./path.sh
@@ -111,7 +110,7 @@ if [ $stage -le 2 ]; then
     data/${train_set}_sp_fbank_hires
   utils/fix_data_dir.sh data/${train_set}_sp_fbank_hires
 
-  for part in test_clean dev_clean test_other dev_other ${train_set}_sp; do
+  for part in ${train_set}_sp; do
     datadir=${part}_fbank_hires
     # Extracting 80 dim filter bank features
     mkdir -p data/feats/fbank
@@ -137,8 +136,8 @@ if [ $stage -le 4 ]; then
 fi
 
 if [ $stage -le 5 ]; then
-  # mkdir -p ${dir}/configs
-  # mkdir -p ${dir}/init
+  mkdir -p ${dir}/configs
+  mkdir -p ${dir}/init
   cp -r $treedir/tree $dir/
   cp $treedir/phones.txt $dir/
   cp $treedir/phone_lm.fst $dir/

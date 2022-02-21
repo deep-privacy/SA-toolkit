@@ -20,6 +20,7 @@ To run the 100h setup, follow the steps below
 
 ```
 local/chain/e2e/prepare_data.sh
+local/chain/e2e/get_egs.sh --data ./data/train_clean_100_sp_fbank_hires --fstdir ./exp/chain/e2e_biphone_tree --dir exp/chain/e2e_tdnnf/fst_egs
 ```
 
 3. Train (and test ``dev_clean``) using the configuration below

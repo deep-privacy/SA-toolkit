@@ -13,7 +13,7 @@ if [ "$(id -g --name)" == "lium" ]; then
   echo "Using local \$CUDAROOT: $CUDAROOT"
 fi
 cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+echo "Cuda version: $cuda_version_witout_dot"
 
 # CONDA
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -61,23 +61,6 @@ echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
-mark=.done-python-requirements-kaldi-feat
-if [ ! -f $mark ]; then
-  yes | conda install -c conda-forge cmake
-  yes | conda install -c conda-forge cudnn
-
-  export CUDNN_ROOT="$venv_dir"
-  export CUDNN_INCLUDE_DIR="$venv_dir/include"
-  export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
-  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
-  export KALDIFEAT_MAKE_ARGS="-j"
-
-  pip3 install kaldifeat==1.12
-  cd $home
-  python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
-  touch $mark
-fi
-
 # mark=.done-k2
 # if [ ! -f $mark ]; then
   # echo " == Installing k2 =="
@@ -100,6 +83,24 @@ if [ ! -f $mark ]; then
   cd $home
   touch $mark
 fi
+
+mark=.done-python-requirements-kaldi-feat
+if [ ! -f $mark ]; then
+  yes | conda install -c conda-forge cmake
+  yes | conda install -c conda-forge cudnn
+
+  export CUDNN_ROOT="$venv_dir"
+  export CUDNN_INCLUDE_DIR="$venv_dir/include"
+  export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
+  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
+  export KALDIFEAT_MAKE_ARGS="-j"
+
+  pip3 install kaldifeat==1.12
+  cd $home
+  python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
+  touch $mark
+fi
+
 
 mark=.done-python-requirements
 if [ ! -f $mark ]; then
