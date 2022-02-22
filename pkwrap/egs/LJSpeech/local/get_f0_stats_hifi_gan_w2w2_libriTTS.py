@@ -12,7 +12,7 @@ import json
 
 def calc_stats(file):
     x, sr = sf.read(file)
-    f0 = pkwrap.hifigan.f0.get_f0(torch.tensor(x), None)
+    f0 = pkwrap.hifigan.f0.get_f0(torch.tensor(x), None, cache_with_filename=str(file))
     f0 = f0[f0 > 1.]
     mu, std, var = f0.mean(), f0.std(), f0.var()
 
@@ -30,6 +30,14 @@ def main():
     parser.add_argument("--postfix", type=str, default="wav")
     args = parser.parse_args()
     files = list(Path(args.srcdir).glob(f"**/*{args.postfix}"))
+
+    pkwrap.hifigan.f0.set_yaapt_opts({
+            "frame_length": 35.0,
+            "frame_space": 20.0,
+            "nccf_thresh1": 0.25,
+            "tda_frame_length": 25.0,
+        })
+
 
     with Pool(2) as p:
         rets = list(tqdm(p.imap(calc_stats, files), total=len(files)))

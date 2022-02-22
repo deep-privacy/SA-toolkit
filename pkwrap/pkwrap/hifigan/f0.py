@@ -18,12 +18,33 @@ f0_cache = None
 f0_cache_lock = None
 log_one = True
 
-
 yaapt_opts=None
+norm_function=None
 
 def set_yaapt_opts(opts):
     global yaapt_opts
     yaapt_opts = opts
+
+def set_norm_func(func):
+    global norm_function
+    norm_function = func
+
+def m_std_norm(f0, f0_stats, filename):
+    if f0_stats == None:
+        global log_one
+        if log_one:
+            log_one = False
+            logging.warning("Warning ONLY for F0 mean and std calculation")
+        return f0
+
+    mean = f0_stats["f0_mean"]
+    std = f0_stats["f0_std"]
+
+    # Always mean normalize
+    ii = f0 != 0
+    f0[ii] = (f0[ii] - mean) / std
+    return f0
+
 
 def get_f0(
     audio,
@@ -32,6 +53,12 @@ def get_f0(
     interp=False,
     cache_with_filename=None,
 ):
+
+    norm=m_std_norm
+    global norm_function
+    if norm_function != None:
+        norm=norm_function
+
     global f0_cache
     global f0_cache_lock
     if cache_with_filename != None:
@@ -48,7 +75,8 @@ def get_f0(
 
         key = os.path.basename(cache_with_filename)
         if f0_cache != None and key in f0_cache:
-            return torch.tensor(f0_cache[key]).unsqueeze(0).unsqueeze(0)
+            f0 =  torch.tensor(f0_cache[key]).unsqueeze(0).unsqueeze(0)
+            return norm(f0, f0_stats, cache_with_filename)
 
     audio = audio.squeeze().numpy()
     audio *= 2 ** 15
@@ -101,20 +129,6 @@ def get_f0(
 
     f0 = torch.tensor(f0.astype(np.float32))
 
-    if f0_stats == None:
-        global log_one
-        if log_one:
-            log_one = False
-            logging.warning("Warning ONLY FOR F0 mean and std calculation")
-        return f0
-
-    mean = f0_stats["f0_mean"]
-    std = f0_stats["f0_std"]
-
-    # Always mean normalize
-    ii = f0 != 0
-    f0[ii] = (f0[ii] - mean) / std
-
     if cache_with_filename != None:
         with f0_cache_lock:
             kaldiio.save_ark(
@@ -124,4 +138,4 @@ def get_f0(
             )
             f0_cache[os.path.basename(cache_with_filename)] = f0.squeeze().numpy()
 
-    return f0
+    return norm(f0, f0_stats, cache_with_filename)
