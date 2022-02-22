@@ -98,6 +98,8 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
             xent_objf = (xent_out_tensor * xent_deriv).sum() / (mb * T)
             objf[0] = objf[0] / weight[0]
+            if torch.isnan(xent_objf).any():
+                xent_objf = torch.tensor(0.0)
             logging.info(
                 "objf={}, l2={}, xent_objf={}".format(
                     objf[0],
@@ -227,13 +229,9 @@ class OnlineNaturalGradient(torch.autograd.Function):
                 in_state, input_temp.clone().detach()
             )
 
-        #  logging.info("Kaldi run on: " + str(KALDI_GPU_DEVICE) + " GPU!")
-        #  global KALDI_GPU_DEVICE
-        #  in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.to(KALDI_GPU_DEVICE))
         #  in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.clone().detach())
         out_dim = grad_output.shape[-1]
         grad_output_temp = grad_output.view(-1, out_dim)
-        #  out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp.to(KALDI_GPU_DEVICE)) # hope grad_output is continguous!
 
         # Without kaldi
         if isinstance(out_state, nsg.OnlineNaturalGradient):
@@ -321,11 +319,8 @@ def train_lfmmi_one_iter(
         dataset,
         batch_sampler=batch_sampler,
         collate_fn=Wav2vec2EgsCollectFn,
-        num_workers=4,
+        num_workers=20,
     )
-
-    global KALDI_GPU_DEVICE
-    KALDI_GPU_DEVICE = str(torch.rand((1)).cuda().device)
 
     #  for mb_id, data in enumerate(dataloader):
     #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)

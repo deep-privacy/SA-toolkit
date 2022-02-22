@@ -333,13 +333,14 @@ def train():
         num_archives * (num_epochs - 1) * frame_subsampling_factor * 2
     ) // (trainer_opts.num_jobs_initial + trainer_opts.num_jobs_final)
 
+    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
+    carbonTracker.epoch_start()
+
     #   start the training
     if stage <= 5 and trainer_opts.train_stage == 0:
         logging.info(
             f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={frame_subsampling_factor}, num_epochs={num_epochs}"
         )
-        carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
-        carbonTracker.epoch_start()
         logging.info("Initializing model")
         additional_ops = []
         if "init_weight_model" in exp_cfg and exp_cfg["init_weight_model"] != "":
@@ -535,23 +536,12 @@ def train():
     if not graph_dir:
         graph_dir = os.path.join(dirname, "graph")
     if stage <= 7:
-        if not os.path.isfile(os.path.join(graph_dir, "HCLG.fst")):
-            logging.info("Making graph with {}".format(exp_cfg["lang"]))
-            pkwrap.script_utils.run(
-                [
-                    "utils/mkgraph.sh",
-                    "--self-loop-scale",
-                    "1.0",
-                    exp_cfg["lang"],
-                    tree_dir,
-                    graph_dir,
-                ]
-            )
+        pass
 
     final_iter = num_iters - 1
     data_dir = decode_params["test_set"]
     data_name = os.path.basename(data_dir)
-    decode_iter = decode_params["iter"] if "iter" in decode_params else "final"
+    decode_iter = decode_params["iter"] if "iter" in decode_params else args.decode_iter
     decode_gpu = bool(decode_params["gpu"]) if "gpu" in decode_params else False
     decode_affix = decode_params["suffix"] if "suffix" in decode_params else ""
     decode_suff = "_iter{}{}".format(decode_iter, decode_affix)
@@ -601,6 +591,7 @@ def train():
             ]
         )
         tqdm.terminate()
+        logging.info("")
         opf = open(os.path.join(out_dir, "num_jobs"), "w")
         opf.write("{}".format(num_jobs))
         opf.close()

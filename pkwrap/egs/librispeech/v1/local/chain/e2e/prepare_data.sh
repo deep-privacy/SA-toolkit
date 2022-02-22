@@ -147,6 +147,19 @@ if [ $stage -le 5 ]; then
     --cmd "$cpu_cmd" $treedir $dir
 fi
 
+
+# Generate a decoding graph to decode the validation data
+# for early stopping
+if [ $stage -le 9 ]; then
+  cp $dir/0.trans_mdl $dir/final.mdl
+  utils/lang/check_phones_compatible.sh \
+    data/lang_lp_test_tgsmall/phones.txt $new_lang/phones.txt
+  utils/mkgraph.sh \
+    --self-loop-scale 1.0 --remove-oov data/lang_lp_test_tgsmall \
+    $dir $treedir/graph_tgsmall || exit 1;
+  rm $dir/final.mdl
+fi
+
 exit 0 # using raw wav instead of kaldi beased feats
 # checkout "local/chain/e2e/get_egs.sh"
 
@@ -182,16 +195,4 @@ if [ $stage -le 8 ]; then
   for id in `cat  $dir/egs/valid_diagnostic/utt_ids`; do
     grep $id data/${train_set}_sp_fbank_hires/text >>  $dir/egs/valid_diagnostic/text
   done
-fi
-
-# Generate a decoding graph to decode the validation data
-# for early stopping
-if [ $stage -le 9 ]; then
-  cp $dir/0.trans_mdl $dir/final.mdl
-  utils/lang/check_phones_compatible.sh \
-    data/lang_lp_test_tgsmall/phones.txt $new_lang/phones.txt
-  utils/mkgraph.sh \
-    --self-loop-scale 1.0 --remove-oov data/lang_lp_test_tgsmall \
-    $dir $treedir/graph_tgsmall || exit 1;
-  rm $dir/final.mdl
 fi

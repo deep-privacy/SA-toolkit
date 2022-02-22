@@ -2,7 +2,7 @@ import fairseq
 import torch
 
 feat_model, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-    [str("./wav2vec_small.pt")]
+    [str("./wav2vec2_base_en_v2.pt")]
 )
 print(feat_model)
 print(cfg)

@@ -101,3 +101,16 @@ done
 ```
 zip hifigan_model.zip -r **/hifigan_vq_*/g_00075000
 ```
+
+
+
+#### For LibriTTS:
+```
+python3 ./local/preprocess.py \
+  --srcdir [..]/corpora/LibriTTS/train-clean-100/ \
+  --outdir data/LibriTTS/wavs_16khz --pad
+
+python3 local/get_f0_stats_hifi_gan_w2w2_libriTTS.py \
+  --srcdir ./data/LibriTTS/wavs_16khz/ 
+  --outstats ./data/LibriTTS/stats.json
+```

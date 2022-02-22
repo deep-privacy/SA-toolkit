@@ -15,7 +15,7 @@ graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
 # train params
-num_epochs = 5
+num_epochs = 3
 num_jobs_initial = 1
 num_jobs_final = 1
 lr_initial = 0.0001
@@ -24,26 +24,28 @@ diagnostics_interval = 10
 checkpoint_interval =  20
 minibatch_size = 16
 grad_acc_steps = 10
-# train_stage = last
+train_stage = last
 # train_stage = 365
 
 xent_regularize = 0.02
 # xent_regularize = 0
 l2_regularize_factor = 0.3
 
+final_combination_n_model = 1
+
 
 model_file = local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py
 dirname = e2e_tdnnf_wav2vec_fairseq_hibitrate
 
 [test]
-# test_set = data/test_clean_fbank_hires
-test_set = data/test_other_fbank_hires
+test_set = data/test_clean_fbank_hires
+# test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
 # test_set = data/dev_clean_fbank_hires
 # test_set = data/dev_clean_fbank_hires
 # suffix = baseline
 # decode on gpus
-num_jobs = 1
+num_jobs = 2
 gpu = True
 # iter = 428
 

@@ -48,13 +48,18 @@ def build(args):
         ):
             super().__init__()
 
-            #  os.system("wget -c https://dl.fbaipublicfiles.com/fairseq/wav2vec/%s" % "wav2vec_small.pt")
+            #  https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt
+            #  https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_base_en_v2.pt
+            model_cache_file = os.path.join(torch.hub.get_dir(), "wav2vec2_base_en_v2.pt")
+            if not os.path.exists(model_cache_file):
+                os.makedirs(torch.hub.get_dir(), exist_ok=True)
+                torch.hub.download_url_to_file("https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_base_en_v2.pt", model_cache_file, hash_prefix="")
             (
                 feat_model,
                 cfg,
                 task,
             ) = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-                [str("./wav2vec_small.pt")]
+                [str(model_cache_file)]
             )
 
             self.preprocessor = feat_model[0]
@@ -158,14 +163,17 @@ def build(args):
             self.validate_model()
 
         def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay, iter=0):
-            TOTAL_ITER = 520
+            TOTAL_ITER = 315
 
             def set_parameter_requires_grad(model, yes=False):
                 for param in model.parameters():
                     param.requires_grad = yes
 
-            if iter < TOTAL_ITER * 0.10 and iter > TOTAL_ITER * 0.90:
+            self.preprocessor.train()
+            if iter < TOTAL_ITER * 0.10 or iter > TOTAL_ITER * 0.90:
+                logging.info("Preprocesor in eval mode!")
                 set_parameter_requires_grad(self.preprocessor)
+                self.preprocessor.eval()
 
             wav2vec = []
             tdnnf = []
@@ -178,10 +186,12 @@ def build(args):
                 [{"params": wav2vec}, {"params": tdnnf}], lr, weight_decay
             )
 
-            opti.param_groups[0]["lr"] = lr / 10
-            if iter > TOTAL_ITER * 0.40 and iter < TOTAL_ITER * 0.60:
-                opti.param_groups[0]["lr"] = lr / 2
+            opti.param_groups[0]["lr"] = lr / 20
+            if iter > TOTAL_ITER * 0.40 and iter < TOTAL_ITER * 0.70:
+                opti.param_groups[0]["lr"] = lr / 5
             opti.param_groups[1]["lr"] = lr
+            logging.info("LR: " + str(opti.param_groups[1]["lr"]))
+            logging.info("Preprocesor LR: " + str(opti.param_groups[0]["lr"]))
 
             return opti
 

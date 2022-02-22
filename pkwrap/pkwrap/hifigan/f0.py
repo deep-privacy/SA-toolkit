@@ -16,7 +16,14 @@ MAX_WAV_VALUE = 32768.0
 
 f0_cache = None
 f0_cache_lock = None
+log_one = True
 
+
+yaapt_opts=None
+
+def set_yaapt_opts(opts):
+    global yaapt_opts
+    yaapt_opts = opts
 
 def get_f0(
     audio,
@@ -52,8 +59,18 @@ def get_f0(
     audio = torch.FloatTensor(audio)
     audio = audio.unsqueeze(0).numpy()
 
-    frame_length = 20.0
-    to_pad = int(frame_length / 1000 * rate) // 2
+    global yaapt_opts
+    if yaapt_opts == None:
+        _yaapt_opts = {
+            "frame_length": 20.0,
+            "frame_space": 5.0,
+            "nccf_thresh1": 0.25,
+            "tda_frame_length": 25.0,
+        }
+    else:
+        _yaapt_opts = yaapt_opts
+
+    to_pad = int(_yaapt_opts["frame_length"] / 1000 * rate) // 2
 
     f0s = []
     for y in audio.astype(np.float64):
@@ -62,12 +79,7 @@ def get_f0(
             signal = basic.SignalObj(y_pad, rate)
             pitch = pYAAPT.yaapt(
                 signal,
-                **{
-                    "frame_length": frame_length,
-                    "frame_space": 5.0,
-                    "nccf_thresh1": 0.25,
-                    "tda_frame_length": 25.0,
-                },
+                **_yaapt_opts,
             )
         except Exception as e:
             print(
@@ -88,6 +100,13 @@ def get_f0(
     f0 = np.vstack(f0s)
 
     f0 = torch.tensor(f0.astype(np.float32))
+
+    if f0_stats == None:
+        global log_one
+        if log_one:
+            log_one = False
+            logging.warning("Warning ONLY FOR F0 mean and std calculation")
+        return f0
 
     mean = f0_stats["f0_mean"]
     std = f0_stats["f0_std"]

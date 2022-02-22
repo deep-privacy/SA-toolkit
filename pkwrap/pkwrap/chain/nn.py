@@ -229,10 +229,12 @@ class TDNNF(nn.Module):
             self.use_bypass = True
             if self.context_len > 1:
                 if self.context_len % 2 == 1:
-                    self.identity_lidx = self.context_len // 2
+                    #  self.identity_lidx = self.context_len // 2
+                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
                     self.identity_ridx = -self.identity_lidx
                 else:
-                    self.identity_lidx = self.context_len // 2
+                    #  self.identity_lidx = self.context_len // 2
+                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
                     self.identity_ridx = -self.identity_lidx + 1
             else:
                 self.use_bypass = False

@@ -5,27 +5,53 @@ set -e
 nj=$(nproc)
 
 home=$PWD
+\rm env.sh
+touch env.sh
 
 # CUDA version
 CUDAROOT=/usr/local/cuda
-if [ "$(id -g --name)" == "lium" ]; then
-  CUDAROOT=/opt/cuda/10.2 # LIUM Cluster
+if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
+  module_load="source /etc/profile.d/lmod.sh"
+  eval "$module_load"
+  echo "$module_load" >> env.sh
+  module_load="module load cuda/11.3.1_gcc-8.3.0"
+  eval "$module_load"
+  echo "$module_load" >> env.sh
+  module_load="module load gcc/8.3.0_gcc-8.3.0"
+  eval "$module_load"
+  echo "$module_load" >> env.sh
+  CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
+  yes | sudo-g5k apt install python2.7
   echo "Using local \$CUDAROOT: $CUDAROOT"
+
+
+  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+  echo "Cuda version: $cuda_version_witout_dot"
+
+  # PYTORCH
+  torch_version=1.10.2
+  torchvision_version=0.11.3
+  torchaudio_version=0.10.2
+  torch_wheels="https://download.pytorch.org/whl/$cuda_version_witout_dot/torch_stable.html"
 fi
-cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-echo "Cuda version: $cuda_version_witout_dot"
+if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
+  CUDAROOT=/opt/cuda/10.2
+  echo "Using local \$CUDAROOT: $CUDAROOT"
+
+  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+  echo "Cuda version: $cuda_version_witout_dot"
+
+  torch_version=1.8.2
+  torchvision_version=0.9.2
+  torchaudio_version=0.8.2
+  torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
+fi
 
 # CONDA
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
-
-# PYTORCH
-torch_version=1.8.2
-torchvision_version=0.9.2
-torchaudio_version=0.8.2
-
-torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
 
 venv_dir=$PWD/venv
 
@@ -49,7 +75,7 @@ fi
 source $venv_dir/bin/activate
 
 export PATH=$CUDAROOT/bin:$PATH
-export LD_LIBRARY_PATH=$CUDAROOT/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$CUDAROOT/lib64:$LD_LIBRARY_PATH:$venv_dir/lib/
 export CFLAGS="-I$CUDAROOT/include $CFLAGS"
 export CUDA_HOME=$CUDAROOT
 export CUDA_PATH=$CUDAROOT
@@ -57,7 +83,7 @@ export CUDA_PATH=$CUDAROOT
 export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
 export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH
 
-echo "if [ \$(which python) != $venv_dir/bin/python ]; then source $venv_dir/bin/activate; fi; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" > env.sh
+echo "source $venv_dir/bin/activate; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
 
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
@@ -184,8 +210,10 @@ if [ ! -f $mark ]; then
   # git clone https://github.com/idiap/pkwrap.git
   cd pkwrap
   # git checkout ccf4094
+  make clean
 	python3 setup.py install
 	pip3 install -e .
+  # make test
   cd $home
   touch $mark
 fi
@@ -204,6 +232,7 @@ fi
 
 mark=.done-anonymization_metrics
 if [ ! -f $mark ]; then
+  rm -rf anonymization_metrics || true
   git clone https://gitlab.inria.fr/magnet/anonymization_metrics.git
   cd $home
   pip3 install seaborn
@@ -213,6 +242,7 @@ fi
 
 mark=.done-FEERCI
 if [ ! -f $mark ]; then
+  rm -rf feerci || true
   git clone https://github.com/feerci/feerci
   cd feerci
   pip install Cython
@@ -233,6 +263,7 @@ if [ ! -f $mark ]; then
     git checkout -b sync_commit 313ff0581561c7725ea9430321d6af2901573dfb
     cd ..
     python3 -m pip install --editable ./fairseq
+    touch $mark
 fi
 
 echo " == Everything got installed successfully =="
