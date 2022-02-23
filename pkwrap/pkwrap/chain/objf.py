@@ -345,7 +345,12 @@ def train_lfmmi_one_iter(
         if grad_acc_steps > 1:
             deriv = deriv / grad_acc_steps
 
-        deriv.backward()
+        try:
+            deriv.backward()
+        except Exception as e:
+            logging.error(e)
+            logging.error("Failed to compute loss for: {}s".format(data[0][0].shape[0] * data[0].shape[0]))
+            continue
 
         acc_sum.add_(deriv[0] * grad_acc_steps)
         if mb_id > 0 and mb_id % print_interval == 0:

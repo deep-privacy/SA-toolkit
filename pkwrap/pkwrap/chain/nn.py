@@ -117,7 +117,7 @@ class NaturalAffineTransform(nn.Module):
     def forward(self, input):
         """Forward pass"""
 
-        # PyTorch only
+        # PyTorch only but slower
         #  if torch.cuda.device_count() > 1:
         #  if input.device not in self.all_preconditioner_in:
         #  self.all_preconditioner_in[input.device] = nsg.OnlineNaturalGradient()
