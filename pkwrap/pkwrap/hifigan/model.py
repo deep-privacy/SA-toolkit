@@ -488,7 +488,7 @@ class HifiGanModel(_AbstractModel):
             dataset_test = dataset.WavList(self.opts.test_utterances)
             dataloader_test = torch.utils.data.DataLoader(
                 dataset_test,
-                batch_size=self.opts.minibatch_size,
+                batch_size=4,
                 shuffle=False,
                 num_workers=self.opts.num_workers,
                 collate_fn=dataset.collate_fn_padd(self.opts.f0_stats),
@@ -629,6 +629,7 @@ class HifiGanModel(_AbstractModel):
 
                 if self.opts.rank == 0:
                     if steps % 20 == 0:
+                        torch.cuda.empty_cache()
                         logging.info(
                             "Steps: {:d}, Gen Loss Total: {:4.3f}, Mel-Spec. Error: {:4.3f}, s/b: {:4.3f}".format(
                                 steps,
@@ -649,7 +650,6 @@ class HifiGanModel(_AbstractModel):
                         sw.add_scalar("training/mel_spec_error", loss_mel / 45, steps)
 
                         generator.eval()
-                        torch.cuda.empty_cache()
                         val_err_tot = 0
                         gen_loss_tot = 0
                         with torch.no_grad():
@@ -659,7 +659,7 @@ class HifiGanModel(_AbstractModel):
                                 f0s = f0s.to(device)
                                 feats = feats.to(device)
                                 ys = ys.to(device)
-                                y_g_hat = generator(f0=f0s, audio=feats)
+                                y_g_hat = generator(f0=f0s, audio=feats, filenames=filenames)
 
                                 assert (
                                     y_g_hat.shape[2] >= ys.shape[-1] - 8000
@@ -711,7 +711,7 @@ class HifiGanModel(_AbstractModel):
                                     f0s = f0s.to(device)
                                     feats = feats.to(device)
                                     ys = ys.to(device)
-                                    y_g_hat = generator(f0=f0s, audio=feats)
+                                    y_g_hat = generator(f0=f0s, audio=feats, filenames=filenames)
 
                                     if steps == 0:
                                         logging.info(
@@ -804,6 +804,7 @@ class HifiGanModel(_AbstractModel):
                                 script_utils.run(["rm", mdl])
                                 script_utils.run(["rm", mdl.replace("g_", "d_")])
 
+                    torch.cuda.empty_cache()
                     generator.train()
                 steps += 1
 

@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch.nn.utils import weight_norm, remove_weight_norm
+import json
 
 import random
 import pkwrap
@@ -24,13 +25,13 @@ logging.getLogger("geocoder").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-def build(args):
+def build(args, spkids):
     class CoreHifiGan(torch.nn.Module):
         def __init__(
             self,
             upsample_rates=[5,4,4,2,2],
             upsample_kernel_sizes=[11,8,8,4,4],
-            imput_dim=256+1,  # BN asr = 256 dim + F0 dim
+            imput_dim=256+1+len(spkids),  # BN asr = 256 dim + F0 dim + One Hot encoding spk
             upsample_initial_channel=512,
             resblock_kernel_sizes=[3, 7, 11],
             resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
@@ -174,7 +175,11 @@ def build(args):
             N = 1
             C = 125760
             x = torch.arange(N * C).reshape(N, C).float().to(device)
-            f0 = pkwrap.hifigan.f0.get_f0(x.cpu(), {"f0_mean": 209.04, "f0_std": 58.75}).to(device)
+            f0 = pkwrap.hifigan.f0.get_f0(
+                x.cpu(),
+                {"a": {"f0_mean": 209.04, "f0_std": 58.75}},
+                cache_with_filename="/t/a"
+            ).to(device)
 
             nnet_output = self.forward(f0=f0, audio=x)
             assert (
@@ -268,7 +273,6 @@ def build(args):
             bn_asr_h = self.extract_bn_only(audio)
 
             if self.validating:
-                print(f0.shape, bn_asr_h.shape)
                 logging.info("F0 subsampling:" + str(audio.shape[1] / f0.shape[-1]))
                 logging.info("ASR subsampling:" + str(audio.shape[1] / bn_asr_h.shape[-1]))
 
@@ -285,11 +289,20 @@ def build(args):
             else:
                 f0_h_q, bn_asr_h = self.extract_features(kwargs["f0"], kwargs["audio"])
 
+            if spkids != None and "filenames" in kwargs:
+                spk_ids = []
+                for f in kwargs["filenames"]:
+                    spk_id = os.path.basename(f).split("_")[0]
+                    sid = [i for i,x in enumerate(spkids) if x == spk_id][0]
+                    spk_ids.append(sid)
+                one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
+            else:
+                one_hot = F.one_hot(torch.tensor(10), num_classes=len(spkids)).unsqueeze(0).unsqueeze(0).to(kwargs["audio"].device)
+
             x = torch.cat([bn_asr_h, f0_h_q], dim=1)
 
-            #  spkr = self.spkr(id_spk).transpose(1, 2)
-            #  spkr = F.interpolate(spkr, x.shape[-1])
-            #  x = torch.cat([x, spkr], dim=1)
+            spkr = F.interpolate(one_hot.to(torch.float32).permute(0, 2, 1), x.shape[-1])
+            x = torch.cat([x, spkr], dim=1)
 
             out = self.core_hifigan(x)
             return out
@@ -325,10 +338,16 @@ if __name__ == "__main__":
     )
     wav_list.sort()
     random.shuffle(wav_list)
-    split = int(0.92 * len(wav_list))
+    split = int(0.98 * len(wav_list))
     train_list = ",".join(wav_list) # All training data
     dev_list = ",".join(wav_list[split:])
 
+    def _norm(f0, f0_stats, filename):
+        # LibriTTS file format to extact spk id
+        spk_id = os.path.basename(filename).split("_")[0]
+        return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
+
+    pkwrap.hifigan.f0.set_norm_func(_norm)
 
     pkwrap.hifigan.f0.set_yaapt_opts({
             "frame_length": 35.0,
@@ -337,20 +356,25 @@ if __name__ == "__main__":
             "tda_frame_length": 25.0,
         })
 
+    f0_stats = open("./data/LibriTTS/stats.json",'r').readline()
+    spkids = list(json.loads(f0_stats).keys())
+    spkids.sort()
+
     HifiGanModel(
-        build(args),
+        build(args, spkids),
         **{
             "mode": "train",
             "lr": args.lr,
             "training_epochs": args.training_epochs,
             "cold_restart": args.cold_restart,
-            "num_workers": 4,
+            "num_workers": 2,
             "rank": args.local_rank,
             "checkpoint_path": args.checkpoint_path,
             "init_weight_model": args.init_weight_model,
-            "segment_size": 8960,
+            "segment_size": 16640,
             "minibatch_size": args.batch_size,
             "train_utterances": train_list,
             "test_utterances": dev_list,
+            "f0_stats": f0_stats,
         },
     )

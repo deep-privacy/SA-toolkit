@@ -108,7 +108,12 @@ def sample_interval(seqs, seq_len, max_len=None):
     interval_end = N // lcm - seq_len // lcm
     if max_len != None:
         interval_end = (max_len // lcm) - seq_len // lcm
-    start_step = random.randint(interval_start, interval_end)
+    if max_len < seq_len:
+        start_step = 0
+        for i, v in enumerate(seqs):
+            seqs[i] = torch.nn.functional.pad(v, (0, seq_len-v.shape[-1]), mode='constant', value=0)
+    else:
+        start_step = random.randint(interval_start, interval_end)
 
     new_seqs = []
     new_iterval = []
