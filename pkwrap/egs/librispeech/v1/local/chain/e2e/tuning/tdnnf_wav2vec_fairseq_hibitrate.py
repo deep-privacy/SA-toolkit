@@ -50,10 +50,11 @@ def build(args):
 
             #  https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt
             #  https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_base_en_v2.pt
-            model_cache_file = os.path.join(torch.hub.get_dir(), "wav2vec2_base_en_v2.pt")
+            model = "wav2vec2_base_en_v2.pt"
+            model_cache_file = os.path.join(torch.hub.get_dir(), model)
             if not os.path.exists(model_cache_file):
                 os.makedirs(torch.hub.get_dir(), exist_ok=True)
-                torch.hub.download_url_to_file("https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_base_en_v2.pt", model_cache_file, hash_prefix="")
+                torch.hub.download_url_to_file(f"https://dl.fbaipublicfiles.com/voxpopuli/models/{model}", model_cache_file, hash_prefix="")
             (
                 feat_model,
                 cfg,
