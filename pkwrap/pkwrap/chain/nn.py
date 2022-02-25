@@ -38,7 +38,6 @@ def get_preconditioner_from_ngstate(ngstate):
             )
             log_kaldi_warning = False
         return None
-        pass
     preconditioner = kaldi.nnet3.OnlineNaturalGradient()
     preconditioner.SetAlpha(ngstate.alpha)
     preconditioner.SetNumSamplesHistory(ngstate.num_samples_history)
@@ -106,6 +105,17 @@ class NaturalAffineTransform(nn.Module):
         else:
             self.register_parameter("bias", None)
         self.init_parameters()
+
+    def __repr__(self):
+        s = (
+            "{}(feat_dim={}, out_dim={}, scale={})"
+        ).format(
+            self.__class__.__name__,
+            self.feat_dim,
+            self.out_dim,
+            self.scale,
+        )
+        return s
 
     def init_parameters(self):
         """Initialize the parameters (weight and bias) of the layer"""
@@ -198,105 +208,6 @@ class OrthonormalLinear(NaturalAffineTransform):
         return x
 
 
-class TDNNF(nn.Module):
-    def __init__(
-        self,
-        feat_dim,
-        output_dim,
-        bottleneck_dim,
-        context_len=1,
-        subsampling_factor=1,
-        orthonormal_constraint=0.0,
-        floating_scale=True,
-        bypass_scale=0.66,
-    ):
-        super(TDNNF, self).__init__()
-        # lets keep it context_len for now
-        self.linearB = OrthonormalLinear(
-            feat_dim * context_len, bottleneck_dim, scale=orthonormal_constraint
-        )
-        self.linearA = nn.Linear(bottleneck_dim, output_dim)
-        self.output_dim = torch.tensor(output_dim, requires_grad=False)
-        self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
-        self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
-        self.subsampling_factor = torch.tensor(subsampling_factor, requires_grad=False)
-        self.context_len = torch.tensor(context_len, requires_grad=False)
-        self.orthonormal_constraint = torch.tensor(
-            orthonormal_constraint, requires_grad=False
-        )
-        self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
-        if bypass_scale > 0.0 and feat_dim == output_dim:
-            self.use_bypass = True
-            if self.context_len > 1:
-                if self.context_len % 2 == 1:
-                    #  self.identity_lidx = self.context_len // 2
-                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
-                    self.identity_ridx = -self.identity_lidx
-                else:
-                    #  self.identity_lidx = self.context_len // 2
-                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
-                    self.identity_ridx = -self.identity_lidx + 1
-            else:
-                self.use_bypass = False
-        else:
-            self.use_bypass = False
-
-    def forward(self, input):
-        mb, T, D = input.shape
-        padded_input = (
-            input.reshape(mb, -1)
-            .unfold(1, D * self.context_len, D * self.subsampling_factor)
-            .contiguous()
-        )
-        x = self.linearB(padded_input)
-        x = self.linearA(x)
-        if self.use_bypass:
-            x = (
-                x
-                + input[
-                    :,
-                    self.identity_lidx : self.identity_ridx : self.subsampling_factor,
-                    :,
-                ]
-                * self.bypass_scale
-            )
-        return x
-
-
-class TDNNFBatchNorm(nn.Module):
-    def __init__(
-        self,
-        feat_dim,
-        output_dim,
-        bottleneck_dim,
-        context_len=1,
-        subsampling_factor=1,
-        orthonormal_constraint=0.0,
-        bypass_scale=0.66,
-    ):
-        super(TDNNFBatchNorm, self).__init__()
-        self.tdnn = TDNNF(
-            feat_dim,
-            output_dim,
-            bottleneck_dim,
-            context_len=context_len,
-            subsampling_factor=subsampling_factor,
-            orthonormal_constraint=orthonormal_constraint,
-            bypass_scale=bypass_scale,
-        )
-        self.bn = nn.BatchNorm1d(output_dim, affine=False)
-        self.output_dim = torch.tensor(output_dim, requires_grad=False)
-
-    def forward(self, input):
-        mb, T, D = input.shape
-        x = self.tdnn(input)
-        x = x.permute(0, 2, 1)
-        x = self.bn(x)
-        x = x.permute(0, 2, 1)
-        x = F.relu(x)
-        return x
-
-
 class TDNNF_LD(nn.Module):
     def __init__(
         self,
@@ -306,16 +217,18 @@ class TDNNF_LD(nn.Module):
         context_len=1,
         subsampling_factor=1,
         orthonormal_constraint=0.0,
-        floating_scale=True,
         bypass_scale=0.66,
-        bottleneck_ld=lambda x: x,
+        bottleneck_ld=None,
         bottleneck_ld_outdim=None,
     ):
         super(TDNNF_LD, self).__init__()
         if bottleneck_ld_outdim == None:
             bottleneck_ld_outdim = bottleneck_dim
-        # lets keep it context_len for now
-        self.bottleneck_ld = bottleneck_ld
+
+        if bottleneck_ld == None:
+            self.bottleneck_ld = lambda x: x
+        else:
+            self.bottleneck_ld = bottleneck_ld
         self.linearB = OrthonormalLinear(
             feat_dim * context_len, bottleneck_dim, scale=orthonormal_constraint
         )
@@ -330,16 +243,24 @@ class TDNNF_LD(nn.Module):
         )
         self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
         if bypass_scale > 0.0 and feat_dim == output_dim:
+            if bottleneck_ld != None:
+                logging.critical(
+                    "pkwrap: -- Warning using bypass on the TDNNF_LD layer!"
+                )
             self.use_bypass = True
             if self.context_len > 1:
                 if self.context_len % 2 == 1:
-                    self.identity_lidx = self.context_len // 2
+                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
                     self.identity_ridx = -self.identity_lidx
                 else:
-                    self.identity_lidx = self.context_len // 2
+                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
                     self.identity_ridx = -self.identity_lidx + 1
+                if self.context_len == 2:
+                    self.identity_lidx = 1 # Start
+                    self.identity_ridx = None # End
             else:
-                self.use_bypass = False
+                self.identity_lidx = 0 # Start
+                self.identity_ridx = None # End
         else:
             self.use_bypass = False
 
@@ -376,7 +297,7 @@ class TDNNFBatchNorm_LD(nn.Module):
         subsampling_factor=1,
         orthonormal_constraint=0.0,
         bypass_scale=0.66,
-        bottleneck_ld=lambda x: x,
+        bottleneck_ld=None,
         bottleneck_ld_outdim=None,
     ):
         super(TDNNFBatchNorm_LD, self).__init__()
@@ -406,6 +327,50 @@ class TDNNFBatchNorm_LD(nn.Module):
         x = x.permute(0, 2, 1)
         x = F.relu(x)
         return x
+
+
+class TDNNF(TDNNF_LD):
+    def __init__(
+        self,
+        feat_dim,
+        output_dim,
+        bottleneck_dim,
+        context_len=1,
+        subsampling_factor=1,
+        orthonormal_constraint=0.0,
+        bypass_scale=0.66,
+    ):
+        super().__init__(
+            feat_dim,
+            output_dim,
+            bottleneck_dim,
+            context_len=context_len,
+            subsampling_factor=subsampling_factor,
+            orthonormal_constraint=orthonormal_constraint,
+            bypass_scale=bypass_scale,
+        )
+
+
+class TDNNFBatchNorm(TDNNFBatchNorm_LD):
+    def __init__(
+        self,
+        feat_dim,
+        output_dim,
+        bottleneck_dim,
+        context_len=1,
+        subsampling_factor=1,
+        orthonormal_constraint=0.0,
+        bypass_scale=0.66,
+    ):
+        super().__init__(
+            feat_dim,
+            output_dim,
+            bottleneck_dim,
+            context_len=context_len,
+            subsampling_factor=subsampling_factor,
+            orthonormal_constraint=orthonormal_constraint,
+            bypass_scale=bypass_scale,
+        )
 
 
 #  https://github.com/swasun/VQ-VAE-Speech/blob/3c537c17465bf59855f0b81d9265354f65016563/src/models/vector_quantizer_ema.py
