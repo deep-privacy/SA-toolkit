@@ -6,8 +6,6 @@ To run the recipe first setup the data folders:
 
 ```
 . ./path.sh
-# run this only if links are not already there
-./make_links.sh
 ```
 
 ## E2E Chain recipe

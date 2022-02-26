@@ -151,6 +151,7 @@ def run_job(
     num_archives,
     num_archives_processed,
     minibatch_size,
+    num_iters,
     job_cmd,
     xent_regularize=0.025,
     grad_acc_steps="1",
@@ -190,6 +191,8 @@ def run_job(
             ),
             "--data",
             train_set,
+            "--num-iter",
+            str(num_iters),
             "--l2-regularize-factor",
             l2_reg,
             "--minibatch-size",
@@ -364,6 +367,8 @@ def train():
     if stage <= 6:
         train_stage = trainer_opts.train_stage
         logging.info(f"Starting training from stage={train_stage}")
+        logging.info(f"  Watch logs with 'tail -f {dirname}/log/* | ./local/grcat conf.log'")
+        logging.info(f"  Open tensorbord with 'tensorboard --logdir {dirname}/runs'")
         assert train_stage >= 0
         num_archives_processed = 0
         for iter_no in range(0, num_iters):
@@ -442,6 +447,7 @@ def train():
                         num_archives,
                         num_archives_processed,
                         exp_cfg["minibatch_size"],
+                        num_iters,
                         cuda_cmd,
                         **add_praram,
                         xent_regularize=xent_regularize,

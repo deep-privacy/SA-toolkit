@@ -33,7 +33,7 @@ class TrainerOpts:
     mode: str = ""
     dir: str = ""
     lr: float = 0.001
-    minibatch_size: int = 16
+    num_iter: int = -1
     grad_acc_steps: int = 1
     base_model: str = ""
     init_weight_model: str = ""
@@ -58,7 +58,6 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     leaky_hmm_coefficient: float = 0.1
     xent_regularize: float = 0.025
     minibatch_size: int = 16
-    grad_acc_steps: int = 1
     frame_shift: int = 0
     output_dim: int = 1
     frame_subsampling_factor: int = 3
@@ -357,6 +356,7 @@ class ChainModel(nn.Module):
         parser.add_argument("--xent-regularize", default=0.025, type=float)
         parser.add_argument("--leaky-hmm-coefficient", default=0.1, type=float)
         parser.add_argument("--minibatch-size", default=32, type=int)
+        parser.add_argument("--num-iter", default=-1, type=int)
         parser.add_argument("--grad-acc-steps", default=1, type=int)
         parser.add_argument("--decode-feats", default="data/test/feats.scp", type=str)
         parser.add_argument("--decode-output", default="-", type=str)
@@ -501,6 +501,7 @@ class ChainE2EModel(ChainModel):
                 lr=chain_opts.lr,
                 weight_decay=chain_opts.l2_regularize_factor,
                 iter=id_iter,
+                total_iter=chain_opts.num_iter
             )
         else:
             optimizer = self.get_optimizer(

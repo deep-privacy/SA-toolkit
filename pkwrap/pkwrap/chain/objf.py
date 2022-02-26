@@ -98,10 +98,13 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
             xent_objf = (xent_out_tensor * xent_deriv).sum() / (mb * T)
             objf[0] = objf[0] / weight[0]
-            if torch.isnan(xent_objf).any():
-                xent_objf = torch.tensor(0.0)
+            # Don't penalize the network like kaldi does (-10.0 loss value)
+            # when there is a loss calcluation error.
+            if torch.isnan(xent_objf).any() or objf[0] == -10.0:
+                ctx.save_for_backward(torch.zeros_like(nnet_deriv).contiguous())
+                return objf
             logging.info(
-                "objf={}, l2={}, xent_objf={}".format(
+                "objf={:.4g}, l2={:.4g}, xent_objf={:.4g}".format(
                     objf[0],
                     l2_term[0] / weight[0],
                     xent_objf,
@@ -127,7 +130,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             xent_deriv = None
             objf[0] = objf[0] / weight[0]
             logging.info(
-                "objf={}, l2={}".format(
+                "objf={:.4g}, l2={:.4g}".format(
                     objf[0],
                     l2_term[0] / weight[0],
                 )
@@ -225,9 +228,14 @@ class OnlineNaturalGradient(torch.autograd.Function):
         if isinstance(in_state, nsg.OnlineNaturalGradient):
             in_scale = in_state.precondition_directions(input_temp)
         else:
-            in_scale = kaldi.nnet3.precondition_directions(
-                in_state, input_temp.clone().detach()
-            )
+            try:
+                in_scale = kaldi.nnet3.precondition_directions(
+                    in_state, input_temp.clone().detach()
+                )
+            except BaseException as e:
+                logging.error("Error occurred while getting kaldi precondition_directions during backward of 'OnlineNaturalGradient'")
+                logging.error(e)
+                in_scale = 1.1
 
         #  in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.clone().detach())
         out_dim = grad_output.shape[-1]
@@ -312,14 +320,14 @@ def train_lfmmi_one_iter(
     batch_sampler = Wav2vec2BatchSampler(
         dataset.egs_holder,
         batch_size=minibatch_size,
-        drop_last=False,
+        drop_last=True,
     )
     # TODO: make the num_workers configurable (this can significantly speedup the training)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=batch_sampler,
         collate_fn=Wav2vec2EgsCollectFn,
-        num_workers=20,
+        num_workers=12,
     )
 
     #  for mb_id, data in enumerate(dataloader):
@@ -345,12 +353,7 @@ def train_lfmmi_one_iter(
         if grad_acc_steps > 1:
             deriv = deriv / grad_acc_steps
 
-        try:
-            deriv.backward()
-        except Exception as e:
-            logging.error(e)
-            logging.error("Failed to compute loss for: {}s".format(data[0][0].shape[0] * data[0].shape[0]))
-            continue
+        deriv.backward()
 
         acc_sum.add_(deriv[0] * grad_acc_steps)
         if mb_id > 0 and mb_id % print_interval == 0:
