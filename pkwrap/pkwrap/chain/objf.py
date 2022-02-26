@@ -228,16 +228,10 @@ class OnlineNaturalGradient(torch.autograd.Function):
         if isinstance(in_state, nsg.OnlineNaturalGradient):
             in_scale = in_state.precondition_directions(input_temp)
         else:
-            try:
-                in_scale = kaldi.nnet3.precondition_directions(
-                    in_state, input_temp.clone().detach()
-                )
-            except BaseException as e:
-                logging.error("Error occurred while getting kaldi precondition_directions during backward of 'OnlineNaturalGradient'")
-                logging.error(e)
-                in_scale = 1.1
+            in_scale = kaldi.nnet3.precondition_directions(
+                in_state, input_temp.clone().detach()
+            )
 
-        #  in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp.clone().detach())
         out_dim = grad_output.shape[-1]
         grad_output_temp = grad_output.view(-1, out_dim)
 
@@ -320,7 +314,7 @@ def train_lfmmi_one_iter(
     batch_sampler = Wav2vec2BatchSampler(
         dataset.egs_holder,
         batch_size=minibatch_size,
-        drop_last=True,
+        drop_last=False,
     )
     # TODO: make the num_workers configurable (this can significantly speedup the training)
     dataloader = torch.utils.data.DataLoader(

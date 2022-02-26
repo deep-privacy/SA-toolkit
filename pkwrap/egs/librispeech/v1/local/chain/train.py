@@ -367,7 +367,7 @@ def train():
     if stage <= 6:
         train_stage = trainer_opts.train_stage
         logging.info(f"Starting training from stage={train_stage}")
-        logging.info(f"  Watch logs with 'tail -f {dirname}/log/* | ./local/grcat conf.log'")
+        logging.info(f"  Watch logs with 'while inotifywait -r {dirname}/log/ -e create;do tail -f {dirname}/log/* | ./local/grcat conf.log; done'")
         logging.info(f"  Open tensorbord with 'tensorboard --logdir {dirname}/runs'")
         assert train_stage >= 0
         num_archives_processed = 0
