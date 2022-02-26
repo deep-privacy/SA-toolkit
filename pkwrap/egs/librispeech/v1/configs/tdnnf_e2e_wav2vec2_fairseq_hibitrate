@@ -37,8 +37,8 @@ model_file = local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py
 dirname = e2e_tdnnf_wav2vec_fairseq_hibitrate
 
 [test]
-test_set = data/test_clean_fbank_hires
-# test_set = data/test_other_fbank_hires
+# test_set = data/test_clean_fbank_hires
+test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
 # test_set = data/dev_clean_fbank_hires
 # test_set = data/dev_clean_fbank_hires
