@@ -1,0 +1,62 @@
+regexp=-?(\d\.)\d{2,}(\.\d+)?
+colours=red
+count=more
+======
+# everything in parentheses
+regexp=\(.*?\)
+colours=blue
+count=more
+===
+# everything in `'
+regexp=\`.+?\'
+colours=bold yellow
+count=more
+======
+# everything in "
+regexp=\".*?\"
+colours=blue
+======
+# this is probably a pathname
+regexp=\s/[a-zA-Z_/\.\-\?\d\=\&]+
+colours=magenta
+count=more
+======
+# this is probably a pathname to python
+regexp=\s[a-zA-Z_/\.\-\?\d\=\&]+.py
+colours=magenta
+count=more
+======
+# this is probably a pathname to log
+regexp=\s[a-zA-Z_/\.\-\?\d\=\&]+.log
+colours=magenta
+count=more
+======
+# everything in <>
+regexp=\<.*?\>
+colours=blue
+count=more
+======
+regexp=^WARNING
+colours=bold red
+count=more
+==============
+regexp=Overall
+colours=bold green
+count=more
+==============
+regexp=l2
+colours=default
+count=more
+==============
+regexp=objf
+colours=default
+count=more
+==============
+regexp=xent_objf
+colours=default
+count=more
+==============
+# hour
+regexp=(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d
+colours=blue
+count=more
