@@ -118,7 +118,7 @@ def build(args, spkids):
             )
             self.bn_asr.load_state_dict(self.bn_model_state)
 
-        def __init__(self, load_f0_asr_weight=True, asr_bn_model=None):
+        def __init__(self, load_asr_weight=True, asr_bn_model=None):
             super().__init__()
 
             self.validating = False
@@ -159,7 +159,7 @@ def build(args, spkids):
                 )
                 self.bn_asr.eval()
 
-            if load_f0_asr_weight:
+            if load_asr_weight:
                 self.after_load_hook()
 
         # keep some Torch submodule in eval mode
@@ -293,8 +293,14 @@ def build(args, spkids):
             if spkids != None and "filenames" in kwargs:
                 spk_ids = []
                 for f in kwargs["filenames"]:
-                    spk_id = os.path.basename(f).split("_")[0]
+                    spk_id = os.path.basename(f).split("_")[0] # LibriTTS Training only
                     sid = [i for i,x in enumerate(spkids) if x == spk_id][0]
+                    spk_ids.append(sid)
+                one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
+            elif spkids != None and "targets" in kwargs
+                spk_ids = []
+                for s in kwargs["target"]:
+                    sid = [i for i,x in enumerate(spkids) if x == s][0]
                     spk_ids.append(sid)
                 one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
             else:
@@ -350,6 +356,7 @@ if __name__ == "__main__":
 
     pkwrap.hifigan.f0.set_norm_func(_norm)
 
+    pkwrap.hifigan.f0.set_cache_file(".f0_sr-320.cache")
     pkwrap.hifigan.f0.set_yaapt_opts({
             "frame_length": 35.0,
             "frame_space": 20.0,

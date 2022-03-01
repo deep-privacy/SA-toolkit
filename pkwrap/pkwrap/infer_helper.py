@@ -2,6 +2,7 @@ import torch, torchaudio
 import numpy as np
 import tempfile, os, subprocess
 import pkwrap
+import json
 import importlib
 from types import SimpleNamespace
 import kaldiio
@@ -51,6 +52,81 @@ def init_asr_model(model, exp_path, pkwrap_vq_dim=-1, get_model_module=False):
     )
 
     return forward, net
+
+
+def init_synt_hifigan_w2v2(
+    model, exp_path, asr_bn_model, model_weight, json_stats_file=None
+):
+    pkwrap_path_asr = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
+    pkwrap_path = pkwrap.__path__[0] + "/../egs/LJSpeech/"
+    model_weight = "/" + model_weight
+
+    config_path = pkwrap_path + model
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError("No file found at location {}".format(config_path))
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    model_file = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(model_file)
+
+    args = SimpleNamespace()
+
+    pkwrap.hifigan.f0.set_cache_file(".f0_sr-320.cache")
+    pkwrap.hifigan.f0.set_yaapt_opts(
+        {
+            "frame_length": 35.0,
+            "frame_space": 20.0,
+            "nccf_thresh1": 0.25,
+            "tda_frame_length": 25.0,
+        }
+    )
+
+    if json_stats_file == None:
+        f0_stats = open(f"{pkwrap_path}/data/LibriTTS/stats.json", "r").readline()
+    else:
+        f0_stats = open(json_stats_file).readline()
+    spkids = list(json.loads(f0_stats).keys())
+    spkids.sort()
+
+    synt_net = model_file.build(args, spkids)(
+        load_asr_weight=False, asr_bn_model=asr_bn_model
+    )
+
+    print("Loading '{}'".format(exp_path + model_weight))
+    model_state = torch.load(pkwrap_path + exp_path + model_weight, map_location="cpu")
+    synt_net.load_state_dict(model_state["generator"])
+
+    generator = synt_net.to(device)
+
+    generator.eval()
+    generator.core_hifigan.remove_weight_norm()
+    generator.share_memory()
+
+    @torch.no_grad()
+    def _forward(**kwargs):
+        print(kwargs)
+
+        def _norm(f0, f0_stats, filename):
+            spk_id = kwargs["target"]
+            return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
+
+        pkwrap.hifigan.f0.set_norm_func(_norm)
+
+        y_g_hat = generator(**kwargs)
+        if type(y_g_hat) is tuple:
+            y_g_hat = y_g_hat[0]
+        audios = []
+        for i in range(kwargs["f0"].shape[0]):
+            audio = y_g_hat[i].squeeze()
+            if "real_shape" in kwargs:
+                audio = audio[: kwargs["real_shape"][i]]
+            audio = audio * pkwrap.hifigan.f0.MAX_WAV_VALUE
+            audio = audio.cpu().numpy().astype("int16")
+            audio = librosa.util.normalize(audio.astype(np.float32))
+            audios.append(audio)
+        return audios
+
+    return _forward, generator
 
 
 def init_synt_model(

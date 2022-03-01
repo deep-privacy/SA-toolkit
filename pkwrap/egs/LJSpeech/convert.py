@@ -31,14 +31,22 @@ def progbar(i, n, size=16):
     return bar
 
 
-def convert(sample):
+def convert(sample, target=None):
     waveform, lengths, filename, f0, ys = sample
 
-    audio = forward_synt(
-        audio=waveform.to(demo.device).clone(),
-        f0=f0.to(demo.device),
-        real_shape=lengths,
-    )
+    if target == None:
+        audio = forward_synt(
+            audio=waveform.to(demo.device).clone(),
+            f0=f0.to(demo.device),
+            real_shape=lengths,
+        )
+    else:
+        audio = forward_synt(
+            audio=waveform.to(demo.device).clone(),
+            f0=f0.to(demo.device),
+            real_shape=lengths,
+            target=target,
+        )
 
     def parallel_write():
         for i, f in enumerate(filename):
@@ -183,7 +191,12 @@ if __name__ == "__main__":
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
             )
-            raise NotImplementedError("vocoder model not avaialble")
+            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+                model=f"local/tuning/hifi_gan_wav2vec2.py",
+                exp_path=f"exp/hifigan_w2w2",
+                asr_bn_model=pk_model,
+                model_weight="g_best",
+            )
         else:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
@@ -193,7 +206,7 @@ if __name__ == "__main__":
             raise NotImplementedError("vocoder model not avaialble")
 
     for i, sample in enumerate(dataloader):
-        p = convert(sample)
+        p = convert(sample, [39])
         bar = progbar(i * batch_size, len(wavs_path))
         message = f"{bar} {i*batch_size}/{len(wavs_path)} "
         stream(message)

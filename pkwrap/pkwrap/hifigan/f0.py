@@ -18,16 +18,25 @@ f0_cache = None
 f0_cache_lock = None
 log_one = True
 
-yaapt_opts=None
-norm_function=None
+yaapt_opts = None
+norm_function = None
+cache_file = ".f0_cache"
+
 
 def set_yaapt_opts(opts):
     global yaapt_opts
     yaapt_opts = opts
 
+
+def set_cache_file(opts):
+    global cache_file
+    cache_file = opts
+
+
 def set_norm_func(func):
     global norm_function
     norm_function = func
+
 
 def m_std_norm(f0, f0_stats, filename):
     if f0_stats == None:
@@ -54,28 +63,29 @@ def get_f0(
     cache_with_filename=None,
 ):
 
-    norm=m_std_norm
+    norm = m_std_norm
     global norm_function
     if norm_function != None:
-        norm=norm_function
+        norm = norm_function
 
     global f0_cache
     global f0_cache_lock
+    global cache_file
     if cache_with_filename != None:
         if cache_with_filename.endswith("|"):
             cache_with_filename = cache_with_filename.split("/")[-1].split()[0]
         if f0_cache == None:
-            if os.path.exists(".f0_cache"):
-                logging.debug("Loading .f0_cache")
-                f0_cache = dict(kaldiio.load_ark(".f0_cache"))
+            if os.path.exists(cache_file):
+                logging.debug(f"Loading {cache_file}")
+                f0_cache = dict(kaldiio.load_ark(cache_file))
             else:
                 f0_cache = {}
         if f0_cache_lock == None:
-            f0_cache_lock = FileLock(".f0_cache.lock")
+            f0_cache_lock = FileLock(f"{cache_file}.lock")
 
         key = os.path.basename(cache_with_filename)
         if f0_cache != None and key in f0_cache:
-            f0 =  torch.tensor(f0_cache[key]).unsqueeze(0).unsqueeze(0)
+            f0 = torch.tensor(f0_cache[key]).unsqueeze(0).unsqueeze(0)
             return norm(f0, f0_stats, cache_with_filename)
 
     audio = audio.squeeze().numpy()
@@ -132,7 +142,7 @@ def get_f0(
     if cache_with_filename != None:
         with f0_cache_lock:
             kaldiio.save_ark(
-                ".f0_cache",
+                f"{cache_file}",
                 {os.path.basename(cache_with_filename): f0.squeeze().numpy()},
                 append=True,
             )
