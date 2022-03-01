@@ -70,6 +70,7 @@ if [ ! -f $mark ]; then
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge sox
   yes | conda install -c conda-forge libflac
+  yes | conda install -c conda-forge inotify-tools
   touch $mark
 fi
 source $venv_dir/bin/activate

@@ -1,5 +1,5 @@
 model="configs/tdnnf_e2e_wav2vec2_fairseq_hibitrate_vq"
-for dim in 256 512 # 48
+for dim in 256 512 48 128 1024 64
 do
 
   dset="data\/test_clean_fbank_hires"

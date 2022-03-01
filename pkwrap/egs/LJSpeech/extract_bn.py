@@ -140,13 +140,13 @@ if __name__ == "__main__":
     if args.model_type == "wav2vec2":
         if dim == -1 or dim == 0:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_hibitrate/",
+                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate_vq.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_hibitrate_vq_{dim}/",
+                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
                 pkwrap_vq_dim=dim,
             )
 

@@ -2,9 +2,12 @@
 
 This folder contains librispeech recipes to train with pkwrap.
 
-To run the recipe first setup the data folders:
+To run the recipe first activate your miniconda env and kaldi env:
 
 ```
+cd ../../../../../
+. ./env.sh
+cd -
 . ./path.sh
 ```
 
