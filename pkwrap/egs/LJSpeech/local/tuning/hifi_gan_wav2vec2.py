@@ -297,7 +297,7 @@ def build(args, spkids):
                     sid = [i for i,x in enumerate(spkids) if x == spk_id][0]
                     spk_ids.append(sid)
                 one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
-            elif spkids != None and "targets" in kwargs
+            elif spkids != None and "targets" in kwargs:
                 spk_ids = []
                 for s in kwargs["target"]:
                     sid = [i for i,x in enumerate(spkids) if x == s][0]
