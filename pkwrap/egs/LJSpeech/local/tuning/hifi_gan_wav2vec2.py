@@ -265,6 +265,7 @@ def build(args, spkids):
             return bn_asr_h
 
         @torch.no_grad()
+        @torch.cuda.amp.autocast(enabled=False)
         def extract_features(self, f0, audio):
             """
             Takes F0 features and the raw audio features
