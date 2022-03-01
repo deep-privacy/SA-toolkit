@@ -113,4 +113,9 @@ python3 ./local/preprocess.py \
 python3 local/get_f0_stats_hifi_gan_w2w2_libriTTS.py \
   --srcdir ./data/LibriTTS/wavs_16khz/ 
   --outstats ./data/LibriTTS/stats.json
+
+python3 -m torch.distributed.launch --nproc_per_node 2 \
+  ./local/tuning/hifi_gan_wav2vec2.py \
+  --batch_size 40 \
+  --no-caching
 ```
