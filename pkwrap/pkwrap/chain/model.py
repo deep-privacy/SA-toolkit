@@ -250,7 +250,11 @@ class ChainModel(nn.Module):
 
     @torch.no_grad()
     def get_forward(
-        self, device=torch.device("cpu"), share_memory=False, get_model_module=False
+        self,
+        device=torch.device("cpu"),
+        share_memory=False,
+        get_model_module=False,
+        load_model=True,
     ):
         chain_opts = self.chain_opts
 
@@ -258,7 +262,8 @@ class ChainModel(nn.Module):
         base_model = chain_opts.base_model
         model = model.to(device)
         try:
-            model.load_state_dict(torch.load(base_model))
+            if load_model:
+                model.load_state_dict(torch.load(base_model))
         except Exception as e:
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
@@ -501,7 +506,7 @@ class ChainE2EModel(ChainModel):
                 lr=chain_opts.lr,
                 weight_decay=chain_opts.l2_regularize_factor,
                 iter=id_iter,
-                total_iter=chain_opts.num_iter
+                total_iter=chain_opts.num_iter,
             )
         else:
             optimizer = self.get_optimizer(

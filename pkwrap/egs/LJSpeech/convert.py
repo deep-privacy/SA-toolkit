@@ -33,6 +33,7 @@ def progbar(i, n, size=16):
 
 def convert(sample, target=None):
     waveform, lengths, filename, f0, ys = sample
+    print(filename)
 
     if target == None:
         audio = forward_synt(
@@ -166,6 +167,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf.py",
                 exp_path=f"exp/chain/e2e_tdnnf/",
+                load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_model(
                 model=f"local/tuning/hifi_gan.py",
@@ -178,6 +180,7 @@ if __name__ == "__main__":
                 model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
                 exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
                 pkwrap_vq_dim=dim,
+                load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_model(
                 model=f"local/tuning/hifi_gan.py",
@@ -190,6 +193,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
+                load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
                 model=f"local/tuning/hifi_gan_wav2vec2.py",
@@ -202,11 +206,17 @@ if __name__ == "__main__":
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
                 pkwrap_vq_dim=dim,
+                load_model=False,
             )
-            raise NotImplementedError("vocoder model not avaialble")
+            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+                model=f"local/tuning/hifi_gan_wav2vec2.py",
+                exp_path=f"exp/hifigan_w2w2_vq_{dim}",
+                asr_bn_model=pk_model,
+                model_weight="g_best",
+            )
 
     for i, sample in enumerate(dataloader):
-        p = convert(sample, [39])
+        p = convert(sample, target=[163, 163, 163, 163])
         bar = progbar(i * batch_size, len(wavs_path))
         message = f"{bar} {i*batch_size}/{len(wavs_path)} "
         stream(message)
