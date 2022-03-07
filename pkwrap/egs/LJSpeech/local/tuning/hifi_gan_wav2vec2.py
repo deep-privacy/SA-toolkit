@@ -375,7 +375,7 @@ if __name__ == "__main__":
             "lr": args.lr,
             "training_epochs": args.training_epochs,
             "cold_restart": args.cold_restart,
-            "num_workers": 8,
+            "num_workers": 4,
             "rank": args.local_rank,
             "checkpoint_path": args.checkpoint_path,
             "init_weight_model": args.init_weight_model,
