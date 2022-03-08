@@ -17,10 +17,6 @@ venv_dir=$PWD/venv
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   echo "Google colab detected"
 
-  sudo apt update
-  sudo apt upgrade -y
-
-  mkdir install ; cd install
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
   sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
   sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
