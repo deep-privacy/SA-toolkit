@@ -111,7 +111,7 @@ python3 ./local/preprocess.py \
   --outdir data/LibriTTS/wavs_16khz --pad
 
 python3 local/get_f0_stats_hifi_gan_w2w2_libriTTS.py \
-  --srcdir ./data/LibriTTS/wavs_16khz/ 
+  --srcdir ./data/LibriTTS/wavs_16khz/
   --outstats ./data/LibriTTS/stats.json
 
 python3 -m torch.distributed.launch --nproc_per_node 2 \
@@ -153,4 +153,21 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
   --cold_restart  \
   --init_weight_model ./exp/hifigan_w2w2/g_best
+```
+
+
+## Convert
+```
+# Create spk2target mapping
+python3 ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/create_random_target.py \
+  --target-list ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/data/LibriTTS/stats.json \
+  --in-wavscp ./data/train-clean-360/wav.scp \
+  --in-utt2spk ./data/train-clean-360/utt2spk \
+  > ./data/train-clean-360/target-mapping
+
+python3 ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/convert.py \
+  --num-workers 4 --batch-size 4 --vq-dim 256 --model-type wav2vec2 \
+  --out ./test_out_wav \
+  --in-wavscp ./data/train-clean-360/wav.scp \
+  --target_id ./data/train-clean-360/target-mapping
 ```

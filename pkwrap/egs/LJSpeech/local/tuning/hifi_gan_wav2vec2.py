@@ -306,6 +306,7 @@ def build(args, spkids):
             else:
                 one_hot = F.one_hot(torch.tensor(10), num_classes=len(spkids)).unsqueeze(0).unsqueeze(0).to(kwargs["audio"].device)
 
+            f0_h_q = F.interpolate(f0_h_q, bn_asr_h.shape[-1])
             x = torch.cat([bn_asr_h, f0_h_q], dim=1)
 
             spkr = F.interpolate(one_hot.to(torch.float32).permute(0, 2, 1), x.shape[-1])

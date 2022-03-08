@@ -111,7 +111,9 @@ def sample_interval(seqs, seq_len, max_len=None):
     if max_len < seq_len:
         start_step = 0
         for i, v in enumerate(seqs):
-            seqs[i] = torch.nn.functional.pad(v, (0, seq_len-v.shape[-1]), mode='constant', value=0)
+            seqs[i] = torch.nn.functional.pad(
+                v, (0, seq_len - v.shape[-1]), mode="constant", value=0
+            )
     else:
         start_step = random.randint(interval_start, interval_end)
 

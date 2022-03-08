@@ -33,7 +33,6 @@ def progbar(i, n, size=16):
 
 def convert(sample, target=None):
     waveform, lengths, filename, f0, ys = sample
-    print(filename)
 
     if target == None:
         audio = forward_synt(
@@ -42,11 +41,15 @@ def convert(sample, target=None):
             real_shape=lengths,
         )
     else:
+        global wav2utt
+        _target = []
+        for f in filename:
+            _target.append(target[wav2utt[f]])
         audio = forward_synt(
             audio=waveform.to(demo.device).clone(),
             f0=f0.to(demo.device),
             real_shape=lengths,
-            target=target,
+            target=_target,
         )
 
     def parallel_write():
@@ -82,6 +85,7 @@ if __name__ == "__main__":
     parser.add_argument("--extract-f0-only", action="store_true")
     parser.add_argument("--in", type=str, dest="_in")
     parser.add_argument("--in-wavscp", type=str, dest="_in_scp", default=None)
+    parser.add_argument("--target_id", type=str, default=None)
     parser.add_argument("--ext", type=str, dest="ext", default="flac")
     parser.add_argument("--out", type=str, dest="_out")
     parser.add_argument("--vq-dim", type=int, dest="vq_dim")
@@ -96,9 +100,11 @@ if __name__ == "__main__":
 
     global forward_synt
     global synthesis_sr
+    global wav2utt
     synthesis_sr = 16000
     global out_dir
 
+    # ONly used for LJSpeech (LibriTTS onverwrites this in infer_helper)
     f0_stats = json.loads(args.f0_stats.replace("'", '"'))
 
     #  dim = 128
@@ -111,8 +117,13 @@ if __name__ == "__main__":
 
     os.makedirs(out_dir, exist_ok=True)
 
+    if args.target_id != None:
+        spk2target = pkwrap.utils.kaldi.read_wav_scp(args.target_id)
+
     if args._in_scp != None:
-        wavs_path = list(pkwrap.utils.kaldi.read_wav_scp(args._in_scp).values())
+        wavs_scp = pkwrap.utils.kaldi.read_wav_scp(args._in_scp)
+        wav2utt = {"".join(v): k for k, v in wavs_scp.items()}
+        wavs_path = list(wavs_scp.values())
         wavs_path = list(demo.split(wavs_path, args.of))[args.part]
         torch_dataset = pkwrap.hifigan.dataset.WavList(
             wavs_path, load_func=pkwrap.utils.kaldi.load_wav_from_scp
@@ -136,6 +147,7 @@ if __name__ == "__main__":
             #  if len(wavs_path) > 10:
             #  break
 
+        # TODO implement wav2utt required by any to many models
         wavs_path = list(demo.split(wavs_path, args.of))[args.part]
         torch_dataset = pkwrap.hifigan.dataset.WavList(wavs_path)
 
@@ -199,7 +211,7 @@ if __name__ == "__main__":
                 model=f"local/tuning/hifi_gan_wav2vec2.py",
                 exp_path=f"exp/hifigan_w2w2",
                 asr_bn_model=pk_model,
-                model_weight="g_best",
+                model_weight="g_00050000",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
@@ -212,11 +224,14 @@ if __name__ == "__main__":
                 model=f"local/tuning/hifi_gan_wav2vec2.py",
                 exp_path=f"exp/hifigan_w2w2_vq_{dim}",
                 asr_bn_model=pk_model,
-                model_weight="g_best",
+                model_weight="g_00045000",
             )
 
     for i, sample in enumerate(dataloader):
-        p = convert(sample, target=[163, 163, 163, 163])
+        if args.target_id != None:
+            p = convert(sample, target=spk2target)
+        else:
+            p = convert(sample)
         bar = progbar(i * batch_size, len(wavs_path))
         message = f"{bar} {i*batch_size}/{len(wavs_path)} "
         stream(message)
