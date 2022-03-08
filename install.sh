@@ -17,13 +17,28 @@ venv_dir=$PWD/venv
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   echo "Google colab detected"
 
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-  sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-  sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-  sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
-  sudo apt-get update
-  sudo apt-get -y install cuda-10-2
+  mark=.done-colab
+  if [ ! -f $mark ]; then
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+    sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+    sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+    sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
+    sudo apt-get update
+    sudo apt-get -y install cuda-10-2
+    touch $mark
   fi
+  touch .done-kaldi-tools
+  touch .done-kaldi-src
+  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+  echo "Cuda version: $cuda_version_witout_dot"
+
+  torch_version=1.8.2
+  torchvision_version=0.9.2
+  torchaudio_version=0.8.2
+  torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
+
+fi
 
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   module_load="source /etc/profile.d/lmod.sh"
