@@ -26,9 +26,15 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
     sudo apt-get update
     sudo apt-get -y install cuda-10-2
     touch $mark
+    # Skip kaldi install
+    touch .done-kaldi-tools
+    touch .done-kaldi-src
+    # Use pre-compiled version
+    curl -L bit.ly/kaldi-colab | tar xz -C /
+    ln -s /opt/kaldi/ kaldi
   fi
-  touch .done-kaldi-tools
-  touch .done-kaldi-src
+  echo "Using local \$CUDAROOT: $CUDAROOT"
+
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
