@@ -3,3 +3,6 @@ data/*
 exp
 .f0_cache.lock
 generated_*
+*.cache*
+*stderr
+*stdout

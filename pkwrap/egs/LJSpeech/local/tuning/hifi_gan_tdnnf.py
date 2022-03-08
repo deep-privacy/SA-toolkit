@@ -29,8 +29,8 @@ def build(args, spkids):
     class CoreHifiGan(torch.nn.Module):
         def __init__(
             self,
-            upsample_rates=[5,4,4,2,2],
-            upsample_kernel_sizes=[11,8,8,4,4],
+            upsample_rates=[5, 4, 4, 3, 2],
+            upsample_kernel_sizes=[11, 8, 8, 6, 4],
             imput_dim=256+1+len(spkids),  # BN asr = 256 dim + F0 dim + One Hot encoding spk
             upsample_initial_channel=512,
             resblock_kernel_sizes=[3, 7, 11],
@@ -297,10 +297,10 @@ def build(args, spkids):
                     sid = [i for i,x in enumerate(spkids) if x == spk_id][0]
                     spk_ids.append(sid)
                 one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
-            elif spkids != None and "target" in kwargs:
+            elif spkids != None and "targets" in kwargs:
                 spk_ids = []
                 for s in kwargs["target"]:
-                    sid = [i for i,x in enumerate(spkids) if str(x) == str(s)][0]
+                    sid = [i for i,x in enumerate(spkids) if x == s][0]
                     spk_ids.append(sid)
                 one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
             else:
@@ -322,17 +322,18 @@ if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument("--lr", default=0.0002, type=float)
-    parser.add_argument("--checkpoint_path", default="exp/hifigan_w2w2", type=str)
+    parser.add_argument("--checkpoint_path", default="exp/hifigan_tdnnf", type=str)
     parser.add_argument("--init_weight_model", default="last", type=str)
     parser.add_argument("--batch_size", default=16, type=int)
     parser.add_argument("--training_epochs", default=1500, type=int)
     parser.add_argument("--cold_restart", default=False, action="store_true")
     parser.add_argument("--no-caching", default=False, action="store_true")
     parser.add_argument(
-        "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py", type=str
+        #  "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_vq_bd.py", type=str
+        "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf.py", type=str
     )
     parser.add_argument(
-        "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/", type=str
+        "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf/", type=str
     )
     parser.add_argument("--asrbn_tdnnf_vq", default=-1, type=int)
     args, remaining_argv = parser.parse_known_args()
