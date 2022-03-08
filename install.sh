@@ -17,15 +17,17 @@ venv_dir=$PWD/venv
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   echo "Google colab detected"
 
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
-  mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
-  wget https://developer.download.nvidia.com/compute/cuda/11.1.0/local_installers/cuda-repo-ubuntu2004-11-1-local_11.1.0-455.23.05-1_amd64.deb
-  dpkg -i cuda-repo-ubuntu2004-11-1-local_11.1.0-455.23.05-1_amd64.deb
-  apt-key add /var/cuda-repo-ubuntu2004-11-1-local/7fa2af80.pub
-  apt-get update
-  apt-get -y install cuda = 11.1.0
-  apt autoremove
-fi
+  sudo apt update
+  sudo apt upgrade -y
+
+  mkdir install ; cd install
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+  sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+  sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+  sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
+  sudo apt-get update
+  sudo apt-get -y install cuda-10-2
+  fi
 
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   module_load="source /etc/profile.d/lmod.sh"
