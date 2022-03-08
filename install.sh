@@ -5,11 +5,28 @@ set -e
 nj=$(nproc)
 
 home=$PWD
-\rm env.sh
+\rm env.sh || true
 touch env.sh
 
 # CUDA version
 CUDAROOT=/usr/local/cuda
+
+venv_dir=$PWD/venv
+
+# Cluster dependent install
+if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
+  echo "Google colab detected"
+
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+  mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+  wget https://developer.download.nvidia.com/compute/cuda/11.1.0/local_installers/cuda-repo-ubuntu2004-11-1-local_11.1.0-455.23.05-1_amd64.deb
+  dpkg -i cuda-repo-ubuntu2004-11-1-local_11.1.0-455.23.05-1_amd64.deb
+  apt-key add /var/cuda-repo-ubuntu2004-11-1-local/7fa2af80.pub
+  apt-get update
+  apt-get -y install cuda = 11.1.0
+  apt autoremove
+fi
+
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   module_load="source /etc/profile.d/lmod.sh"
   eval "$module_load"
@@ -52,8 +69,6 @@ fi
 # CONDA
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
-
-venv_dir=$PWD/venv
 
 mark=.done-venv
 if [ ! -f $mark ]; then
