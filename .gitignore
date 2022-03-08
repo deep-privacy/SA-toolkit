@@ -14,3 +14,5 @@ pychain
 .ipynb_checkpoints/
 .parallel.exclusivelock
 fairseq
+*stderr
+*stdout

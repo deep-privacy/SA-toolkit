@@ -175,3 +175,9 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
   --init_weight_model exp/hifigan_w2w2_vq_128/g_00042000
 ```
+
+
+### Train HifiGAN model No Wav2vec
+```bash
+python -m torch.distributed.launch --nproc_per_node 2 local/tuning/hifi_gan_tdnnf.py --batch_size 40 --no-caching
+```

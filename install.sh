@@ -84,8 +84,6 @@ export CUDA_PATH=$CUDAROOT
 export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
 export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH
 
-echo "source $venv_dir/bin/activate; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
-
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
@@ -109,23 +107,6 @@ if [ ! -f $mark ]; then
   # pip3 install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
   pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision==$torchvision_version+cu$cuda_version_witout_dot torchaudio==$torchaudio_version -f $torch_wheels
   cd $home
-  touch $mark
-fi
-
-mark=.done-python-requirements-kaldi-feat
-if [ ! -f $mark ]; then
-  yes | conda install -c conda-forge cmake
-  yes | conda install -c conda-forge cudnn
-
-  export CUDNN_ROOT="$venv_dir"
-  export CUDNN_INCLUDE_DIR="$venv_dir/include"
-  export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
-  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
-  export KALDIFEAT_MAKE_ARGS="-j"
-
-  pip3 install kaldifeat==1.12
-  cd $home
-  python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
   touch $mark
 fi
 
@@ -219,6 +200,31 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
+
+mark=.done-python-requirements-kaldi-feat
+if [ ! -f $mark ]; then
+
+  if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
+    yes | conda install -c conda-forge cmake
+    yes | conda install -c conda-forge cudnn
+
+    export CUDNN_ROOT="$venv_dir"
+    export CUDNN_INCLUDE_DIR="$venv_dir/include"
+    export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
+    export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
+    export KALDIFEAT_MAKE_ARGS="-j"
+  fi
+
+
+  if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
+    export LD_LIBRARY_PATH=/grid5000/spack/opt/spack/linux-debian10-x86_64/gcc-8.3.0/gcc-11.1.0-d7x3xputfzupgabmj3hcqis6g4mdpulx/lib64:$LD_LIBRARY_PATH
+  fi
+  pip3 install kaldifeat==1.12
+  cd $home
+  python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
+  touch $mark
+fi
+
 mark=.done-sidekit
 if [ ! -f $mark ]; then
   echo " == Building sidekit =="
@@ -266,5 +272,8 @@ if [ ! -f $mark ]; then
     python3 -m pip install --editable ./fairseq
     touch $mark
 fi
+
+
+echo "source $venv_dir/bin/activate; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
 
 echo " == Everything got installed successfully =="
