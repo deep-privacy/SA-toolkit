@@ -169,7 +169,7 @@ if [ ! -f $mark ]; then
   pip3 install soundfile
   pip3 install amfm_decompy==1.0.11
   # HACK PATCHING pYAAPT.py
-  cp .pYAAPT.py ./venv/lib/python3.8/site-packages/amfm_decompy/pYAAPT.py
+  cp .pYAAPT.py $(python3 -c "import amfm_decompy.pYAAPT; print(amfm_decompy.__path__[0])")/pYAAPT.py
   pip3 install matplotlib
   pip3 install ffmpeg==1.4
   pip3 install tqdm
