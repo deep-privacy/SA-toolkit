@@ -108,7 +108,7 @@ if [ ! -f $mark ]; then
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
   [ -d $venv_dir ] && rm -r $venv_dir
-  sh $name -b -f -p $venv_dir || exit 1
+  sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
   echo "Installing conda dependencies"
