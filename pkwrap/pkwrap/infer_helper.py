@@ -16,7 +16,9 @@ def split(a, n):
     return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
 
 
-def init_asr_model(model, exp_path, pkwrap_vq_dim=-1, get_model_module=False):
+def init_asr_model(
+    model, exp_path, pkwrap_vq_dim=-1, get_model_module=False, load_model=True
+):
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     model_weight = "final.pt"
 
@@ -48,7 +50,10 @@ def init_asr_model(model, exp_path, pkwrap_vq_dim=-1, get_model_module=False):
         },
     )
     forward, net = pkwrap_chain.get_forward(
-        device=device, share_memory=True, get_model_module=True
+        device=device,
+        share_memory=True,
+        get_model_module=True,
+        load_model=load_model,
     )
 
     return forward, net
@@ -104,8 +109,6 @@ def init_synt_hifigan_w2v2(
 
     @torch.no_grad()
     def _forward(**kwargs):
-        print(kwargs)
-
         def _norm(f0, f0_stats, filename):
             spk_id = kwargs["target"]
             return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
