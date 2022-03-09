@@ -11,11 +11,24 @@ touch env.sh
 # CUDA version
 CUDAROOT=/usr/local/cuda
 
+# VENV install dir
 venv_dir=$PWD/venv
+
+# CONDA
+conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
 
 # Cluster dependent install
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
-  echo "Google colab detected"
+  # Overwrite current python site-package with miniconda one
+  venv_dir=/usr/local/
+
+  # use the same python version as collab one (necessary for the overwrite)
+  current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
+  file=$(curl https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
+  conda_url=https://repo.anaconda.com/miniconda/$file
+
+  echo "Google colab detected, running $current_python_version"
 
   mark=.done-colab
   if [ ! -f $mark ]; then
@@ -29,12 +42,11 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
     # Skip kaldi install
     touch .done-kaldi-tools
     touch .done-kaldi-src
-    # Use pre-compiled version
+    # And use pre-compiled version (this is not sutable for model training - kaldi GCC/CUDA missmatch)
     curl -L bit.ly/kaldi-colab | tar xz -C /
     ln -s /opt/kaldi/ kaldi
   fi
   echo "Using local \$CUDAROOT: $CUDAROOT"
-
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
@@ -43,7 +55,6 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   torchvision_version=0.9.2
   torchaudio_version=0.8.2
   torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
-
 fi
 
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
@@ -59,13 +70,10 @@ if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
   yes | sudo-g5k apt install python2.7
   echo "Using local \$CUDAROOT: $CUDAROOT"
-
-
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
 
-  # PYTORCH
   torch_version=1.10.2
   torchvision_version=0.11.3
   torchaudio_version=0.10.2
@@ -74,7 +82,6 @@ fi
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   CUDAROOT=/opt/cuda/10.2
   echo "Using local \$CUDAROOT: $CUDAROOT"
-
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
@@ -85,10 +92,6 @@ if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
 fi
 
-# CONDA
-conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
-
 mark=.done-venv
 if [ ! -f $mark ]; then
   echo " == Making python virtual environment =="
@@ -98,7 +101,7 @@ if [ ! -f $mark ]; then
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
   [ -d $venv_dir ] && rm -r $venv_dir
-  sh $name -b -p $venv_dir || exit 1
+  sh $name -b -f -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
   echo "Installing conda dependencies"

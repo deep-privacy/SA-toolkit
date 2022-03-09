@@ -200,6 +200,32 @@ if __name__ == "__main__":
                 asr_bn_model=pk_model,
                 model_weight="g_00075000",
             )
+    if args.model_type == "libritts_tdnnf":
+        if dim == -1 or dim == 0:
+            forward_asr, pk_model = demo.init_asr_model(
+                model=f"local/chain/e2e/tuning/tdnnf.py",
+                exp_path=f"exp/chain/e2e_tdnnf/",
+                load_model=False,
+            )
+            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+                model=f"local/tuning/hifi_gan_tdnnf.py",
+                exp_path=f"exp/hifigan_tdnnf",
+                asr_bn_model=pk_model,
+                model_weight="g_00045000",
+            )
+        else:
+            forward_asr, pk_model = demo.init_asr_model(
+                model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
+                exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
+                pkwrap_vq_dim=dim,
+                load_model=False,
+            )
+            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+                model=f"local/tuning/hifi_gan_tdnnf.py",
+                exp_path=f"exp/hifigan_vq_{dim}/",
+                asr_bn_model=pk_model,
+                model_weight="g_00045000",
+            )
     if args.model_type == "wav2vec2":
         if dim == -1 or dim == 0:
             forward_asr, pk_model = demo.init_asr_model(
