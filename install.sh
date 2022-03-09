@@ -19,16 +19,21 @@ conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
 
 # Cluster dependent install
+## Colab
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
+  touch .in_colab
+fi
+if test -f .in_colab; then
   # Overwrite current python site-package with miniconda one
   venv_dir=/usr/local/
 
   # use the same python version as collab one (necessary for the overwrite)
   current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
+  current_python_version_with_dot=$(python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]) )')
   file=$(curl https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
-  echo "Google colab detected, running $current_python_version"
+  echo " == Google colab detected, running $current_python_version =="
 
   mark=.done-colab
   if [ ! -f $mark ]; then
@@ -57,6 +62,7 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
 fi
 
+## Grid5000
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   module_load="source /etc/profile.d/lmod.sh"
   eval "$module_load"
@@ -79,6 +85,7 @@ if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   torchaudio_version=0.10.2
   torch_wheels="https://download.pytorch.org/whl/$cuda_version_witout_dot/torch_stable.html"
 fi
+## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   CUDAROOT=/opt/cuda/10.2
   echo "Using local \$CUDAROOT: $CUDAROOT"
