@@ -58,6 +58,12 @@ if test -f .in_colab; then
     # Backup some stuff before the miniconda overwrite install
     echo " - CUDA /usr/local backup before overwrite"
     mkdir -p /tmp/backup
+    # Remove deps version
+    \rm -rf /usr/local/cuda-10.1 || true
+    \rm -rf /usr/local/cuda-10.0 || true
+    \rm -rf /usr/local/cuda-11.0 || true
+    \rm -rf /tensorflow-* || true
+    \rm -rf /opt/nvidia || true
     cp -r /usr/local/cuda* /tmp/backup/
     # Backup google.colab library
     clobab_package=$(python -c 'import google; print(str(list(google.__path__)[0]).replace("/usr/local/", ""))' )
@@ -116,10 +122,12 @@ if [ ! -f $mark ]; then
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
-
   if test -f .in_colab; then
     # add back colab deleted /usr/local dependencies
     cp -r /tmp/backup/* /usr/local
+    \rm -rf /tmp/backup/
+    pip install -q --upgrade ipython
+    pip install -q --upgrade ipykernel
   fi
 
   echo "Installing conda dependencies"
@@ -175,6 +183,7 @@ if [ ! -f $mark ]; then
   pip3 install scikit-learn==0.24.2
   pip3 install tensorboard
   pip3 install carbontracker==1.1.6
+  pip3 install python-dateutil
 
   # pkwrap additional req
   pip3 install pytorch-memlab==0.2.3
@@ -191,7 +200,6 @@ if [ ! -f $mark ]; then
   pip3 install matplotlib
   pip3 install ffmpeg==1.4
   pip3 install tqdm
-
 
   # sidekit additional req
   pip3 install matplotlib==3.4.3
