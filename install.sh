@@ -65,9 +65,10 @@ if test -f .in_colab; then
     \rm -rf /tensorflow-* || true
     \rm -rf /opt/nvidia || true
     cp -r /usr/local/cuda* /tmp/backup/
+    echo " - python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
-    cp -r /usr/local/lib/python$current_python_version_with_dot/dist-packages* \
+    cp -r /usr/local/lib/python$current_python_version_with_dot/dist-packages/* \
       /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     touch $mark
   fi
