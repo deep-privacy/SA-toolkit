@@ -56,7 +56,7 @@ if test -f .in_colab; then
     ln -s /opt/kaldi/ kaldi
 
     # Cleanup before install
-    echo " - Removing up dist-packages before backup"
+    echo " - Removing some dist-packages/deps before backup"
     \rm -rf /usr/local/cuda-10.1 || true
     \rm -rf /usr/local/cuda-10.0 || true
     \rm -rf /usr/local/cuda-11.0 || true
