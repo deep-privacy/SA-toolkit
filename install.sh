@@ -55,17 +55,21 @@ if test -f .in_colab; then
     curl -L bit.ly/kaldi-colab | tar xz -C /
     ln -s /opt/kaldi/ kaldi
 
-    # Backup some stuff before the miniconda overwrite install
-    echo " - CUDA /usr/local backup before overwrite"
-    mkdir -p /tmp/backup
-    # Remove deps version
+    # Cleanup before install
+    echo " - Removing up dist-packages before backup"
     \rm -rf /usr/local/cuda-10.1 || true
     \rm -rf /usr/local/cuda-10.0 || true
     \rm -rf /usr/local/cuda-11.0 || true
+    for pkg in torch tensorflow plotly cupy ideep4py jaxlib pystan caffe2 music21 xgboost; do
+      \rm -rf /usr/local/lib/python$current_python_version_with_dot/dist-packages/$pkg || true
+    done
     \rm -rf /tensorflow-* || true
     \rm -rf /opt/nvidia || true
+    # Backup some CUDA before the miniconda overwrite install
+    mkdir -p /tmp/backup
+    echo " - CUDA /usr/local backup before overwrite"
     cp -r /usr/local/cuda* /tmp/backup/
-    echo " - python dist-package /usr/local backup before overwrite"
+    echo " - Python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     cp -r /usr/local/lib/python$current_python_version_with_dot/dist-packages/* \
