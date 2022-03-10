@@ -233,6 +233,45 @@ def kaldi_asr_decode(out, get_align=False):
     return text
 
 
+record_audio_colab = """
+  async function recordAudio() {
+    const div = document.createElement('div');
+    const audio = document.createElement('audio');
+    const strtButton = document.createElement('button');
+    const stopButton = document.createElement('button');
+    strtButton.textContent = 'Start Recording';
+    stopButton.textContent = 'Stop Recording';
+    
+    document.body.appendChild(div);
+    div.appendChild(strtButton);
+    div.appendChild(audio);
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    let recorder = new MediaRecorder(stream);
+    
+    audio.style.display = 'block';
+    audio.srcObject = stream;
+    audio.controls = true;
+    audio.muted = true;
+    await new Promise((resolve) => strtButton.onclick = resolve);
+      strtButton.replaceWith(stopButton);
+      recorder.start();
+    await new Promise((resolve) => stopButton.onclick = resolve);
+      recorder.stop();
+      let recData = await new Promise((resolve) => recorder.ondataavailable = resolve);
+      let arrBuff = await recData.data.arrayBuffer();
+      stream.getAudioTracks()[0].stop();
+      div.remove()
+      let binaryString = '';
+      let bytes = new Uint8Array(arrBuff);
+      bytes.forEach((byte) => { binaryString += String.fromCharCode(byte) });
+    const url = URL.createObjectURL(recData.data);
+    const player = document.createElement('audio');
+    player.controls = true;
+    player.src = url;
+    document.body.appendChild(player);
+  return btoa(binaryString)};
+""")
+
 """
 For IPyhon dislpay of WER:
 """

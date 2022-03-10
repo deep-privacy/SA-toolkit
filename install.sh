@@ -131,14 +131,15 @@ if [ ! -f $mark ]; then
     # add back colab deleted /usr/local dependencies
     cp -r /tmp/backup/* /usr/local
     \rm -rf /tmp/backup/
-    pip install -q --upgrade ipython
-    pip install -q --upgrade ipykernel
   fi
 
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge sox
   yes | conda install -c conda-forge libflac
   yes | conda install -c conda-forge inotify-tools
+  yes | conda install -c conda-forge git-lfs
+  yes | conda install -c conda-forge ffmpeg
+  yes | conda install -c conda-forge wget
   touch $mark
 fi
 source $venv_dir/bin/activate
