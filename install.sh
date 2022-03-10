@@ -5,7 +5,7 @@ set -e
 nj=$(nproc)
 
 home=$PWD
-\rm env.sh || true
+\rm env.sh 2> /dev/null || true
 touch env.sh
 
 # CUDA version
@@ -30,36 +30,41 @@ if test -f .in_colab; then
   # use the same python version as collab one (necessary for the overwrite)
   current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
   current_python_version_with_dot=$(python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]) )')
-  file=$(curl https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
+  file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
   echo " == Google colab detected, running $current_python_version =="
 
-  mark=.done-colab
-  if [ ! -f $mark ]; then
-    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-    sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-    sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-    sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
-    sudo apt-get update
-    sudo apt-get -y install cuda-10-2
-    touch $mark
-    # Skip kaldi install
-    touch .done-kaldi-tools
-    touch .done-kaldi-src
-    # And use pre-compiled version (this is not sutable for model training - kaldi GCC/CUDA missmatch)
-    curl -L bit.ly/kaldi-colab | tar xz -C /
-    ln -s /opt/kaldi/ kaldi
-  fi
   echo "Using local \$CUDAROOT: $CUDAROOT"
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
 
-  torch_version=1.8.2
-  torchvision_version=0.9.2
-  torchaudio_version=0.8.2
-  torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
+  torch_version=1.10.2
+  torchvision_version=0.11.3
+  torchaudio_version=0.10.2
+  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
+
+  mark=.done-colab-specific
+  if [ ! -f $mark ]; then
+    echo " - Downloading a pre-compiled version of kaldi"
+    # Skip kaldi install
+    touch .done-kaldi-tools
+    touch .done-kaldi-src
+    # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
+    curl -L bit.ly/kaldi-colab | tar xz -C /
+    ln -s /opt/kaldi/ kaldi
+
+    # Backup some stuff before the miniconda overwrite install
+    echo " - CUDA /usr/local backup before overwrite"
+    mkdir -p /tmp/backup
+    cp -r /usr/local/cuda* /tmp/backup/
+    # Backup google.colab library
+    clobab_package=$(python -c 'import google; print(str(list(google.__path__)[0]).replace("/usr/local/", ""))' )
+    mkdir -p /tmp/backup/$clobab_package
+    cp -r /usr/local/$clobab_package/* /tmp/backup/$clobab_package
+    touch $mark
+  fi
 fi
 
 ## Grid5000
@@ -83,7 +88,7 @@ if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   torch_version=1.10.2
   torchvision_version=0.11.3
   torchaudio_version=0.10.2
-  torch_wheels="https://download.pytorch.org/whl/$cuda_version_witout_dot/torch_stable.html"
+  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 fi
 ## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
@@ -110,6 +115,12 @@ if [ ! -f $mark ]; then
   [ -d $venv_dir ] && rm -r $venv_dir
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
+
+
+  if test -f .in_colab; then
+    # add back colab deleted /usr/local dependencies
+    cp -r /tmp/backup/* /usr/local
+  fi
 
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge sox
@@ -258,7 +269,6 @@ if [ ! -f $mark ]; then
     export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
     export KALDIFEAT_MAKE_ARGS="-j"
   fi
-
 
   if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
     export LD_LIBRARY_PATH=/grid5000/spack/opt/spack/linux-debian10-x86_64/gcc-8.3.0/gcc-11.1.0-d7x3xputfzupgabmj3hcqis6g4mdpulx/lib64:$LD_LIBRARY_PATH
