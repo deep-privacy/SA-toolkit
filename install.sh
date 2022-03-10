@@ -65,10 +65,10 @@ if test -f .in_colab; then
     \rm -rf /tensorflow-* || true
     \rm -rf /opt/nvidia || true
     cp -r /usr/local/cuda* /tmp/backup/
-    # Backup google.colab library
-    clobab_package=$(python -c 'import google; print(str(list(google.__path__)[0]).replace("/usr/local/", ""))' )
-    mkdir -p /tmp/backup/$clobab_package
-    cp -r /usr/local/$clobab_package/* /tmp/backup/$clobab_package
+    # Backup dist-packages
+    mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
+    cp -r /usr/local/lib/python$current_python_version_with_dot/dist-packages* \
+      /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     touch $mark
   fi
 fi
