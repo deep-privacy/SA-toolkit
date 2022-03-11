@@ -21,14 +21,15 @@ conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64
 # Cluster dependent install
 ## Colab
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
-  touch .in_colab
+  touch .in_colab_kaggle
+  venv_dir=/usr/local/
 fi
 if test -d /kaggle; then
-  touch .in_colab
+  touch .in_colab_kaggle
+  venv_dir=/opt/conda/
 fi
-if test -f .in_colab; then
+if test -f .in_colab_kaggle; then
   # Overwrite current python site-package with miniconda one
-  venv_dir=/usr/local/
 
   # use the same python version as collab one (necessary for the overwrite)
   current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
@@ -36,7 +37,7 @@ if test -f .in_colab; then
   file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
-  echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing /usr/local OVERWRITE! =="
+  echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing $venv_dir OVERWRITE! =="
 
   echo "Using local \$CUDAROOT: $CUDAROOT"
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
@@ -62,20 +63,19 @@ if test -f .in_colab; then
     echo " - Removing some dist-packages/deps before backup"
     \rm -rf /usr/local/cuda-10.1 || true
     \rm -rf /usr/local/cuda-10.0 || true
-    \rm -rf /usr/local/cuda-11.0 || true
     for pkg in torch tensorflow plotly cupy ideep4py jaxlib pystan caffe2 music21 xgboost; do
-      \rm -rf /usr/local/lib/python$current_python_version_with_dot/dist-packages/$pkg || true
+      \rm -rf $venv_dir/lib/python$current_python_version_with_dot/dist-packages/$pkg || true
     done
     \rm -rf /tensorflow-* || true
     \rm -rf /opt/nvidia || true
     # Backup some CUDA before the miniconda overwrite install
     mkdir -p /tmp/backup
     echo " - CUDA /usr/local backup before overwrite"
-    cp -r /usr/local/cuda* /tmp/backup/
+    cp -r $venv_dir/cuda* /tmp/backup/ || true
     echo " - Python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
-    cp -r /usr/local/lib/python$current_python_version_with_dot/dist-packages/* \
+    cp -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
       /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     touch $mark
   fi
@@ -130,9 +130,9 @@ if [ ! -f $mark ]; then
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
-  if test -f .in_colab; then
+  if test -f .in_colab_kaggle; then
     # add back colab deleted /usr/local dependencies
-    cp -r /tmp/backup/* /usr/local
+    cp -r /tmp/backup/* $venv_dir
     \rm -rf /tmp/backup/
   fi
 
