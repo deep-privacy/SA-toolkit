@@ -25,6 +25,7 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   venv_dir=/usr/local
 fi
 if test -d /kaggle; then
+  # Kaggle support is still in WIP
   touch .in_colab_kaggle
   venv_dir=/opt/conda
 fi
