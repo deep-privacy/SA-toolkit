@@ -22,11 +22,11 @@ conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64
 ## Colab
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   touch .in_colab_kaggle
-  venv_dir=/usr/local/
+  venv_dir=/usr/local
 fi
 if test -d /kaggle; then
   touch .in_colab_kaggle
-  venv_dir=/opt/conda/
+  venv_dir=/opt/conda
 fi
 if test -f .in_colab_kaggle; then
   # Overwrite current python site-package with miniconda one
