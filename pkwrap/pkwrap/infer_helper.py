@@ -270,7 +270,7 @@ record_audio_colab = """
     player.src = url;
     document.body.appendChild(player);
   return btoa(binaryString)};
-""")
+"""
 
 """
 For IPyhon dislpay of WER:
