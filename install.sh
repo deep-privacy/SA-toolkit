@@ -23,6 +23,9 @@ conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   touch .in_colab
 fi
+if test -d /kaggle; then
+  touch .in_colab
+fi
 if test -f .in_colab; then
   # Overwrite current python site-package with miniconda one
   venv_dir=/usr/local/
@@ -33,7 +36,7 @@ if test -f .in_colab; then
   file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
-  echo " == Google colab detected, running $current_python_version =="
+  echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing /usr/local OVERWRITE! =="
 
   echo "Using local \$CUDAROOT: $CUDAROOT"
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
