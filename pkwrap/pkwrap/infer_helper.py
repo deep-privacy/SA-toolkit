@@ -109,12 +109,6 @@ def init_synt_hifigan_w2v2(
 
     @torch.no_grad()
     def _forward(**kwargs):
-        def _norm(f0, f0_stats, filename):
-            spk_id = kwargs["target"]
-            return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
-
-        pkwrap.hifigan.f0.set_norm_func(_norm)
-
         y_g_hat = generator(**kwargs)
         if type(y_g_hat) is tuple:
             y_g_hat = y_g_hat[0]

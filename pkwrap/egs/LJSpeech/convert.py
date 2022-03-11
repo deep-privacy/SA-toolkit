@@ -104,7 +104,6 @@ if __name__ == "__main__":
     synthesis_sr = 16000
     global out_dir
 
-    # ONly used for LJSpeech (LibriTTS onverwrites this in infer_helper)
     f0_stats = json.loads(args.f0_stats.replace("'", '"'))
 
     #  dim = 128
@@ -252,6 +251,26 @@ if __name__ == "__main__":
                 asr_bn_model=pk_model,
                 model_weight="g_00045000",
             )
+
+    if (args.model_type == "wav2vec2" or args.model_type == "libritts_tdnnf") and os.getenv("TARGET_single", default="false") != "true" and args.f0_stats != parser.get_default("f0_stats"):
+        # same as in pkwrap/hifigan/f0.py
+        def d(a):
+            if a.endswith("|"):
+                return a.split("/")[-1].split()[0]
+            return a
+
+        keys = dict({oldk: d(v) for oldk, v in wavs_scp.items()})
+        filename2wav = dict({keys.get(v): v for k, v in wav2utt.items()})
+
+        def _norm(f0, f0_stats, filename):
+            spk_id = spk2target[
+                    filename2wav[
+                        filename]]
+            return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
+
+        pkwrap.hifigan.f0.set_norm_func(_norm)
+    else:
+        print("Targetting single speaker F0!", args.f0_stats, "(default LJspeech speaker)")
 
     for i, sample in enumerate(dataloader):
         if args.target_id != None:
