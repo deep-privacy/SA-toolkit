@@ -76,7 +76,7 @@ if test -f .in_colab_kaggle; then
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     cp -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
-      /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
+      /tmp/backup/lib/python$current_python_version_with_dot/dist-packages || true
     touch $mark
   fi
 fi
@@ -143,6 +143,7 @@ if [ ! -f $mark ]; then
   yes | conda install -c conda-forge git-lfs
   yes | conda install -c conda-forge ffmpeg
   yes | conda install -c conda-forge wget
+  yes | conda install -c conda-forge mkl
   touch $mark
 fi
 source $venv_dir/bin/activate
@@ -248,7 +249,9 @@ mark=.done-kaldi-src
 if [ ! -f $mark ]; then
   echo " == Building Kaldi src =="
   cd kaldi/src
-  ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
+  # ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
+  # if this does not work, use ATLAS
+  ./configure --shared --use-cuda=yes --mathlib=MKL --cudatk-dir=$CUDAROOT || exit 1
   make clean || exit 1
   make depend -j $nj || exit 1
   make -j $nj || exit 1

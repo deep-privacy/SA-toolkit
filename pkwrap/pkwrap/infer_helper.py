@@ -320,8 +320,8 @@ def _GenerateAlignedHtml(hyp, ref, err_type):
       err_type: one of 'none', 'sub', 'del', 'ins'.
     Returns:
       a html string where disagreements are highlighted.
-        - hyp highlighted in green, and marked with <del> </del>
-        - ref highlighted in yellow
+        - hyp highlighted in red, and marked with <del> </del>
+        - ref highlighted in green
     """
 
     highlighted_html = ""
@@ -329,21 +329,21 @@ def _GenerateAlignedHtml(hyp, ref, err_type):
         highlighted_html += "%s " % hyp
 
     elif err_type == "sub":
-        highlighted_html += """<span style="background-color: greenyellow">
-        <del>%s</del></span><span style="background-color: yellow">
+        highlighted_html += """<span style="background-color: #a25239">
+        <del>%s</del></span><span style="background-color: #63ae5d">
         %s </span> """ % (
             hyp,
             ref,
         )
 
     elif err_type == "del":
-        highlighted_html += """<span style="background-color: yellow">
+        highlighted_html += """<span style="background-color: #63ae5d">
         %s</span> """ % (
             ref
         )
 
     elif err_type == "ins":
-        highlighted_html += """<span style="background-color: greenyellow">
+        highlighted_html += """<span style="background-color: #a25239">
         <del>%s</del> </span> """ % (
             hyp
         )
