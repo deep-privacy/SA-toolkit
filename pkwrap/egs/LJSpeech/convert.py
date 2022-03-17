@@ -211,7 +211,7 @@ if __name__ == "__main__":
                 model=f"local/tuning/hifi_gan_tdnnf.py",
                 exp_path=f"exp/hifigan_tdnnf",
                 asr_bn_model=pk_model,
-                model_weight="g_00045000",
+                model_weight="g_00070000",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(

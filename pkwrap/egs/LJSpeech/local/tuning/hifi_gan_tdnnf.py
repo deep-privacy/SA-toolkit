@@ -124,7 +124,12 @@ def build(args, spkids):
             self.validating = False
             self.sample_size = None
             # Hifigan Model
-            self.core_hifigan = CoreHifiGan()
+            if args.no_spk_info or spkids == None:
+                logging.info("NOT Using a one-hot embedding for spkid")
+                self.core_hifigan = CoreHifiGan(imput_dim=256+1)
+            else:
+                logging.info("Using a one-hot embedding for spkid")
+                self.core_hifigan = CoreHifiGan(imput_dim=256+1+len(spkids))
 
             # No spk features (any/many to one speaker conversion)
             #  self.spkr = nn.Embedding(num_spkr, embedding_dim)
@@ -290,28 +295,29 @@ def build(args, spkids):
             else:
                 f0_h_q, bn_asr_h = self.extract_features(kwargs["f0"], kwargs["audio"])
 
-            if spkids != None and "filenames" in kwargs:
-                spk_ids = []
-                for f in kwargs["filenames"]:
-                    spk_id = os.path.basename(f).split("_")[0] # LibriTTS Training only
-                    sid = [i for i,x in enumerate(spkids) if x == spk_id][0]
-                    spk_ids.append(sid)
-                one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
-            elif spkids != None and "target" in kwargs:
-                spk_ids = []
-                for s in kwargs["target"]:
-                    sid = [i for i,x in enumerate(spkids) if str(x) == str(s)][0]
-                    spk_ids.append(sid)
-                one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
-            else:
-                one_hot = F.one_hot(torch.tensor(10), num_classes=len(spkids)).unsqueeze(0).unsqueeze(0).to(kwargs["audio"].device)
-                logging.error("No target file provided!!! Not GOOD")
-
             f0_h_q = F.interpolate(f0_h_q, bn_asr_h.shape[-1])
             x = torch.cat([bn_asr_h, f0_h_q], dim=1)
 
-            spkr = F.interpolate(one_hot.to(torch.float32).permute(0, 2, 1), x.shape[-1])
-            x = torch.cat([x, spkr], dim=1)
+            if not args.no_spk_info:
+                if spkids != None and "filenames" in kwargs:
+                    spk_ids = []
+                    for f in kwargs["filenames"]:
+                        spk_id = os.path.basename(f).split("_")[0] # LibriTTS Training only
+                        sid = [i for i,x in enumerate(spkids) if x == spk_id][0]
+                        spk_ids.append(sid)
+                    one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
+                elif spkids != None and "target" in kwargs:
+                    spk_ids = []
+                    for s in kwargs["target"]:
+                        sid = [i for i,x in enumerate(spkids) if str(x) == str(s)][0]
+                        spk_ids.append(sid)
+                    one_hot = F.one_hot(torch.tensor(spk_ids), num_classes=len(spkids)).unsqueeze(1).to(kwargs["audio"].device)
+                else:
+                    one_hot = F.one_hot(torch.tensor(10), num_classes=len(spkids)).unsqueeze(0).unsqueeze(0).to(kwargs["audio"].device)
+                    logging.error("No target file provided!!! Not GOOD")
+
+                spkr = F.interpolate(one_hot.to(torch.float32).permute(0, 2, 1), x.shape[-1])
+                x = torch.cat([x, spkr], dim=1)
 
             out = self.core_hifigan(x)
             return out
@@ -329,6 +335,7 @@ if __name__ == "__main__":
     parser.add_argument("--training_epochs", default=1500, type=int)
     parser.add_argument("--cold_restart", default=False, action="store_true")
     parser.add_argument("--no-caching", default=False, action="store_true")
+    parser.add_argument("--no-spk-info", default=False, action="store_true")
     parser.add_argument(
         #  "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_vq_bd.py", type=str
         "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf.py", type=str
@@ -353,6 +360,8 @@ if __name__ == "__main__":
     dev_list = ",".join(wav_list[split:])
 
     def _norm(f0, f0_stats, filename):
+        if args.no_spk_info or f0_stats == None:
+            return f0
         # LibriTTS file format to extact spk id
         spk_id = os.path.basename(filename).split("_")[0]
         return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)

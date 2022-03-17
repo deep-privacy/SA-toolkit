@@ -25,6 +25,7 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
 fi
 if test -f .in_colab; then
   # Overwrite current python site-package with miniconda one
+  # WARNING THIS break everything on anything other than colab!
   venv_dir=/usr/local/
 
   # use the same python version as collab one (necessary for the overwrite)

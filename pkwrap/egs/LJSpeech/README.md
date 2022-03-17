@@ -177,7 +177,7 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
 ```
 
 
-### Train HifiGAN model No Wav2vec
+### Train HifiGAN model TDNNF bn + onehot
 ```bash
 python -m torch.distributed.launch --nproc_per_node 2 local/tuning/hifi_gan_tdnnf.py --batch_size 40 --no-caching
 
@@ -191,7 +191,47 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
   --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --cold_restart  \
-  --init_weight_model exp/hifigan_tdnnf/g_00045000
+  --init_weight_model exp/hifigan_tdnnf/g_00111000
+
+python3 -m torch.distributed.launch --nproc_per_node 2 \
+  local/tuning/hifi_gan_tdnnf.py \
+  --batch_size 40 \
+  --no-caching \
+  --asrbn_tdnnf_vq 256 \
+  --checkpoint_path exp/hifigan_vq_256 \
+  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
+  --cold_restart  \
+  --init_weight_model exp/hifigan_tdnnf/g_00111000
+
+
+python3 -m torch.distributed.launch --nproc_per_node 2 \
+  local/tuning/hifi_gan_tdnnf.py \
+  --batch_size 40 \
+  --no-caching \
+  --asrbn_tdnnf_vq 128 \
+  --checkpoint_path exp/hifigan_vq_128 \
+  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
+  --init_weight_model exp/hifigan_vq_128/g_00042000; sleep 60; python3 -m torch.distributed.launch --nproc_per_node 2 \
+  local/tuning/hifi_gan_tdnnf.py \
+  --batch_size 40 \
+  --no-caching \
+  --asrbn_tdnnf_vq 256 \
+  --checkpoint_path exp/hifigan_vq_256 \
+  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
+  --init_weight_model exp/hifigan_vq_256/g_00042000
+```
+
+
+### Train HifiGAN model TDNNF bn + onehot
+```bash
+python -m torch.distributed.launch --nproc_per_node 2 local/tuning/hifi_gan_tdnnf.py \
+  --batch_size 40 \
+  --no-caching \
+  --checkpoint_path exp/hifigan_tdnnf_pgg \
+  --no-spk-info
 ```
 
 
