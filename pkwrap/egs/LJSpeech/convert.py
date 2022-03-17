@@ -210,7 +210,7 @@ if __name__ == "__main__":
                 model=f"local/tuning/hifi_gan_tdnnf.py",
                 exp_path=f"exp/hifigan_tdnnf",
                 asr_bn_model=pk_model,
-                model_weight="g_00045000",
+                model_weight="g_00111000",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
@@ -252,7 +252,11 @@ if __name__ == "__main__":
                 model_weight="g_00045000",
             )
 
-    if (args.model_type == "wav2vec2" or args.model_type == "libritts_tdnnf") and os.getenv("TARGET_single", default="false") != "true" and args.f0_stats != parser.get_default("f0_stats"):
+    if (
+        (args.model_type == "wav2vec2" or args.model_type == "libritts_tdnnf")
+        and os.getenv("TARGET_single", default="false") != "true"
+        and args.f0_stats != parser.get_default("f0_stats")
+    ):
         # same as in pkwrap/hifigan/f0.py
         def d(a):
             if a.endswith("|"):
@@ -263,14 +267,14 @@ if __name__ == "__main__":
         filename2wav = dict({keys.get(v): v for k, v in wav2utt.items()})
 
         def _norm(f0, f0_stats, filename):
-            spk_id = spk2target[
-                    filename2wav[
-                        filename]]
+            spk_id = spk2target[filename2wav[filename]]
             return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
 
         pkwrap.hifigan.f0.set_norm_func(_norm)
     else:
-        print("Targetting single speaker F0!", args.f0_stats, "(default LJspeech speaker)")
+        print(
+            "Targetting single speaker F0!", args.f0_stats, "(default LJspeech speaker)"
+        )
 
     for i, sample in enumerate(dataloader):
         if args.target_id != None:

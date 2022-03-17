@@ -19,6 +19,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--in-wavscp", type=str, dest="_in_scp", default=None)
     parser.add_argument("--in-utt2spk", type=str, dest="_in_utt2spk", default=None)
+    parser.add_argument("--same-spk", type=str, default=None)
 
     args = parser.parse_args()
 
@@ -45,6 +46,12 @@ if __name__ == "__main__":
             source_spkid_2_target_spkid[utt2spk[k]] = random.choice(target_spkids)
             target_spkids.remove(source_spkid_2_target_spkid[utt2spk[k]])
 
-        print(k, source_spkid_2_target_spkid[utt2spk[k]])
+        if args.same_spk != None:
+            print(k, args.same_spk)
+        else:
+            print(k, source_spkid_2_target_spkid[utt2spk[k]])
 
-    print(source_spkid_2_target_spkid, file=sys.stderr)
+    if args.same_spk == None:
+        print(source_spkid_2_target_spkid, file=sys.stderr)
+    else:
+        print("Targetting:", args.same_spk, file=sys.stderr)
