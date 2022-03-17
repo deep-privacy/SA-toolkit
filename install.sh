@@ -5,7 +5,7 @@ set -e
 nj=$(nproc)
 
 home=$PWD
-\rm env.sh || true
+\rm env.sh 2> /dev/null || true
 touch env.sh
 
 # CUDA version
@@ -21,9 +21,15 @@ conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64
 # Cluster dependent install
 ## Colab
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
-  touch .in_colab
+  touch .in_colab_kaggle
+  venv_dir=/usr/local
 fi
-if test -f .in_colab; then
+if test -d /kaggle; then
+  # Kaggle support is still in WIP
+  touch .in_colab_kaggle
+  venv_dir=/opt/conda
+fi
+if test -f .in_colab_kaggle; then
   # Overwrite current python site-package with miniconda one
   # WARNING THIS break everything on anything other than colab!
   venv_dir=/usr/local/
@@ -31,36 +37,51 @@ if test -f .in_colab; then
   # use the same python version as collab one (necessary for the overwrite)
   current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
   current_python_version_with_dot=$(python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]) )')
-  file=$(curl https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
+  file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
-  echo " == Google colab detected, running $current_python_version =="
+  echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing $venv_dir OVERWRITE! =="
 
-  mark=.done-colab
-  if [ ! -f $mark ]; then
-    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-    sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-    sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-    sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
-    sudo apt-get update
-    sudo apt-get -y install cuda-10-2
-    touch $mark
-    # Skip kaldi install
-    touch .done-kaldi-tools
-    touch .done-kaldi-src
-    # And use pre-compiled version (this is not sutable for model training - kaldi GCC/CUDA missmatch)
-    curl -L bit.ly/kaldi-colab | tar xz -C /
-    ln -s /opt/kaldi/ kaldi
-  fi
   echo "Using local \$CUDAROOT: $CUDAROOT"
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
 
-  torch_version=1.8.2
-  torchvision_version=0.9.2
-  torchaudio_version=0.8.2
-  torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
+  torch_version=1.10.2
+  torchvision_version=0.11.3
+  torchaudio_version=0.10.2
+  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
+
+  mark=.done-colab-specific
+  if [ ! -f $mark ]; then
+    echo " - Downloading a pre-compiled version of kaldi"
+    # Skip kaldi install
+    touch .done-kaldi-tools
+    touch .done-kaldi-src
+    # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
+    curl -L bit.ly/kaldi-colab | tar xz -C /
+    ln -s /opt/kaldi/ kaldi
+
+    # Cleanup before install
+    echo " - Removing some dist-packages/deps before backup"
+    \rm -rf /usr/local/cuda-10.1 || true
+    \rm -rf /usr/local/cuda-10.0 || true
+    for pkg in torch tensorflow plotly cupy ideep4py jaxlib pystan caffe2 music21 xgboost; do
+      \rm -rf $venv_dir/lib/python$current_python_version_with_dot/dist-packages/$pkg || true
+    done
+    \rm -rf /tensorflow-* || true
+    \rm -rf /opt/nvidia || true
+    # Backup some CUDA before the miniconda overwrite install
+    mkdir -p /tmp/backup
+    echo " - CUDA /usr/local backup before overwrite"
+    cp -r $venv_dir/cuda* /tmp/backup/ || true
+    echo " - Python dist-package /usr/local backup before overwrite"
+    # Backup dist-packages
+    mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
+    cp -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
+      /tmp/backup/lib/python$current_python_version_with_dot/dist-packages || true
+    touch $mark
+  fi
 fi
 
 ## Grid5000
@@ -84,7 +105,7 @@ if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
   torch_version=1.10.2
   torchvision_version=0.11.3
   torchaudio_version=0.10.2
-  torch_wheels="https://download.pytorch.org/whl/$cuda_version_witout_dot/torch_stable.html"
+  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 fi
 ## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
@@ -112,10 +133,20 @@ if [ ! -f $mark ]; then
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
+  if test -f .in_colab_kaggle; then
+    # add back colab deleted /usr/local dependencies
+    cp -r /tmp/backup/* $venv_dir
+    \rm -rf /tmp/backup/
+  fi
+
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge sox
   yes | conda install -c conda-forge libflac
   yes | conda install -c conda-forge inotify-tools
+  yes | conda install -c conda-forge git-lfs
+  yes | conda install -c conda-forge ffmpeg
+  yes | conda install -c conda-forge wget
+  yes | conda install -c conda-forge mkl
   touch $mark
 fi
 source $venv_dir/bin/activate
@@ -165,6 +196,7 @@ if [ ! -f $mark ]; then
   pip3 install scikit-learn==0.24.2
   pip3 install tensorboard
   pip3 install carbontracker==1.1.6
+  pip3 install python-dateutil
 
   # pkwrap additional req
   pip3 install pytorch-memlab==0.2.3
@@ -181,7 +213,6 @@ if [ ! -f $mark ]; then
   pip3 install matplotlib
   pip3 install ffmpeg==1.4
   pip3 install tqdm
-
 
   # sidekit additional req
   pip3 install matplotlib==3.4.3
@@ -221,7 +252,9 @@ mark=.done-kaldi-src
 if [ ! -f $mark ]; then
   echo " == Building Kaldi src =="
   cd kaldi/src
-  ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
+  # ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
+  # if this does not work, use ATLAS
+  ./configure --shared --use-cuda=yes --mathlib=MKL --cudatk-dir=$CUDAROOT || exit 1
   make clean || exit 1
   make depend -j $nj || exit 1
   make -j $nj || exit 1
@@ -259,7 +292,6 @@ if [ ! -f $mark ]; then
     export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
     export KALDIFEAT_MAKE_ARGS="-j"
   fi
-
 
   if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
     export LD_LIBRARY_PATH=/grid5000/spack/opt/spack/linux-debian10-x86_64/gcc-8.3.0/gcc-11.1.0-d7x3xputfzupgabmj3hcqis6g4mdpulx/lib64:$LD_LIBRARY_PATH

@@ -109,12 +109,6 @@ def init_synt_hifigan_w2v2(
 
     @torch.no_grad()
     def _forward(**kwargs):
-        def _norm(f0, f0_stats, filename):
-            spk_id = kwargs["target"]
-            return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
-
-        pkwrap.hifigan.f0.set_norm_func(_norm)
-
         y_g_hat = generator(**kwargs)
         if type(y_g_hat) is tuple:
             y_g_hat = y_g_hat[0]
@@ -233,6 +227,45 @@ def kaldi_asr_decode(out, get_align=False):
     return text
 
 
+record_audio_colab = """
+  async function recordAudio() {
+    const div = document.createElement('div');
+    const audio = document.createElement('audio');
+    const strtButton = document.createElement('button');
+    const stopButton = document.createElement('button');
+    strtButton.textContent = 'Start Recording';
+    stopButton.textContent = 'Stop Recording';
+    
+    document.body.appendChild(div);
+    div.appendChild(strtButton);
+    div.appendChild(audio);
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    let recorder = new MediaRecorder(stream);
+    
+    audio.style.display = 'block';
+    audio.srcObject = stream;
+    audio.controls = true;
+    audio.muted = true;
+    await new Promise((resolve) => strtButton.onclick = resolve);
+      strtButton.replaceWith(stopButton);
+      recorder.start();
+    await new Promise((resolve) => stopButton.onclick = resolve);
+      recorder.stop();
+      let recData = await new Promise((resolve) => recorder.ondataavailable = resolve);
+      let arrBuff = await recData.data.arrayBuffer();
+      stream.getAudioTracks()[0].stop();
+      div.remove()
+      let binaryString = '';
+      let bytes = new Uint8Array(arrBuff);
+      bytes.forEach((byte) => { binaryString += String.fromCharCode(byte) });
+    const url = URL.createObjectURL(recData.data);
+    const player = document.createElement('audio');
+    player.controls = true;
+    player.src = url;
+    document.body.appendChild(player);
+  return btoa(binaryString)};
+"""
+
 """
 For IPyhon dislpay of WER:
 """
@@ -281,8 +314,8 @@ def _GenerateAlignedHtml(hyp, ref, err_type):
       err_type: one of 'none', 'sub', 'del', 'ins'.
     Returns:
       a html string where disagreements are highlighted.
-        - hyp highlighted in green, and marked with <del> </del>
-        - ref highlighted in yellow
+        - hyp highlighted in red, and marked with <del> </del>
+        - ref highlighted in green
     """
 
     highlighted_html = ""
@@ -290,21 +323,21 @@ def _GenerateAlignedHtml(hyp, ref, err_type):
         highlighted_html += "%s " % hyp
 
     elif err_type == "sub":
-        highlighted_html += """<span style="background-color: greenyellow">
-        <del>%s</del></span><span style="background-color: yellow">
+        highlighted_html += """<span style="background-color: #a25239">
+        <del>%s</del></span><span style="background-color: #63ae5d">
         %s </span> """ % (
             hyp,
             ref,
         )
 
     elif err_type == "del":
-        highlighted_html += """<span style="background-color: yellow">
+        highlighted_html += """<span style="background-color: #63ae5d">
         %s</span> """ % (
             ref
         )
 
     elif err_type == "ins":
-        highlighted_html += """<span style="background-color: greenyellow">
+        highlighted_html += """<span style="background-color: #a25239">
         <del>%s</del> </span> """ % (
             hyp
         )
