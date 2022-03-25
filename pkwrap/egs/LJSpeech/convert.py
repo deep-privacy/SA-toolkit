@@ -91,6 +91,9 @@ if __name__ == "__main__":
     parser.add_argument("--vq-dim", type=int, dest="vq_dim")
     parser.add_argument("--model-type", type=str, default="tdnnf")
     parser.add_argument(
+        "--rand-pitch", type=str, default="False", help="Randomize the pitch shape"
+    )
+    parser.add_argument(
         "--f0-stats",
         type=str,
         dest="f0_stats",
@@ -164,6 +167,9 @@ if __name__ == "__main__":
         collate_fn=pkwrap.hifigan.dataset.collate_fn_padd(f0_stats),
         persistent_workers=True,
     )
+
+    if args.rand_pitch.lower() == "true":
+        print("Apply random noise on the F0 features")
 
     if args.extract_f0_only:
         print("Only extracting F0 features")
@@ -268,7 +274,24 @@ if __name__ == "__main__":
 
         def _norm(f0, f0_stats, filename):
             spk_id = spk2target[filename2wav[filename]]
-            return pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
+            pitch = pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
+
+            if args.rand_pitch.lower() == "true":
+                # Set a target channel noise power to something very noisy
+                target_noise_db = 15
+                # Convert to linear Watt units
+                target_noise_watts = 10 ** (target_noise_db / 10)
+                # Generate noise samples
+                mean_noise = 0
+                noise_volts = np.random.normal(
+                    mean_noise, np.sqrt(target_noise_watts), len(pitch)
+                )
+
+                ii = pitch == 0
+                pitch = pitch + torch.tensor(noise_volts, dtype=pitch.dtype)
+                pitch[ii] = 0
+
+            return pitch
 
         pkwrap.hifigan.f0.set_norm_func(_norm)
     else:
