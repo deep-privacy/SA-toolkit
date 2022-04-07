@@ -140,6 +140,12 @@ def build(args, spkids):
                         freeze_encoder=True,
                         codebook_size=args.asrbn_tdnnf_vq,  # eg: 16
                     )
+                if args.asrbn_tdnnf_dp != -1:
+                    bnargs = SimpleNamespace(
+                        freeze_encoder=True,
+                        epsilon=str(args.asrbn_tdnnf_dp),  # eg: 180000
+                    )
+
 
                 pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
                 model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
@@ -337,6 +343,7 @@ if __name__ == "__main__":
         "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf/", type=str
     )
     parser.add_argument("--asrbn_tdnnf_vq", default=-1, type=int)
+    parser.add_argument("--asrbn_tdnnf_dp", default=-1, type=int)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
 
