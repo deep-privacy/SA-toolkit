@@ -60,7 +60,7 @@ def init_asr_model(
 
 
 def init_synt_hifigan_w2v2(
-    model, exp_path, asr_bn_model, model_weight, json_stats_file=None
+    model, exp_path, asr_bn_model, model_weight, json_stats_file=None, no_spk_info=False
 ):
     pkwrap_path_asr = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     pkwrap_path = pkwrap.__path__[0] + "/../egs/LJSpeech/"
@@ -74,7 +74,7 @@ def init_synt_hifigan_w2v2(
     model_file = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(model_file)
 
-    args = SimpleNamespace()
+    args = SimpleNamespace(no_spk_info=no_spk_info)
 
     pkwrap.hifigan.f0.set_cache_file(".f0_sr-320.cache")
     pkwrap.hifigan.f0.set_yaapt_opts(
