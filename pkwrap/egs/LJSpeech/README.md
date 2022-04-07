@@ -54,6 +54,8 @@ python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan
 ```
 
 ### DP models
+
+#### Old on LJSpeech!
 ```bash
 tail e2e_tdnnf_dp*/decode_dev_clean*final_fg/scoringDetails/best_wer | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k5,5 -n -t"e"
 # %WER    30.38   exp/e2e_tdnnf_dp_e160000
@@ -175,6 +177,30 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
   --init_weight_model exp/hifigan_w2w2_vq_128/g_00042000
 ```
+
+# DP models
+```bash
+tail e2e_tdnnf_dp*/decode_dev_clean*final_fg/scoringDetails/best_wer | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k5,5 -n -t"e"
+# %WER    30.38   exp/e2e_tdnnf_dp_e160000
+# %WER    19.38   exp/e2e_tdnnf_dp_e180000
+# %WER    8.87    exp/e2e_tdnnf_dp_e200000
+# %WER    8.28    exp/e2e_tdnnf_dp_e220000 <- done
+# %WER    8.06    exp/e2e_tdnnf_dp_e240000
+# %WER    7.14    exp/e2e_tdnnf_dp_e260000
+# %WER    6.97    exp/e2e_tdnnf_dp_e280000
+# %WER    6.73    exp/e2e_tdnnf_dp_e300000
+
+python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_tdnnf.py \
+    --checkpoint_path exp/hifigan_dp_220000 \
+    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e220000/ \
+    --asrbn_tdnnf_dp 220000 \
+    --batch_size 40 \
+    --no-caching \
+    --cold_restart  \
+    --init_weight_model exp/hifigan_tdnnf/g_00111000
+```
+
 
 
 ### Train HifiGAN model TDNNF bn + onehot

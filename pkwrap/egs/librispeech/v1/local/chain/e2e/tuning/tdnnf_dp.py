@@ -112,6 +112,7 @@ def build(args):
                 context_len=1,
                 orthonormal_constraint=-1.0,
                 bottleneck_ld=bottleneck_ld,
+                bypass_scale=0.0, # no skip connection to constrain to the output of LD
             )
             assert self.prefinal_chain_ld.tdnn.use_bypass == False
 
