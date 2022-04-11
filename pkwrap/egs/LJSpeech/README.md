@@ -199,6 +199,26 @@ python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan
     --no-caching \
     --cold_restart  \
     --init_weight_model exp/hifigan_tdnnf/g_00111000
+
+python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_tdnnf.py \
+    --checkpoint_path exp/hifigan_dp_e180000 \
+    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e180000/ \
+    --asrbn_tdnnf_dp 180000 \
+    --batch_size 40 \
+    --no-caching \
+    --cold_restart  \
+    --init_weight_model exp/hifigan_tdnnf/g_00111000
+
+python3 -m torch.distributed.launch --nproc_per_node 2 \
+    local/tuning/hifi_gan_tdnnf.py \
+    --checkpoint_path exp/hifigan_dp_e180000 \
+    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e180000/ \
+    --asrbn_tdnnf_dp 180000 \
+    --batch_size 40 \
+    --no-caching \
+    --init_weight_model exp/hifigan_dp_e180000/g_00075000;
 ```
 
 
