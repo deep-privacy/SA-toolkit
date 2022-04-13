@@ -296,3 +296,35 @@ python3 ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/conver
   --in-wavscp ./data/train-clean-360/wav.scp \
   --target_id ./data/train-clean-360/target-mapping
 ```
+
+## Convert other example
+```
+# Create spk2target mapping
+python3 ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/create_random_target.py \
+  --target-list ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/data/LibriTTS/stats.json \
+  --in-wavscp data/${data_dir}//wav.scp \
+  --in-utt2spk data/${data_dir}//utt2spk --same-spk "6081" \
+  > data/${data_dir}//target-mapping
+
+args_pitch=""
+if [[ $model_type  == *"pitch"* ]]; then args_pitch="--rand-pitch True"; fi
+
+# if [[  $(ls $wav_path | wc -l)  -ne  $(cat data/${data_dir}/wav.scp | wc -l) ]] ; then
+  echo "wav.scp number of wavs does not match $(ls $wav_path | wc -l)  -ne  $(cat data/${data_dir}/wav.scp | wc -l) "
+  CUDA_VISIBLE_DEVICES=0 python3 ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/convert.py \
+    --num-workers 10 --batch-size 16 --vq-dim 64 --model-type libritts_tdnnf  $args_pitch  \
+    --out $wav_path \
+    --part 0 --of 2 \
+    --in-wavscp data/${data_dir}/wav.scp \
+    --target_id data/${data_dir}//target-mapping  \
+    --f0-stats "$(cat ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/data/LibriTTS/stats.json)" &
+
+  CUDA_VISIBLE_DEVICES=1 python3 ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/convert.py \
+    --num-workers 10 --batch-size 16 --vq-dim 64 --model-type libritts_tdnnf  $args_pitch  \
+    --out $wav_path \
+    --part 1 --of 2 \
+    --in-wavscp data/${data_dir}/wav.scp \
+    --target_id data/${data_dir}//target-mapping  \
+    --f0-stats "$(cat ~/lab/asr-based-privacy-preserving-separation/pkwrap/egs/LJSpeech/data/LibriTTS/stats.json)" &
+wait
+```
