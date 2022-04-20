@@ -17,7 +17,12 @@ def split(a, n):
 
 
 def init_asr_model(
-    model, exp_path, pkwrap_vq_dim=-1, get_model_module=False, load_model=True
+    model,
+    exp_path,
+    pkwrap_dp_dim=-1,
+    pkwrap_vq_dim=-1,
+    get_model_module=False,
+    load_model=True,
 ):
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     model_weight = "final.pt"
@@ -31,6 +36,11 @@ def init_asr_model(
     spec.loader.exec_module(asr_model_file)
 
     args = SimpleNamespace()
+    if pkwrap_dp_dim != -1:
+        args = SimpleNamespace(
+            freeze_encoder=True,
+            epsilon=str(pkwrap_dp_dim),
+        )
     if pkwrap_vq_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
