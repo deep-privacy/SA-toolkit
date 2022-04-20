@@ -164,7 +164,7 @@ def run_job(
     cuda_device = job_id - 1
     if cuda_device >= torch.cuda.device_count():
         cuda_device = (
-            torch.cuda.device_count() - 1 - (cuda_device - torch.cuda.device_count())
+            abs(torch.cuda.device_count() - 1 - (cuda_device - torch.cuda.device_count()))
         )
     cuda_device = str(cuda_device)
     l2_reg = str(1.0 / num_jobs)

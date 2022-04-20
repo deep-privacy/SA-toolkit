@@ -219,6 +219,15 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
     --batch_size 40 \
     --no-caching \
     --init_weight_model exp/hifigan_dp_e180000/g_00075000;
+
+
+python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_wav2vec2.py \
+    --checkpoint_path exp/wav2vec_hifigan_dp_e100000 \
+    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py \
+    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_100000/ \
+    --asrbn_tdnnf_dp 100000 \
+    --batch_size 40 \
+    --no-caching
 ```
 
 
