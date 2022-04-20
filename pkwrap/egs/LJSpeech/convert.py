@@ -89,9 +89,16 @@ if __name__ == "__main__":
     parser.add_argument("--ext", type=str, dest="ext", default="flac")
     parser.add_argument("--out", type=str, dest="_out")
     parser.add_argument("--vq-dim", type=int, dest="vq_dim")
+    parser.add_argument("--dp-e", type=int, dest="dp_dim", default=0)
     parser.add_argument("--model-type", type=str, default="tdnnf")
     parser.add_argument(
         "--rand-pitch", type=str, default="False", help="Randomize the pitch shape"
+    )
+    parser.add_argument(
+        "--dp-pitch",
+        type=str,
+        default="0",
+        help="Modify the pitch shape with DP models",
     )
     parser.add_argument(
         "--f0-stats",
@@ -115,6 +122,7 @@ if __name__ == "__main__":
 
     audio_extension = args.ext
     dim = args.vq_dim
+    dp_dim = args.dp_dim
     out_dir = args._out
 
     os.makedirs(out_dir, exist_ok=True)
@@ -168,8 +176,8 @@ if __name__ == "__main__":
         persistent_workers=True,
     )
 
-    if args.rand_pitch.lower() == "true":
-        print("Apply random noise on the F0 features")
+    if args.rand_pitch.lower() == "true" or args.dp_pitch != "0":
+        print("Apply modification on the F0 shape")
 
     if args.extract_f0_only:
         print("Only extracting F0 features")
@@ -206,7 +214,7 @@ if __name__ == "__main__":
                 model_weight="g_00075000",
             )
     if args.model_type == "libritts_tdnnf":
-        if dim == -1 or dim == 0:
+        if dim == -1 or dim == 0 and dp_dim == 0:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf.py",
                 exp_path=f"exp/chain/e2e_tdnnf/",
@@ -217,6 +225,20 @@ if __name__ == "__main__":
                 exp_path=f"exp/hifigan_tdnnf",
                 asr_bn_model=pk_model,
                 model_weight="g_00111000",
+            )
+        elif dp_dim != 0:
+            forward_asr, pk_model = demo.init_asr_model(
+                model=f"local/chain/e2e/tuning/tdnnf_dp.py",
+                exp_path=f"exp/chain/e2e_tdnnf_dp_e{dp_dim}/",
+                pkwrap_dp_dim=dp_dim,
+                load_model=False,
+            )
+            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+                model=f"local/tuning/hifi_gan_tdnnf.py",
+                exp_path=f"exp/hifigan_dp_{dp_dim}/",
+                asr_bn_model=pk_model,
+                #  model_weight="g_00050000",
+                model_weight="g_00112000",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
@@ -272,9 +294,31 @@ if __name__ == "__main__":
         keys = dict({oldk: d(v) for oldk, v in wavs_scp.items()})
         filename2wav = dict({keys.get(v): v for k, v in wav2utt.items()})
 
+        if args.dp_pitch != "0":
+            model_data_dir = pkwrap.__path__[0] + "/../../F0_DP"
+            sys.path.insert(0, model_data_dir)
+
+            #  This code was kindly provided by the autor of:
+            #  @article{differentially_speaker_anon,
+            #    title={Differentially Private Speaker Anonymization},
+            #    author={Ali Shahin Shamsabadi and Brij Mohan Lal Srivastava and Aurélien Bellet and Nathalie Vauquier and Emmanuel Vincent and Mohamed Maouche and Marc Tommasi and Nicolas Papernot},
+            #    year={2022},
+            #  }
+            #
+            # this module was purposly not included in this SA-toolkit
+            from f0DP import load_AE, DP_F0, gauss_interpolate
+
+            DP_eps = float(args.dp_pitch)
+
+            conf_filepath = os.path.join(model_data_dir, "parameters_gae.conf")
+            gae_path = os.path.join(model_data_dir, f"DP{DP_eps}gae_model.pth")
+            dp_device = torch.device("cpu")
+            print(f"Loading DP-Pitch AE model from {gae_path}")
+            gae_model = load_AE(conf_filepath, dp_device, gae_path, DP_eps)
+
         def _norm(f0, f0_stats, filename):
             spk_id = spk2target[filename2wav[filename]]
-            pitch = pkwrap.hifigan.f0.m_std_norm(f0, f0_stats[spk_id], filename)
+            pitch = f0
 
             if args.rand_pitch.lower() == "true":
                 # Set a target channel noise power to something very noisy
@@ -290,6 +334,33 @@ if __name__ == "__main__":
                 ii = pitch == 0
                 pitch = pitch + torch.tensor(noise_volts, dtype=pitch.dtype)
                 pitch[ii] = 0
+
+            if args.dp_pitch != "0":
+                pitch = pitch.squeeze()
+
+                # Have a record of indexes for puting back zeros later
+                idx_zero = np.where(pitch == 0)[0]
+                idx_nonzero = np.where(pitch != 0)[0]
+                idxs = np.concatenate((idx_zero, idx_nonzero))
+                # Getting the log of only nonzero f0
+                src_f0_nonzeros = pitch[pitch > 0]
+                src_f0_zeros = pitch[pitch == 0]
+                src_f0_nonzeros_rec = DP_F0(src_f0_nonzeros, gae_model, dp_device)
+                src_f0_nonzeros_rec = (
+                    src_f0_nonzeros_rec * pitch[pitch > 0].numpy().std()
+                ) + pitch[pitch > 0].numpy().mean()
+
+                # Put zero and nozero back together
+                src_f0_all_rec = np.concatenate((src_f0_zeros, src_f0_nonzeros_rec))
+                pitch = torch.tensor(
+                    [
+                        src_f0_all_rec
+                        for _, src_f0_all_rec in sorted(zip(idxs, src_f0_all_rec))
+                    ]
+                )
+
+                pitch = pkwrap.hifigan.f0.m_std_norm(pitch, f0_stats[spk_id], filename)
+                pitch = pitch.unsqueeze(dim=0).unsqueeze(dim=0)
 
             return pitch
 
