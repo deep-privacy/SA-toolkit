@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
-#             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
 #  ??
@@ -93,14 +90,15 @@ def build(args):
 
             logging.info("Using epsilon: " + args.epsilon)
             self.eps = float(args.epsilon)
+
             def bottleneck_ld(x):
-                x = F.normalize(x, p=1, dim=2) # L1 norm
-                mu=0
-                delta = [(1-(0))*(x.shape[0]*x.shape[1])/self.eps]
+                x = F.normalize(x, p=1, dim=2)  # L1 norm
+                mu = 0
+                delta = [(1 - (0)) * (x.shape[0] * x.shape[1]) / self.eps]
                 dist = laplace(mu, delta)
                 noises = dist.rvs(size=x.shape)
                 x = x + torch.from_numpy(noises).float().to(x.device)
-                x = F.normalize(x, p=1, dim=2) # L1 norm
+                x = F.normalize(x, p=1, dim=2)  # L1 norm
                 self.bottleneck_out = x
 
                 return x

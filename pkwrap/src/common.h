@@ -1,6 +1,3 @@
-// Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-// Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-//
 #ifndef PKWRAP_COMMON_H_
 #define PKWRAP_COMMON_H_
 #include <pybind11/pybind11.h> 

@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-#             Juan Pablo Zuluaga <juan-pablo.zuluaga@idiap.ch>
 
 description = """
   This script trains and tests chain models.
@@ -163,8 +160,8 @@ def run_job(
     log_file = "{}/log/train.{}.{}.log".format(dirname, iter_no, job_id)
     cuda_device = job_id - 1
     if cuda_device >= torch.cuda.device_count():
-        cuda_device = (
-            abs(torch.cuda.device_count() - 1 - (cuda_device - torch.cuda.device_count()))
+        cuda_device = abs(
+            torch.cuda.device_count() - 1 - (cuda_device - torch.cuda.device_count())
         )
     cuda_device = str(cuda_device)
     l2_reg = str(1.0 / num_jobs)
@@ -367,7 +364,9 @@ def train():
     if stage <= 6:
         train_stage = trainer_opts.train_stage
         logging.info(f"Starting training from stage={train_stage}")
-        logging.info(f"  Watch logs with 'while inotifywait -r {dirname}/log/ -e create;do tail -f {dirname}/log/* | ./local/grcat conf.log; done'")
+        logging.info(
+            f"  Watch logs with 'while inotifywait -r {dirname}/log/ -e create;do tail -f {dirname}/log/* | ./local/grcat conf.log; done'"
+        )
         logging.info(f"  Open tensorbord with 'tensorboard --logdir {dirname}/runs'")
         assert train_stage >= 0
         num_archives_processed = 0

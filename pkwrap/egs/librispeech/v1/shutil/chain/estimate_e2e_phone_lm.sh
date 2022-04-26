@@ -1,8 +1,4 @@
 #!/bin/bash
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
-# Written by Apoorv Vyas <apoorv.vyas@idiap.ch>,
-# Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-
 
 set -e
 

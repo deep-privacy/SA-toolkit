@@ -1,7 +1,5 @@
 #!/bin/bash
-# Copyright 2020 	Srikanth Madikeri (Idiap Research Institute)
-# 
-# Script to make data directory for librispeech 
+# Script to make data directory for librispeech
 
 set -e
 
@@ -36,7 +34,7 @@ for data_name in \
     dev_clean_hires \
     dev_other_hires \
     test_clean_hires \
-    test_other_hires; 
+    test_other_hires;
 do
     if [ -e data/$data_name ]; then
         echo "$0: data/$data_name already exists. Delete the folder to re-create it"

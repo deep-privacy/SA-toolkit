@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
-# Written by Apoorv Vyas <apoorv.vyas@idiap.ch>,
-# Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-
 
 set -e
 cmd=run.pl
-num_extra_lm_states=2000 
-echo "$0 $@"  
+num_extra_lm_states=2000
+echo "$0 $@"
 
 . ./utils/parse_options.sh
 

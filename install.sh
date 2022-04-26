@@ -271,8 +271,8 @@ if [ ! -f $mark ]; then
   cd pkwrap
   # git checkout ccf4094
   make clean
-	python3 setup.py install
-	pip3 install -e .
+  python3 setup.py install
+  pip3 install -e .
   # make test
   cd $home
   touch $mark
@@ -330,7 +330,7 @@ if [ ! -f $mark ]; then
   git clone https://github.com/feerci/feerci
   cd feerci
   pip install Cython
-	pip3 install -e .
+  pip3 install -e .
   cd $home
   touch $mark
 fi

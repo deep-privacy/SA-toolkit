@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
-#             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
 #  ??

@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
-#             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
 #  ??
@@ -57,7 +54,9 @@ def build(args):
             model_cache_file = os.path.join(torch.hub.get_dir(), model)
             if not os.path.exists(model_cache_file):
                 os.makedirs(torch.hub.get_dir(), exist_ok=True)
-                torch.hub.download_url_to_file(f"{url}{model}", model_cache_file, hash_prefix="")
+                torch.hub.download_url_to_file(
+                    f"{url}{model}", model_cache_file, hash_prefix=""
+                )
             (
                 feat_model,
                 cfg,
@@ -161,8 +160,9 @@ def build(args):
 
             self.validate_model()
 
-        def set_lr_layers_for_optim(self, get_optimizer, lr, weight_decay, iter=0, total_iter=-1):
-
+        def set_lr_layers_for_optim(
+            self, get_optimizer, lr, weight_decay, iter=0, total_iter=-1
+        ):
             def set_parameter_requires_grad(model, yes=False):
                 for param in model.parameters():
                     param.requires_grad = yes
@@ -196,7 +196,9 @@ def build(args):
         @torch.no_grad()
         def validate_model(self):
             N = 2
-            C = 10 * self.frame_subsampling_factor * 320 # 320 been the wav2vec2 subsampling factor
+            C = (
+                10 * self.frame_subsampling_factor * 320
+            )  # 320 been the wav2vec2 subsampling factor
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
             assert (
@@ -243,12 +245,13 @@ def build(args):
             for i in range(len(self.tdnnfs)):
                 #  print("help:", x.shape)
                 if isinstance(self.tdnnfs[i], TDNNFBatchNorm):
-                    if self.tdnnfs[i-2].tdnn.subsampling_factor == 3: # For that network topoligie (tdnn+drop)
+                    if (
+                        self.tdnnfs[i - 2].tdnn.subsampling_factor == 3
+                    ):  # For that network topoligie (tdnn+drop)
                         # padding after bottleneck 'LD' extraction and network subsampling
                         x = self.pad_input(x, pad_value=self.padding_after_ld)
                 x = self.tdnnfs[i](x)
             #  print("help:", x.shape)
-
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
             xent_prefinal_out = self.prefinal_xent(x)

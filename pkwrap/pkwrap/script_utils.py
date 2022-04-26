@@ -1,12 +1,3 @@
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-
-# NOTE: code for exponential branch of statements in get_learning_rate come from Kaldi.
-# The copyright applies to original authors as below
-# Copyright 2016    Vijayaditya Peddinti.
-#           2016    Vimal Manohar
-# Apache 2.0
-
 """
  in this file we have functions that will simply writing
  recipes for chain modelling

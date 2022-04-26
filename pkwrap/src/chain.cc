@@ -1,6 +1,3 @@
-// Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-// Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-
 // NOTE: ChainExampleMerger comes from Kaldi. While it has been slightly modified here, the original
 // code is copyrighted as follows
 // Copyright      2015    Johns Hopkins University (author: Daniel Povey)

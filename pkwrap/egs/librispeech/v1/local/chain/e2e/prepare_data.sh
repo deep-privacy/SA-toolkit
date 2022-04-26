@@ -1,5 +1,4 @@
 #!/bin/bash
-# Copyright 2020	Idiap Research Institute (Apoorv Vyaas)
 
 set -e
 KALDI_ROOT=`pwd`/../../../../kaldi

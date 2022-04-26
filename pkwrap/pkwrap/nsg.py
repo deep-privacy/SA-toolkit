@@ -8,9 +8,6 @@ vectorization is applied to avoid big for loops.
 A sample recipe for minilibrispeech is in /egs/mini_librispeech/s5.
 """
 
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
-
 from dataclasses import dataclass
 from typing import Sequence
 import torch

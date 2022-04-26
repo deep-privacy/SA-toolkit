@@ -1,6 +1,4 @@
 """ Neural network architectures and relevant utility functions"""
-# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
-#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 import torch
 import torch.nn as nn
@@ -107,9 +105,7 @@ class NaturalAffineTransform(nn.Module):
         self.init_parameters()
 
     def __repr__(self):
-        s = (
-            "{}(feat_dim={}, out_dim={}, scale={})"
-        ).format(
+        s = ("{}(feat_dim={}, out_dim={}, scale={})").format(
             self.__class__.__name__,
             self.feat_dim,
             self.out_dim,
@@ -250,17 +246,21 @@ class TDNNF_LD(nn.Module):
             self.use_bypass = True
             if self.context_len > 1:
                 if self.context_len % 2 == 1:
-                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
+                    self.identity_lidx = torch.div(
+                        self.context_len, 2, rounding_mode="trunc"
+                    )
                     self.identity_ridx = -self.identity_lidx
                 else:
-                    self.identity_lidx  = torch.div(self.context_len, 2, rounding_mode='trunc')
+                    self.identity_lidx = torch.div(
+                        self.context_len, 2, rounding_mode="trunc"
+                    )
                     self.identity_ridx = -self.identity_lidx + 1
                 if self.context_len == 2:
-                    self.identity_lidx = 1 # Start
-                    self.identity_ridx = None # End
+                    self.identity_lidx = 1  # Start
+                    self.identity_ridx = None  # End
             else:
-                self.identity_lidx = 0 # Start
-                self.identity_ridx = None # End
+                self.identity_lidx = 0  # Start
+                self.identity_ridx = None  # End
         else:
             self.use_bypass = False
 

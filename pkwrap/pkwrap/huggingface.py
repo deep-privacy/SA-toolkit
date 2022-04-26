@@ -12,12 +12,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-# We check if transformers is installed.
-try:
-    from transformers import Wav2Vec2Model, Wav2Vec2Processor
-    from transformers import Wav2Vec2FeatureExtractor
-except ImportError:
-    print("Please install transformer from HuggingFace to use wav2vec2!")
+##########################################################################
+#  THOSE MODELS DONT HAVE A FIXED DOWN-SAMPLE RATE! Not sutable for tts  #
+##########################################################################
 
 
 class HuggingFaceWav2Vec2(nn.Module):
@@ -62,6 +59,14 @@ class HuggingFaceWav2Vec2(nn.Module):
         freeze_feature_extractor=False,
     ):
         super().__init__()
+
+        # We check if transformers is installed.
+        try:
+            from transformers import Wav2Vec2Model, Wav2Vec2Processor
+            from transformers import Wav2Vec2FeatureExtractor
+        except ImportError as e:
+            print("Please install transformer from HuggingFace to use wav2vec2!")
+            raise e
 
         save_me = False
         _source = source

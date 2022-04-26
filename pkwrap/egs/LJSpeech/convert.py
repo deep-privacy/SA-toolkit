@@ -237,8 +237,8 @@ if __name__ == "__main__":
                 model=f"local/tuning/hifi_gan_tdnnf.py",
                 exp_path=f"exp/hifigan_dp_{dp_dim}/",
                 asr_bn_model=pk_model,
-                #  model_weight="g_00050000",
-                model_weight="g_00112000",
+                model_weight="g_00050000",
+                #  model_weight="g_00112000",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
@@ -254,7 +254,7 @@ if __name__ == "__main__":
                 model_weight="g_00045000",
             )
     if args.model_type == "wav2vec2":
-        if dim == -1 or dim == 0:
+        if dim == -1 or dim == 0 and dp_dim == 0:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
@@ -265,6 +265,22 @@ if __name__ == "__main__":
                 exp_path=f"exp/hifigan_w2w2",
                 asr_bn_model=pk_model,
                 model_weight="g_00050000",
+            )
+        elif dp_dim != 0:
+            forward_asr, pk_model = demo.init_asr_model(
+                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py",
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_{dp_dim}/",
+                pkwrap_dp_dim=dp_dim,
+                load_model=False,
+            )
+            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+                model=f"local/tuning/hifi_gan_wav2vec2.py",
+                exp_path=f"exp/wav2vec_hifigan_dp_e{dp_dim}/",
+                asr_bn_model=pk_model,
+                #  model_weight="g_00050000",
+                model_weight="g_00070000",
+                #  model_weight="g_00010000",
+                #  model_weight="g_00112000",
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
@@ -319,6 +335,9 @@ if __name__ == "__main__":
         def _norm(f0, f0_stats, filename):
             spk_id = spk2target[filename2wav[filename]]
             pitch = f0
+
+            if args.dp_pitch == "0":
+                pitch = pkwrap.hifigan.f0.m_std_norm(pitch, f0_stats[spk_id], filename)
 
             if args.rand_pitch.lower() == "true":
                 # Set a target channel noise power to something very noisy
