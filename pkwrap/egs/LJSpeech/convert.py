@@ -177,6 +177,11 @@ if __name__ == "__main__":
     )
 
     if args.rand_pitch.lower() == "true" or args.dp_pitch != "0":
+        if args.rand_pitch.lower() == "true":
+            target_noise_db = 5  # HARD CODED
+            #  target_noise_db = 15  # HARD CODED
+            print("---> TARGET_NOISE_DB:", target_noise_db)
+
         print("Apply modification on the F0 shape")
 
     if args.extract_f0_only:
@@ -278,6 +283,7 @@ if __name__ == "__main__":
                 exp_path=f"exp/wav2vec_hifigan_dp_e{dp_dim}/",
                 asr_bn_model=pk_model,
                 #  model_weight="g_00050000",
+                #  model_weight="g_00040000",
                 model_weight="g_00070000",
                 #  model_weight="g_00010000",
                 #  model_weight="g_00112000",
@@ -341,7 +347,6 @@ if __name__ == "__main__":
 
             if args.rand_pitch.lower() == "true":
                 # Set a target channel noise power to something very noisy
-                target_noise_db = 15
                 # Convert to linear Watt units
                 target_noise_watts = 10 ** (target_noise_db / 10)
                 # Generate noise samples

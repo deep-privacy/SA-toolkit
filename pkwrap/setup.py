@@ -71,17 +71,12 @@ if MKL_ROOT:
     EXTRA_COMPILE_ARGS["cxx"] += ["-I{}/include".format(MKL_ROOT)]
     LIBRARIES += ["mkl_intel_lp64", "mkl_core", "mkl_sequential"]
 
-with open("./AUTHORS") as ipf:
-    AUTHORS = [ln.strip() for ln in ipf]
-    AUTHOR_STR = ",".join(AUTHORS)
-
 LICENSE = "Apache 2.0"
 VERSION = "0.2.31.6"
 
 setup(
     name=PACKAGE_NAME,
     version=VERSION,
-    author=AUTHOR_STR,
     license=LICENSE,
     packages=find_packages(),
     ext_modules=[
