@@ -64,6 +64,7 @@ if test -f .in_colab_kaggle; then
 
     # Cleanup before install
     echo " - Removing some dist-packages/deps before backup"
+    \rm -rf /usr/local/cuda-11.0 || true
     \rm -rf /usr/local/cuda-10.1 || true
     \rm -rf /usr/local/cuda-10.0 || true
     for pkg in torch tensorflow plotly cupy ideep4py jaxlib pystan caffe2 music21 xgboost; do
@@ -152,7 +153,11 @@ if [ ! -f $mark ]; then
     mkl mkl-include \
     cmake
 
+    # CHECK the cudnn version -> must be compatible with CUDA_HOME version
+    # In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
+    # --no-deps as we use the system cudatoolkit
     yes | conda install -c conda-forge cudnn=8.2.1.32 --no-deps
+
   touch $mark
 fi
 source $venv_dir/bin/activate
@@ -166,9 +171,6 @@ export CUDA_PATH=$CUDAROOT
 export CUDNN_ROOT="$venv_dir"
 export CUDNN_INCLUDE_DIR="$venv_dir/include"
 export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
-
-# CHECK the cudnn version -> must be compatible with CUDA_HOME version
-# In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
 
 export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
 export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH

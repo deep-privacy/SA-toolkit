@@ -82,7 +82,7 @@ class XVector(nn.Module):
                            'weight_decay': 0.000})
         optimizer = _optimizer(param_list, **_options)
 
-        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer=optimizer,
+        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer=optimizer, # TODO: might not be the best scheduler
                                                       base_lr=1.0e-04,
                                                       max_lr=learning_rate,
                                                       step_size_up=4500,

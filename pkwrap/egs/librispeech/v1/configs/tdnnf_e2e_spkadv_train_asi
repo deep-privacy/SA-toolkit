@@ -26,10 +26,10 @@ checkpoint_interval = 20
 minibatch_size = 64
 final_combination_n_model = 1
 # train_stage = 15
-train_stage = 200
+# train_stage = 200
 # train_stage = last
 
-# spk2id file
+# CREATE the spk2id file with
 # source configs/local.conf; grep "^^[0-9]*\s+\|.*$1" -E  $corpus/SPEAKERS.TXT | grep train-clean-100 | awk -F'|' '{gsub(/[ ]+/, ""); print $1, NR-1}' > ./data/spk2id
 
 model_file = local/chain/e2e/tuning/tdnnf_spkadv.py
