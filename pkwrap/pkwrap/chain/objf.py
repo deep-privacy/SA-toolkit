@@ -1,21 +1,8 @@
-import sys
-import os
-import random
-from collections import OrderedDict, Counter
 import logging
-import argparse
-from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
-from .. import script_utils
-from .. import utils
-from collections import defaultdict, namedtuple
-import subprocess
-import io
-from math import ceil
-from .egs import prepare_minibatch
 from .egs_wav2vec2 import (
     Wav2vec2BatchSampler,
     Wav2vec2EgsCollectFn,
@@ -100,7 +87,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             if torch.isnan(xent_objf).any() or objf[0] == -10.0:
                 ctx.save_for_backward(torch.zeros_like(nnet_deriv).contiguous())
                 return objf
-            logging.info(
+            logging.debug(
                 "objf={:.4g}, l2={:.4g}, xent_objf={:.4g}".format(
                     objf[0],
                     l2_term[0] / weight[0],
@@ -126,7 +113,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
             xent_deriv = None
             objf[0] = objf[0] / weight[0]
-            logging.info(
+            logging.debug(
                 "objf={:.4g}, l2={:.4g}".format(
                     objf[0],
                     l2_term[0] / weight[0],
@@ -258,7 +245,6 @@ def train_lfmmi_one_iter(
     minibatch_size=16,
     lr=0.0001,
     weight_decay=0.25,
-    frame_shift=0,
     print_interval=30,
     grad_acc_steps=1,
     frame_subsampling_factor=3,
@@ -281,7 +267,6 @@ def train_lfmmi_one_iter(
                         Useful to achieve larger effective batch sizes that would not fit in GPU memory.
         minibatch_size:
         lr: learning rate
-        frame_shift: an integer (usually 0, 1, or 2) used to shift the training features
         print_interval: the interval (a positive integer) to print the loss value
 
     Returns:
@@ -323,7 +308,6 @@ def train_lfmmi_one_iter(
 
     #  for mb_id, data in enumerate(dataloader):
     #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
-    #  sys.exit(0)
 
     optimizer.zero_grad()
     for mb_id, data in enumerate(dataloader):
@@ -357,7 +341,7 @@ def train_lfmmi_one_iter(
 
         if hasattr(_model, "additional_obj"):
             _model.additional_obj(
-                deriv,
+                deriv, data,
                 should_log=mb_id > 0 and mb_id % print_interval == 0,
                 print_interval=print_interval,
                 tensorboard=tensorboard,
@@ -399,7 +383,6 @@ def compute_chain_objf(
     den_fst_path,
     training_opts,
     minibatch_size=16,
-    frame_shift=0,
     frame_subsampling_factor=3,
     tensorboard=None,
 ):
@@ -451,19 +434,20 @@ def compute_chain_objf(
         acc_sum.add_(deriv[0] * mb * num_seq)
 
         if hasattr(model, "additional_obj"):
-            model.additional_obj(mb * num_seq, for_valid=True)
+            model.additional_obj(mb * num_seq, data, for_valid=True)
 
     objf = acc_sum / tot_weight
     logging.info("Objective = {}".format(objf))
     if tensorboard:
         tensorboard.add_scalar("ASR_objf/valid", objf, 1)
-    if tensorboard:
-        tensorboard.close()
 
     if hasattr(model, "additional_obj"):
         model.additional_obj(
-            0, for_valid=True, print_interval=tot_weight, tensorboard=tensorboard
+            0, data, for_valid=True, should_log=True, print_interval=tot_weight, tensorboard=tensorboard
         )
+
+    if tensorboard:
+        tensorboard.close()
 
     model = model.cpu()
     return model, objf

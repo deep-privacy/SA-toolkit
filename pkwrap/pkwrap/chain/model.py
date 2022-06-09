@@ -55,7 +55,6 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     leaky_hmm_coefficient: float = 0.1
     xent_regularize: float = 0.025
     minibatch_size: int = 16
-    frame_shift: int = 0
     output_dim: int = 1
     frame_subsampling_factor: int = 3
 
@@ -106,8 +105,6 @@ class ChainModel(nn.Module):
             self.infer()
         elif self.chain_opts.mode == "final_combination":
             self.combine_final_model()
-        elif self.chain_opts.mode == "codebook_analysis":
-            self.codebook_analysis()
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
@@ -198,52 +195,6 @@ class ChainModel(nn.Module):
             if model_acc[name].requires_grad:
                 model_acc[name].data.mul_(weight)
         torch.save(model0.state_dict(), chain_opts.new_model)
-
-    @torch.no_grad()
-    def codebook_analysis(self):
-        chain_opts = self.chain_opts
-        model = self.Net(chain_opts.output_dim)
-        base_model = chain_opts.base_model
-        model = model.to(device)
-        try:
-            model.load_state_dict(torch.load(base_model))
-        except Exception as e:
-            logging.error(e)
-            logging.error("Cannot load model {}".format(base_model))
-            sys.exit(1)
-
-        if not hasattr(model, "vq") or not model.vq():
-            logging.error("Cannot analyise non VQ model: {}".format(base_model))
-            sys.exit(1)
-        if not hasattr(model, "codebook_analysis"):
-            logging.error(
-                "Cannot analyise VQ model no 'codebook_analysis' attribute found in the model definition: {}".format(
-                    base_model
-                )
-            )
-            sys.exit(1)
-        codebook = model.codebook_analysis().embedding.weight.data.cpu()
-
-        mds = MDS(n_components=2, random_state=0, metric="cosine")
-        proj = mds.fit_transform(codebook)
-        plt.scatter(proj[:, 0], proj[:, 1], alpha=0.3)
-        savepath = os.path.join(
-            os.path.dirname(base_model), "codebook_analysis_mds.png"
-        )
-        plt.savefig(savepath)
-        plt.clf()
-
-        tsne = TSNE(
-            n_components=2, random_state=0, metric="cosine", square_distances=True
-        )
-        proj = tsne.fit_transform(codebook)
-        plt.scatter(proj[:, 0], proj[:, 1], alpha=0.3)
-        savepath = os.path.join(
-            os.path.dirname(base_model), "codebook_analysis_tsne.png"
-        )
-        plt.savefig(savepath)
-
-        logging.info("saved scatters to {}".format(os.path.dirname(savepath)))
 
     @torch.no_grad()
     def get_forward(
@@ -363,7 +314,6 @@ class ChainModel(nn.Module):
         parser.add_argument("--decode-feats", default="data/test/feats.scp", type=str)
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
-        parser.add_argument("--frame-shift", default=0, type=int)
         parser.add_argument("--use-gpu", default=False, type=bool)
         parser.add_argument("--gpu-id", default=0, type=int)
         parser.add_argument("--init-weight-model", default="", type=str)
@@ -406,7 +356,6 @@ class ChainModel(nn.Module):
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
-            frame_shift=chain_opts.frame_shift,
         )
 
         _, init_objf = compute_objf(moving_average)
@@ -528,9 +477,11 @@ class ChainE2EModel(ChainModel):
             grad_acc_steps=chain_opts.grad_acc_steps,
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
-            frame_shift=chain_opts.frame_shift,
             tensorboard=tensorboard.PkwrapTwensorBoard(self),
             optimizer=optimizer,
             e2e=True,
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
+
+        if hasattr(model, "after_one_iter_hook"):
+            model.after_one_iter_hook()

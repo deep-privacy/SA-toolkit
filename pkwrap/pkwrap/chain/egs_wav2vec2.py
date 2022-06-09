@@ -23,16 +23,14 @@ class WavInfo(object):
         self.name = name
         self.wav = wav
 
-    def prepare(self):
-        return prepare_e2e(self)
+    def __repr__(self):
+        return f"(name={self.name}, wav={self.wav})"
 
-
-class EgsInfo(object):
+class EgsInfo(WavInfo):
     """EgsInfo objects hole information about each example"""
 
     def __init__(self, name, wav, fstscp, num_output_frames):
-        self.name = name
-        self.wav = wav
+        super().__init__(name, wav)
         self.num_output_frames = int(num_output_frames)
         self.supervision = None
         self.fstscp = fstscp
@@ -190,7 +188,7 @@ class Wav2vec2BatchSampler(
 
 
 class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
-    """A Pytorch Dataset class to prepare wav for Wav2vec2 decoding"""
+    """A Pytorch Dataset class to prepare WavInfo decoding"""
 
     def __init__(self, wav_spc_file):
         utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav_spc_file)
@@ -202,7 +200,7 @@ class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
         return len(self.holder)
 
     def __getitem__(self, idx):
-        feats, info = self.holder[idx].prepare()
+        feats, info = prepare_e2e(self.holder[idx])
         return feats, info.name
 
     def __item__(self, i):
@@ -214,9 +212,8 @@ class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
 
 
 class Wav2vec2EgsDataset(torch.utils.data.Dataset):
-    """A Pytorch Dataset class to prepare Egs for Wav2vec2 models training"""
+    """A Pytorch Dataset class to prepare EgsInfo training"""
 
-    # TODO(srikanth): should reduce the number of parameters or reconfigure pylint
     def __init__(
         self,
         wav,

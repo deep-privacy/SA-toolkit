@@ -142,7 +142,6 @@ def run_job(
     iter_no,
     model_file,
     lr,
-    frame_shift,
     egs_dir,
     train_set,
     num_archives,
@@ -180,8 +179,6 @@ def run_job(
             "training",
             "--lr",
             str(lr),
-            "--frame-shift",
-            str(frame_shift),
             "--egs",
             "{}/fst_train.{}.scp".format(
                 egs_dir, num_archives_processed % num_archives + 1
@@ -365,7 +362,7 @@ def train():
         train_stage = trainer_opts.train_stage
         logging.info(f"Starting training from stage={train_stage}")
         logging.info(
-            f"  Watch logs with 'while inotifywait -r {dirname}/log/ -e create;do tail -f {dirname}/log/* | ./local/grcat conf.log; done'"
+            f"Watch logs with:\n  tail -F {dirname}/log/train.{{0..{num_iters}}}.{{1..{trainer_opts.num_jobs_final}}}.log {dirname}/log/init.log {dirname}/log/compute_prob_valid.{{1..{num_iters}}}.log | ./local/grcat conf.log"
         )
         logging.info(f"  Open tensorbord with 'tensorboard --logdir {dirname}/runs'")
         assert train_stage >= 0
@@ -431,7 +428,6 @@ def train():
                     add_praram["l2_regularize_factor"] = exp_cfg["l2_regularize_factor"]
 
                 for job_id in range(1, num_jobs + 1):
-                    frame_shift = num_archives_processed % frame_subsampling_factor
                     p = executor.submit(
                         run_job,
                         num_jobs,
@@ -440,7 +436,6 @@ def train():
                         iter_no,
                         model_file,
                         lr,
-                        frame_shift,
                         egs_dir,
                         train_set,
                         num_archives,
@@ -648,7 +643,7 @@ def train():
             )
         )
 
-        logging.info(f"Rescore with a 4gram LM...")
+        logging.info(f"Rescore with a N gram LM...")
         pkwrap.script_utils.run(
             [
                 "steps/lmrescore_const_arpa.sh",

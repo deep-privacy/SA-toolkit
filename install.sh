@@ -85,7 +85,8 @@ if test -f .in_colab_kaggle; then
 fi
 
 ## Grid5000
-if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
+if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster (Cuda 11.3 compatible cards (A40))
+  echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 11.3!"
   module_load="source /etc/profile.d/lmod.sh"
   eval "$module_load"
   echo "$module_load" >> env.sh
@@ -109,6 +110,7 @@ if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
 fi
 ## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
+  echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 10.2!"
   CUDAROOT=/opt/cuda/10.2
   echo "Using local \$CUDAROOT: $CUDAROOT"
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
@@ -129,7 +131,7 @@ if [ ! -f $mark ]; then
     wget $conda_url || exit 1
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
-  [ -d $venv_dir ] && rm -r $venv_dir
+  [ -d $venv_dir ] && yes | rm -r $venv_dir
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
@@ -140,13 +142,16 @@ if [ ! -f $mark ]; then
   fi
 
   echo "Installing conda dependencies"
-  yes | conda install -c conda-forge sox
-  yes | conda install -c conda-forge libflac
-  yes | conda install -c conda-forge inotify-tools
-  yes | conda install -c conda-forge git-lfs
-  yes | conda install -c conda-forge ffmpeg
-  yes | conda install -c conda-forge wget
-  yes | conda install -c conda-forge mkl
+  yes | conda install -c conda-forge \
+    sox \
+    libflac \
+    inotify-tools \
+    git-lfs \
+    ffmpeg \
+    wget \
+    mkl mkl-include \
+    cudnn \
+    cmake
   touch $mark
 fi
 source $venv_dir/bin/activate
@@ -157,6 +162,13 @@ export CFLAGS="-I$CUDAROOT/include $CFLAGS"
 export CUDA_HOME=$CUDAROOT
 export CUDA_PATH=$CUDAROOT
 
+export CUDNN_ROOT="$venv_dir"
+export CUDNN_INCLUDE_DIR="$venv_dir/include"
+export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
+
+# CHECK the cudnn version -> must be compatible with CUDA_HOME version
+# In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
+
 export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
 export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH
 
@@ -166,9 +178,6 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 # mark=.done-k2
 # if [ ! -f $mark ]; then
   # echo " == Installing k2 =="
-  # export CUDNN_ROOT="$venv_dir"
-  # export CUDNN_INCLUDE_DIR="$venv_dir/include"
-  # export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
   # git clone https://github.com/k2-fsa/k2.git
   # cd k2
   # python3 setup.py install
@@ -191,41 +200,44 @@ mark=.done-python-requirements
 if [ ! -f $mark ]; then
   echo " == Installing python libraries =="
 
-  pip3 install numpy==1.20 # force numpy version to 1.20 (required by Numba)
+  \rm requirements.txt || true
+  echo numpy==1.20 >> requirements.txt # force numpy version to 1.20 (required by Numba)
 
-  pip3 install scikit-learn==0.24.2
-  pip3 install tensorboard
-  pip3 install carbontracker==1.1.6
-  pip3 install python-dateutil
+  echo scikit-learn==0.24.2 >> requirements.txt
+  echo tensorboard >> requirements.txt
+  echo carbontracker==1.1.6 >> requirements.txt
+  echo python-dateutil >> requirements.txt
 
   # pkwrap additional req
-  pip3 install pytorch-memlab==0.2.3
-  pip3 install kaldiio==2.15.1
-  pip3 install git+https://github.com/huggingface/transformers.git@d5b82bb70c2e8c4b184a6f2a7d1c91d7fd156956
-  pip3 install resampy==0.2.2
-  pip3 install ConfigArgParse==1.5.1
-  pip3 install librosa==0.8.1
-  pip3 install scipy==1.7.1
-  pip3 install soundfile
-  pip3 install amfm_decompy==1.0.11
-  # HACK PATCHING pYAAPT.py
-  cp .pYAAPT.py $(python3 -c "import amfm_decompy.pYAAPT; print(amfm_decompy.__path__[0])")/pYAAPT.py
-  pip3 install matplotlib
-  pip3 install ffmpeg==1.4
-  pip3 install tqdm
+  echo pytorch-memlab==0.2.3 >> requirements.txt
+  echo kaldiio==2.15.1 >> requirements.txt
+  echo git+https://github.com/huggingface/transformers.git@d5b82bb70c2e8c4b184a6f2a7d1c91d7fd156956 >> requirements.txt
+  echo resampy==0.2.2 >> requirements.txt
+  echo ConfigArgParse==1.5.1 >> requirements.txt
+  echo librosa==0.8.1 >> requirements.txt
+  echo scipy==1.7.1 >> requirements.txt
+  echo amfm_decompy==1.0.11 >> requirements.txt
+  echo ffmpeg==1.4 >> requirements.txt
+  echo tqdm >> requirements.txt
 
   # sidekit additional req
-  pip3 install matplotlib==3.4.3
-  pip3 install SoundFile==0.10.3.post1
-  pip3 install PyYAML==5.4.1
-  pip3 install h5py==3.2.1
-  pip3 install ipython==7.27.0
+  echo matplotlib==3.4.3 >> requirements.txt
+  echo SoundFile==0.10.3.post1 >> requirements.txt
+  echo PyYAML==5.4.1 >> requirements.txt
+  echo h5py==3.2.1 >> requirements.txt
+  echo ipython==7.27.0 >> requirements.txt
 
   # demo req
-  pip3 install ipywebrtc==0.6.0
-  pip3 install ipywidgets==7.6.5
-  pip3 install notebook==6.4.5
-  pip3 install filelock
+  echo ipywebrtc==0.6.0 >> requirements.txt
+  echo ipywidgets==7.6.5 >> requirements.txt
+  echo notebook==6.4.5 >> requirements.txt
+  echo filelock >> requirements.txt
+
+
+  pip3 install -r requirements.txt
+
+  # HACK PATCHING pYAAPT.py
+  cp .pYAAPT.py $(python3 -c "import amfm_decompy.pYAAPT; print(amfm_decompy.__path__[0])")/pYAAPT.py
 
   cd $home
   touch $mark
@@ -252,9 +264,8 @@ mark=.done-kaldi-src
 if [ ! -f $mark ]; then
   echo " == Building Kaldi src =="
   cd kaldi/src
-  # ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
-  # if this does not work, use ATLAS
-  ./configure --shared --use-cuda=yes --mathlib=MKL --cudatk-dir=$CUDAROOT || exit 1
+  ./configure --shared --use-cuda=yes --mathlib=ATLAS --cudatk-dir=$CUDAROOT || exit 1
+  # ./configure --shared --use-cuda=yes --mathlib=MKL --mkl-root=$MKL_ROOT --cudatk-dir=$CUDAROOT || exit 1
   make clean || exit 1
   make depend -j $nj || exit 1
   make -j $nj || exit 1
@@ -281,22 +292,10 @@ fi
 
 mark=.done-python-requirements-kaldi-feat
 if [ ! -f $mark ]; then
-
-  if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
-    yes | conda install -c conda-forge cmake
-    yes | conda install -c conda-forge cudnn
-
-    export CUDNN_ROOT="$venv_dir"
-    export CUDNN_INCLUDE_DIR="$venv_dir/include"
-    export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
-    export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
-    export KALDIFEAT_MAKE_ARGS="-j"
-  fi
-
-  if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster
-    export LD_LIBRARY_PATH=/grid5000/spack/opt/spack/linux-debian10-x86_64/gcc-8.3.0/gcc-11.1.0-d7x3xputfzupgabmj3hcqis6g4mdpulx/lib64:$LD_LIBRARY_PATH
-  fi
-  pip3 install kaldifeat==1.12
+  echo " == Building kaldifeat =="
+  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
+  export KALDIFEAT_MAKE_ARGS="-j $nj"
+  LDFLAGS="-L$venv_dir/lib" pip3 install kaldifeat==1.16 || exit 1
   cd $home
   python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
   touch $mark
@@ -305,10 +304,8 @@ fi
 mark=.done-sidekit
 if [ ! -f $mark ]; then
   echo " == Building sidekit =="
-  # rm -rf sidekit
-  # git clone https://git-lium.univ-lemans.fr/Larcher/sidekit.git
+  git clone https://git-lium.univ-lemans.fr/speaker/sidekit
   cd sidekit
-  # git checkout 88f4d2b9
   pip3 install -e .
   cd $home
   touch $mark
@@ -316,6 +313,7 @@ fi
 
 mark=.done-anonymization_metrics
 if [ ! -f $mark ]; then
+  echo " == Building anonymization_metrics =="
   rm -rf anonymization_metrics || true
   git clone https://gitlab.inria.fr/magnet/anonymization_metrics.git
   cd $home
@@ -326,6 +324,7 @@ fi
 
 mark=.done-FEERCI
 if [ ! -f $mark ]; then
+  echo " == Building feerci =="
   rm -rf feerci || true
   git clone https://github.com/feerci/feerci
   cd feerci
@@ -337,11 +336,8 @@ fi
 
 mark=.done-fairseq
 if [ ! -f $mark ]; then
+  echo " == Building fairseq =="
     rm -rf fairseq || true
-
-    # FairSeq Commit id when making this PR: `commit 313ff0581561c7725ea9430321d6af2901573dfb`
-    # git clone --depth 1 https://github.com/pytorch/fairseq.git
-    # TODO(jiatong): to fix after the issue #4035 is fixed in fairseq
     git clone https://github.com/pytorch/fairseq.git
     cd fairseq
     git checkout -b sync_commit 313ff0581561c7725ea9430321d6af2901573dfb
@@ -352,5 +348,6 @@ fi
 
 
 echo "source $venv_dir/bin/activate; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
+echo "export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python;" >> env.sh # WORKING around https://github.com/protocolbuffers/protobuf/issues/10051
 
 echo " == Everything got installed successfully =="

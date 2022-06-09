@@ -183,81 +183,54 @@ def build(args):
 
             self.validate_model()
 
-        def codebook_analysis(self):
-            return self.quant
-
-        def vq(self):
-            return True
-
         def additional_obj(
             self,
             deriv,
+            data_metadata,
             should_log=False,
             print_interval=1,
             tensorboard=None,
             mb_id=1,
             for_valid=False,
         ):
+            speech, metadata = data_metadata[0], data_metadata[1]
+            # fmt: off
             if deriv != None and self.vq_loss != None:
-
+                # Display validation info
                 if for_valid and print_interval > 1:
-                    logging.info(
-                        "Overall VQ objf={}".format(self.acc_sum_vq / print_interval)
-                    )
+                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq / print_interval))
+                    logging.info("VQ perplexity ={}".format(self.acc_sum_perplexity / print_interval))
                     if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_objf/valid", self.acc_sum_vq / print_interval, mb_id
-                        )
-                    logging.info(
-                        "Overall VQ perplexity ={}".format(
-                            self.acc_sum_perplexity / print_interval
-                        )
-                    )
-                    if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_perplexity/valid",
-                            self.acc_sum_perplexity / print_interval,
-                            mb_id,
-                        )
+                        tensorboard.add_scalar("VQ_objf/valid", self.acc_sum_vq / print_interval, mb_id)
+                        tensorboard.add_scalar("VQ_perplexity/valid", self.acc_sum_perplexity / print_interval, mb_id)
                     self.acc_sum_vq.zero_()
                     self.acc_sum_perplexity.zero_()
                     return
 
+                # Collect validation info
                 if for_valid:
-                    self.acc_sum_vq.add_(
-                        self.vq_loss.item() * deriv
-                    )  # deriv here is the mini_batchsize*num_seq
+                    self.acc_sum_vq.add_(self.vq_loss.item() * deriv)  # deriv here is the mini_batchsize*num_seq
                     self.acc_sum_perplexity.add_(self.perplexity.item() * deriv)
                     return
 
+                # Accumulate another loss
+                if not self.quant.freeze:
+                    deriv += self.vq_loss.to(deriv.device)
+                # With it's stats
                 self.acc_sum_vq.add_(self.vq_loss.item())
                 self.acc_sum_perplexity.add_(self.perplexity.item())
 
-                if not self.quant.freeze:
-                    deriv += self.vq_loss.to(deriv.device)
-                if should_log:
-                    logging.info(
-                        "Overall VQ objf={}".format(self.acc_sum_vq / print_interval)
-                    )
-                    if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_objf/train", self.acc_sum_vq / print_interval, mb_id
-                        )
-                    self.acc_sum_vq.zero_()
 
+                # Logs stats during training
                 if should_log:
-                    logging.info(
-                        "VQ perplexity ={}".format(
-                            self.acc_sum_perplexity / print_interval
-                        )
-                    )
+                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq / print_interval))
+                    logging.info("VQ perplexity ={}".format( self.acc_sum_perplexity / print_interval ))
                     if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_perplexity/train",
-                            self.acc_sum_perplexity / print_interval,
-                            mb_id,
-                        )
+                        tensorboard.add_scalar("VQ_objf/train", self.acc_sum_vq / print_interval, mb_id)
+                        tensorboard.add_scalar("VQ_perplexity/train", self.acc_sum_perplexity / print_interval, mb_id)
                     self.acc_sum_perplexity.zero_()
+                    self.acc_sum_vq.zero_()
+            # fmt: on
 
         def set_lr_layers_for_optim(
             self, get_optimizer, lr, weight_decay, iter=0, total_iter=-1

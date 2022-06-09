@@ -18,3 +18,4 @@ pychain
 fairseq
 *stderr
 *stdout
+requirements.txt

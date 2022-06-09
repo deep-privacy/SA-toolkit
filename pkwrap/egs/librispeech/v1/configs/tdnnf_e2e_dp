@@ -3,7 +3,6 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
 e2e = True
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
@@ -23,7 +22,7 @@ lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
 minibatch_size = 16
- # finetune, 5 last epoch checkpoints
+ # merge weight, 5 last epoch checkpoints
 final_combination_n_model = 5
 # train_stage = 15
 # train_stage = last

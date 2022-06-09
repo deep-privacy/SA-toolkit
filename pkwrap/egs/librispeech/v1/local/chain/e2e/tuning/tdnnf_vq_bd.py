@@ -130,12 +130,6 @@ def build(args):
 
                 self.vq_loss = vq_loss
                 self.bottleneck_out = x
-                if quant_id_as_bn == 1:
-                    reshape_like = list(x.shape)
-                    reshape_like[-1] = 1
-                    self.bottleneck_out = torch.reshape(
-                        encoding_indices, tuple(reshape_like)
-                    ).to(torch.float32)
                 self.perplexity = perplexity
                 return x
 
@@ -201,78 +195,54 @@ def build(args):
 
             self.validate_model()
 
-        def codebook_analysis(self):
-            return self.quant
-
         def additional_obj(
             self,
             deriv,
+            data_metadata,
             should_log=False,
             print_interval=1,
             tensorboard=None,
             mb_id=1,
             for_valid=False,
         ):
+            speech, metadata = data_metadata[0], data_metadata[1]
+            # fmt: off
             if deriv != None and self.vq_loss != None:
-
+                # Display validation info
                 if for_valid and print_interval > 1:
-                    logging.info(
-                        "Overall VQ objf={}".format(self.acc_sum_vq / print_interval)
-                    )
+                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq / print_interval))
+                    logging.info("VQ perplexity ={}".format(self.acc_sum_perplexity / print_interval))
                     if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_objf/valid", self.acc_sum_vq / print_interval, mb_id
-                        )
-                    logging.info(
-                        "VQ perplexity ={}".format(
-                            self.acc_sum_perplexity / print_interval
-                        )
-                    )
-                    if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_perplexity/valid",
-                            self.acc_sum_perplexity / print_interval,
-                            mb_id,
-                        )
+                        tensorboard.add_scalar("VQ_objf/valid", self.acc_sum_vq / print_interval, mb_id)
+                        tensorboard.add_scalar("VQ_perplexity/valid", self.acc_sum_perplexity / print_interval, mb_id)
                     self.acc_sum_vq.zero_()
                     self.acc_sum_perplexity.zero_()
                     return
 
+                # Collect validation info
                 if for_valid:
-                    self.acc_sum_vq.add_(
-                        self.vq_loss.item() * deriv
-                    )  # deriv here is the mini_batchsize*num_seq
+                    self.acc_sum_vq.add_(self.vq_loss.item() * deriv)  # deriv here is the mini_batchsize*num_seq
                     self.acc_sum_perplexity.add_(self.perplexity.item() * deriv)
                     return
 
+                # Accumulate another loss
+                if not self.quant.freeze:
+                    deriv += self.vq_loss.to(deriv.device)
+                # With it's stats
                 self.acc_sum_vq.add_(self.vq_loss.item())
                 self.acc_sum_perplexity.add_(self.perplexity.item())
 
-                if not self.quant.freeze:
-                    deriv += self.vq_loss.to(deriv.device)
-                if should_log:
-                    logging.info(
-                        "Overall VQ objf={}".format(self.acc_sum_vq / print_interval)
-                    )
-                    if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_objf/train", self.acc_sum_vq / print_interval, mb_id
-                        )
-                    self.acc_sum_vq.zero_()
 
+                # Logs stats during training
                 if should_log:
-                    logging.info(
-                        "VQ perplexity ={}".format(
-                            self.acc_sum_perplexity / print_interval
-                        )
-                    )
+                    logging.info("Overall VQ objf={}".format(self.acc_sum_vq / print_interval))
+                    logging.info("VQ perplexity ={}".format( self.acc_sum_perplexity / print_interval ))
                     if tensorboard:
-                        tensorboard.add_scalar(
-                            "VQ_perplexity/train",
-                            self.acc_sum_perplexity / print_interval,
-                            mb_id,
-                        )
+                        tensorboard.add_scalar("VQ_objf/train", self.acc_sum_vq / print_interval, mb_id)
+                        tensorboard.add_scalar("VQ_perplexity/train", self.acc_sum_perplexity / print_interval, mb_id)
                     self.acc_sum_perplexity.zero_()
+                    self.acc_sum_vq.zero_()
+            # fmt: on
 
         @torch.no_grad()
         def validate_model(self):
@@ -299,9 +269,6 @@ def build(args):
                 x = torch.cat([left_pad, x, right_pad], axis=1)
             return x
 
-        def vq(self):
-            return True
-
         def forward(self, x, spec_augment=lambda x: x):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
@@ -313,8 +280,6 @@ def build(args):
             # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
             x *= 32768
             waveform = [*x]  # batch processing with python list (required by kaldifeat)
-
-            shape_f = x.shape[1]
 
             x = self.fbank(waveform)
             x = torch.stack(x)  # back to tensor
@@ -332,8 +297,6 @@ def build(args):
                 x = self.tdnnfs[i](x)
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
-
-            #  print(shape_f / chain_prefinal_out.shape[1])
 
             #  xent_prefinal_out = self.prefinal_xent(x)
             x = chain_prefinal_out

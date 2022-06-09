@@ -3,7 +3,6 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
 e2e = True
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
@@ -15,23 +14,28 @@ graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
 # train params
-num_epochs = 5
-num_jobs_initial = 2
-num_jobs_final = 5
+num_epochs = 4
+num_jobs_initial = 1
+# No Parameter Averaging (Natural Gradient)
+num_jobs_final = 1
 lr_initial = 0.0005
 lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
-minibatch_size = 16
- # finetune, last epcho usualy best model -> also to not break the vq prototypes
-# final_combination_n_model = 1
+# Higher batch_size for x-vector training than ASR training
+minibatch_size = 64
+final_combination_n_model = 1
 # train_stage = 15
+train_stage = 200
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf_vq_highbitrate.py
-dirname = e2e_tdnnf_vq_highbitrate_1024
-model_args = ["--freeze-encoder", "True", "--codebook-size", "1024"]
-# init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
+# spk2id file
+# source configs/local.conf; grep "^^[0-9]*\s+\|.*$1" -E  $corpus/SPEAKERS.TXT | grep train-clean-100 | awk -F'|' '{gsub(/[ ]+/, ""); print $1, NR-1}' > ./data/spk2id
+
+model_file = local/chain/e2e/tuning/tdnnf_spkadv.py
+dirname = e2e_tdnnf_train_adv
+model_args = ["--freeze-encoder", "True", "--adversarial-training", "False", "--spk2id", "./data/spk2id"]
+init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 # sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
 # tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
@@ -40,9 +44,9 @@ model_args = ["--freeze-encoder", "True", "--codebook-size", "1024"]
 # test_set = data/test_clean_fbank_hires
 # test_set = data/test_other_fbank_hires
 # test_set = data/dev_other_fbank_hires
-test_set = data/test_clean_fbank_hires
-# test_set = data/test_other_fbank_hires
-# suffix = _final
+# test_set = data/dev_clean_fbank_hires
+test_set = data/dev_clean_fbank_hires
+suffix = _final
 # decode on gpus
 num_jobs = 3
 gpu = True

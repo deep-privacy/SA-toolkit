@@ -7,7 +7,13 @@ if [ ! -L ./utils ]; then
   ./make_links.sh $KALDI_ROOT || exit 1
   echo "Succesfuly created ln links"
 fi
-. ./cmd.sh
+
+# Grid parameters for Kaldi scripts
+export train_cmd="run.pl"
+export cpu_cmd="run.pl"
+export decode_cmd="run.pl"
+export mkgraph_cmd="run.pl"
+
 . ./path.sh
 export LD_LIBRARY_PATH="$(pwd)/lib:$LD_LIBRARY_PATH"
 
