@@ -155,7 +155,7 @@ if [ ! -f $mark ]; then
 
     # CHECK the cudnn version -> must be compatible with CUDA_HOME version
     # In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
-    # --no-deps as we use the system cudatoolkit
+    # --no-deps to avoid isntalling cudatoolkit (using local cuda at CUDA_HOME)
     yes | conda install -c conda-forge cudnn=8.2.1.32 --no-deps
 
   touch $mark
