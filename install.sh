@@ -150,8 +150,9 @@ if [ ! -f $mark ]; then
     ffmpeg \
     wget \
     mkl mkl-include \
-    cudnn \
     cmake
+
+    yes | conda install -c conda-forge cudnn=8.2.1.32 --no-deps
   touch $mark
 fi
 source $venv_dir/bin/activate
