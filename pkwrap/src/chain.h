@@ -160,7 +160,7 @@ MapType eg_to_egs_;
 };
 
 torch::Tensor GetUttID(const kaldi::nnet3::NnetChainExample &egs);
-int32 GetNnetChainExampleSize(const kaldi::nnet3::NnetChainExample &a);
+int32 GetNnetChainExampleSizeInternal(const kaldi::nnet3::NnetChainExample &a);
 torch::Tensor GetFeaturesFromEgs(const kaldi::nnet3::NnetChainExample &egs);
 torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs);
 torch::Tensor GetIvectorsFromEgs(const kaldi::nnet3::NnetChainExample &egs);
