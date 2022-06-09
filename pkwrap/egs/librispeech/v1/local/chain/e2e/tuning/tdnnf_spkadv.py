@@ -326,8 +326,8 @@ def build(args):
                     logging.info("ASI objf={}".format(self.acc_sum_asi_loss / print_interval))
                     logging.info("ASI accuracy={}".format(self.acc_sum_asi_accuracy / print_interval))
                     if tensorboard:
-                        tensorboard.add_scalar("ASI_objf/valid", self.acc_sum_asi_loss / print_interval, mb_id)
-                        tensorboard.add_scalar("ASI_objf/accuracy", self.acc_sum_asi_accuracy / print_interval, mb_id)
+                        tensorboard.add_scalar("ASI/valid_loss", self.acc_sum_asi_loss / print_interval, mb_id)
+                        tensorboard.add_scalar("ASI/valid_accuracy", self.acc_sum_asi_accuracy / print_interval, mb_id)
                     self.acc_sum_asi_loss.zero_()
                     self.acc_sum_asi_accuracy = 0.0
                     return
@@ -350,8 +350,8 @@ def build(args):
                     logging.info("Overall ASI objf={}".format(self.acc_sum_asi_loss / print_interval))
                     logging.info("Overall ASI accuracy={}".format(self.acc_sum_asi_accuracy / print_interval))
                     if tensorboard:
-                        tensorboard.add_scalar("ASI_objf/train", self.acc_sum_asi_loss / print_interval, mb_id)
-                        tensorboard.add_scalar("ASI_accuracy/train", self.acc_sum_asi_accuracy / print_interval, mb_id)
+                        tensorboard.add_scalar("ASI/train_loss", self.acc_sum_asi_loss / print_interval, mb_id)
+                        tensorboard.add_scalar("ASI/train_accuracy", self.acc_sum_asi_accuracy / print_interval, mb_id)
                     self.acc_sum_asi_loss.zero_()
                     self.acc_sum_asi_accuracy = 0.0
             # fmt: on
