@@ -33,6 +33,7 @@ class TrainerOpts:
     num_iter: int = -1
     grad_acc_steps: int = 1
     base_model: str = ""
+    sampler: str = "BucketBatch"
     init_weight_model: str = ""
 
 
@@ -56,7 +57,6 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     xent_regularize: float = 0.025
     minibatch_size: int = 16
     output_dim: int = 1
-    frame_subsampling_factor: int = 3
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -299,6 +299,7 @@ class ChainModel(nn.Module):
         parser.add_argument("--dir", default="")
         parser.add_argument("--lr", default=0.001, type=float)
         parser.add_argument("--egs", default="")
+        parser.add_argument("--sampler", default="BucketBatch", type=str)
         parser.add_argument("--dataset", default="")
         parser.add_argument("--new-model", default="")
         parser.add_argument("--l2-regularize", default=1e-4, type=float)
@@ -479,7 +480,7 @@ class ChainE2EModel(ChainModel):
             weight_decay=chain_opts.l2_regularize_factor,
             tensorboard=tensorboard.PkwrapTwensorBoard(self),
             optimizer=optimizer,
-            e2e=True,
+            sampler=chain_opts.sampler,
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
 

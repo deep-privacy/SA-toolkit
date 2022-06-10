@@ -61,7 +61,7 @@ class ModelOpts:
     right_context: int = 0
     egs_dir: str = "./egs"
     den_graph: str = "./den.fst"
-    frame_subsampling_factor: int = 3
+    frame_subsampling_factor: int = 3 # same as in data_prep
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -142,13 +142,12 @@ def run_job(
     iter_no,
     model_file,
     lr,
-    egs_dir,
+    egs,
     train_set,
-    num_archives,
-    num_archives_processed,
     minibatch_size,
     num_iters,
     job_cmd,
+    sampler,
     xent_regularize=0.025,
     grad_acc_steps="1",
     l2_regularize_factor=None,
@@ -180,9 +179,7 @@ def run_job(
             "--lr",
             str(lr),
             "--egs",
-            "{}/fst_train.{}.scp".format(
-                egs_dir, num_archives_processed % num_archives + 1
-            ),
+            egs,
             "--data",
             train_set,
             "--num-iter",
@@ -197,6 +194,8 @@ def run_job(
             os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
             "--xent-regularize",
             str(xent_regularize),
+            "--sampler",
+            str(sampler),
             os.path.join(dirname, "{}.pt".format(iter_no)),
         ]
     )
@@ -235,13 +234,9 @@ def train():
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     egs_dir = os.path.join(dirname, "fst_egs")
-    is_e2e = False
-    if "e2e" in exp_cfg:
-        is_e2e = bool(exp_cfg["e2e"])
     tree_dir = exp_cfg["tree_dir"]
     train_set = exp_cfg["train_set"]
-    lang = exp_cfg["lang"] if "lang" in exp_cfg else "lang"
-    lang_chain = exp_cfg["lang_chain"] if "lang_chain" in exp_cfg else "lang_chain"
+    multi_egs_loading = exp_cfg["multi_egs_loading"] != "False" if "multi_egs_loading" in exp_cfg else bool("True")
 
     l2_regularize = args.l2_regularize
     xent_regularize = args.xent_regularize
@@ -320,6 +315,8 @@ def train():
 
     # we start training with
     num_archives = pkwrap.script_utils.get_egs_info(egs_dir)
+    if multi_egs_loading == False:
+        num_archives = 1
     num_epochs = trainer_opts.num_epochs
     # we don't use num of jobs b/c it is 1 for now
     num_archives_to_process = num_archives * num_epochs * frame_subsampling_factor
@@ -427,6 +424,13 @@ def train():
                 if "l2_regularize_factor" in exp_cfg:
                     add_praram["l2_regularize_factor"] = exp_cfg["l2_regularize_factor"]
 
+                train_egs = "{}/fst_train.{}.scp".format(
+                    egs_dir, num_archives_processed % num_archives + 1
+                )
+
+                if multi_egs_loading == False:
+                    train_egs = "{}/fst_train_shuffle.scp".format(egs_dir)
+
                 for job_id in range(1, num_jobs + 1):
                     p = executor.submit(
                         run_job,
@@ -436,13 +440,12 @@ def train():
                         iter_no,
                         model_file,
                         lr,
-                        egs_dir,
+                        train_egs,
                         train_set,
-                        num_archives,
-                        num_archives_processed,
                         exp_cfg["minibatch_size"],
                         num_iters,
                         cuda_cmd,
+                        exp_cfg["sampler"] if "sampler" in exp_cfg else "BucketBatch",
                         **add_praram,
                         xent_regularize=xent_regularize,
                     )
@@ -491,6 +494,7 @@ def train():
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no - 10))
                 if os.path.isfile(mdl):
                     pkwrap.script_utils.run(["rm", mdl])
+    if stage <= 7:
         # do final model combination
         n_models = (
             int(exp_cfg["final_combination_n_model"])
@@ -524,8 +528,9 @@ def train():
                 ",".join(model_list),
             ]
         )
-        carbonTracker.epoch_end()
-        carbonTracker.stop()
+
+    carbonTracker.epoch_end()
+    carbonTracker.stop()
 
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
@@ -535,8 +540,6 @@ def train():
         graph_dir = decode_params["graph_dir"]
     if not graph_dir:
         graph_dir = os.path.join(dirname, "graph")
-    if stage <= 7:
-        pass
 
     final_iter = num_iters - 1
     data_dir = decode_params["test_set"]

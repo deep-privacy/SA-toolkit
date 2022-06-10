@@ -83,9 +83,9 @@ class XVector(nn.Module):
         optimizer = _optimizer(param_list, **_options)
 
         scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer=optimizer, # TODO: might not be the best scheduler
-                                                      base_lr=1.0e-04,
+                                                      base_lr=1.0e-05,
                                                       max_lr=learning_rate,
-                                                      step_size_up=4500,
+                                                      step_size_up=2500,
                                                       step_size_down=None,
                                                       cycle_momentum=False,
                                                       mode="triangular2"
@@ -304,7 +304,7 @@ def build(args):
         ):
             speech, metadata = data_metadata[0], data_metadata[1]
             # fmt: off
-            if deriv != None:
+            if deriv != None and self.asi.optim != None:
 
                 # Not shared training of the asi network (own training optimizer and LR)
                 self.asi.optim[0].zero_grad() if self.training else None

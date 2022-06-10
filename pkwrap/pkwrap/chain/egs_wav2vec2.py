@@ -167,17 +167,26 @@ def Wav2vec2EgsCollectFn(batch):
     )
 
 
-class Wav2vec2BatchSampler(
-    torch.utils.data.BatchSampler
-):  # pylint: disable=too-few-public-methods
-    """An extension of BatchSampler to handle raw egs"""
+class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
+    """Samples batch indices from sequence-length buckets efficiently
+    with very little memory overhead."""
+
+    def __init__(self, sampler, batch_size, drop_last, ran_iter=False, allow_some_padding=False):
+        super().__init__(sampler, batch_size, drop_last)
+        self.ran_iter = ran_iter
+        self.allow_some_padding = allow_some_padding
 
     def __iter__(self):
         batch_by_length = defaultdict(list)
-        # for i in torch.utils.data.RandomSampler(range(len(self.sampler))):
-        for i in range(len(self.sampler)):
+        if self.ran_iter == True:
+            iterator = torch.utils.data.RandomSampler(range(len(self.sampler)))
+        else:
+            iterator = range(len(self.sampler))
+        for i in iterator:
             idx = self.sampler[i]
             num_output_frames = idx.num_output_frames
+            if self.allow_some_padding:
+                num_output_frames = int(num_output_frames / 199)
             batch_by_length[num_output_frames].append(i)
             if len(batch_by_length[num_output_frames]) == self.batch_size:
                 yield batch_by_length[num_output_frames]
@@ -221,7 +230,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         utt2len_file,
         transition_model_filename,
         normalization_fst_rxfilename,
-        shuffle=False,
     ):
         """instantiates a Pytorch Dataset for E2E training
 
@@ -239,8 +247,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         self.normalization_fst = kaldi.fst.StdVectorFst()
         kaldi.fst.ReadFstKaldi(normalization_fst_rxfilename, self.normalization_fst)
         self.prepare_egs(wav, fst_file)
-        if shuffle:
-            random.shuffle(self.egs_holder)
 
     def __len__(self):
         return len(self.egs_holder)

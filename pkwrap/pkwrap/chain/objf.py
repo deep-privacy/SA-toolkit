@@ -247,10 +247,9 @@ def train_lfmmi_one_iter(
     weight_decay=0.25,
     print_interval=30,
     grad_acc_steps=1,
-    frame_subsampling_factor=3,
     tensorboard=None,
     optimizer=None,
-    e2e=False,
+    sampler=" BucketBatch",
 ):
     """Run one iteration of LF-MMI training
 
@@ -268,6 +267,7 @@ def train_lfmmi_one_iter(
         minibatch_size:
         lr: learning rate
         print_interval: the interval (a positive integer) to print the loss value
+        sampler: BucketBatch or Random
 
     Returns:
         updated model in CPU
@@ -293,15 +293,40 @@ def train_lfmmi_one_iter(
     #  minibatch_size *= torch.cuda.device_count()
     #  _model = model.module
 
-    batch_sampler = Wav2vec2BatchSampler(
-        dataset.egs_holder,
-        batch_size=minibatch_size,
-        drop_last=False,
-    )
+    add_param = {}
+    if sampler == "BucketBatch":
+        logging.info("using sequence-length buckets sampler")
+        batch_sampler = Wav2vec2BatchSampler(
+            dataset.egs_holder,
+            batch_size=minibatch_size,
+            drop_last=False,
+        )
+        add_param["batch_sampler"]=batch_sampler
+
+    if sampler == "BucketBatchSuffle":
+        logging.info("using sequence-length buckets sampler with dataset shuffle")
+        batch_sampler = Wav2vec2BatchSampler(
+            dataset.egs_holder,
+            batch_size=minibatch_size,
+            drop_last=False,
+            ran_iter=True
+        )
+        add_param["batch_sampler"]=batch_sampler
+    if sampler == "BucketBatchSuffleAllowSomePadding":
+        logging.info("using sequence-length buckets sampler with dataset shuffle and allow some padding")
+        batch_sampler = Wav2vec2BatchSampler(
+            dataset.egs_holder,
+            batch_size=minibatch_size,
+            drop_last=False,
+            ran_iter=True,
+            allow_some_padding=True
+        )
+        add_param["batch_sampler"]=batch_sampler
+
     # TODO: make the num_workers configurable (this can significantly speedup the training)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_sampler=batch_sampler,
+        **add_param,
         collate_fn=Wav2vec2EgsCollectFn,
         num_workers=12,
     )
@@ -383,7 +408,6 @@ def compute_chain_objf(
     den_fst_path,
     training_opts,
     minibatch_size=16,
-    frame_subsampling_factor=3,
     tensorboard=None,
 ):
     """Function to compute objective value from a minibatch, useful for diagnositcs.
@@ -393,7 +417,6 @@ def compute_chain_objf(
         dataset: a Wav2vec2EgsDataset dataset
         den_fst_path: path to den.fst
         training_opts: ChainTrainingOpts object
-        frame_subsampling_factor: subsampling to be used on the output
     """
     if training_opts is None:
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()

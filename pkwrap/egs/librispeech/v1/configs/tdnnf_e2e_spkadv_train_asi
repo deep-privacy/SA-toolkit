@@ -3,29 +3,30 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-e2e = True
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
-# dummy folders. will not be touched
-lang = data/lang_nosp_test_tgsmall
-lang_chain = data/lang_chain
 # trained using local/chain/e2e/prepare_data.sh and local/chain/e2e/get_egs.sh
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
 # train params
-num_epochs = 4
+num_epochs = 15
 num_jobs_initial = 1
 # No Parameter Averaging (Natural Gradient)
 num_jobs_final = 1
+# Maximize the combination of speakers in a training iter
+multi_egs_loading = False
+# add some random in the sampler such that the adv does not train the sampler generator
+sampler = BucketBatchSuffleAllowSomePadding
+
 lr_initial = 0.0005
 lr_final = 0.00001
-diagnostics_interval = 10
+diagnostics_interval = 3
 checkpoint_interval = 20
 # Higher batch_size for x-vector training than ASR training
 minibatch_size = 64
 final_combination_n_model = 1
-# train_stage = 15
+train_stage = 4
 # train_stage = 200
 # train_stage = last
 
