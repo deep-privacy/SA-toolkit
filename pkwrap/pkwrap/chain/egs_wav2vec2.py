@@ -133,8 +133,8 @@ def Wav2vec2EgsCollectFn(batch):
     elem = batch[0]
     elem_type = type(elem)
     if isinstance(elem, torch.Tensor):
-        lengths = torch.tensor([t.shape[0] for t in batch])
-        if lengths.sum().item() != batch[0].shape[0] * len(batch):
+        lengths = [t.shape[0] for t in batch]
+        if not all(element == lengths[0] for element in lengths):
             #  logging.warning("Padding tensor lengths={}".format(str(lengths)))
             return torch.nn.utils.rnn.pad_sequence(batch, batch_first=True)
         out = None
@@ -324,9 +324,17 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 fst = kaldi.fst.StdVectorFst()
                 kaldi.fst.ReadFstKaldi(fstscp, fst)
                 min_path_length = kaldi.chain.FindMinimumLengthPathFromFst(fst)
+                if min_path_length == -1:
+                    logging.warning(
+                        "get_egs_holder, Utterance %s rejected due to the failure of 'fst:RmEpsilon' to remove eps on input label",
+                        this_egs_info.name,
+                    )
+                    skipped += 1
+                    continue
+
                 if min_path_length > num_output_frames:
                     logging.warning(
-                        "get_egs_holder, %s has more labels than frames",
+                        "get_egs_holder, Utterance %s rejected since it has more labels than frames",
                         this_egs_info.name,
                     )
                     skipped += 1
