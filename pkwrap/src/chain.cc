@@ -590,6 +590,22 @@ int32 FindMinimumLengthPathFromFst(
   using fst::VectorFst;
   using fst::StdArc;
   using fst::StdVectorFst;
+
+  // check if Epsilon removal is possible for this segment
+  StdVectorFst trans2word_fst(fst);
+  fst::RemoveEpsLocal(&trans2word_fst);
+  fst::RmEpsilon(&trans2word_fst);
+  for (int32 state = 0; state < trans2word_fst.NumStates(); state++) {
+    for (fst::MutableArcIterator<StdVectorFst> aiter(&trans2word_fst, state);
+         !aiter.Done(); aiter.Next()) {
+      const StdArc &arc = aiter.Value();
+      if (arc.ilabel == 0) {
+        return -1;
+      }
+      KALDI_ASSERT(arc.ilabel != 0);
+    }
+  }
+
   StdVectorFst distance_fst(fst);
   // Modify distance_fst such that all the emitting
   // arcs have cost 1 and others (and final-probs) a cost of zero
