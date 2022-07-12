@@ -568,7 +568,7 @@ def train():
         feats_scp = "{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
 
         tqdm = subprocess.Popen(
-            f"sleep 10 && tail -f {dirname}/log/tqdm 2> /dev/null", shell=True
+            f"tail -F {dirname}/log/tqdm 2> /dev/null", shell=True
         )
 
         pkwrap.script_utils.run(
