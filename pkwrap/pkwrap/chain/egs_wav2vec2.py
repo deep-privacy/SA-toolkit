@@ -324,6 +324,9 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 fst = kaldi.fst.StdVectorFst()
                 kaldi.fst.ReadFstKaldi(fstscp, fst)
                 min_path_length = kaldi.chain.FindMinimumLengthPathFromFst(fst)
+                this_egs_info = EgsInfo(
+                    uttname, utt2wav[uttname], fstscp, num_output_frames
+                )
                 if min_path_length == -1:
                     logging.warning(
                         "get_egs_holder, Utterance %s rejected due to the failure of 'fst:RmEpsilon' to remove eps on input label",
@@ -340,9 +343,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                     skipped += 1
                     continue
 
-                this_egs_info = EgsInfo(
-                    uttname, utt2wav[uttname], fstscp, num_output_frames
-                )
                 egs_holder.append(this_egs_info)
                 done += 1
             logging.info(
