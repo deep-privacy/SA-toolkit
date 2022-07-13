@@ -309,6 +309,7 @@ if [ ! -f $mark ]; then
   echo " == Building sidekit =="
   git clone https://git-lium.univ-lemans.fr/speaker/sidekit
   cd sidekit
+  # git checkout 3af95d6cbb1378c9bb68e85f6ed8591a7a761ac0
   pip3 install -e .
   cd $home
   touch $mark

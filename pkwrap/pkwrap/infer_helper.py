@@ -23,6 +23,7 @@ def init_asr_model(
     pkwrap_vq_dim=-1,
     get_model_module=False,
     load_model=True,
+    additional_args={},
 ):
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"
     model_weight = "final.pt"
@@ -35,16 +36,18 @@ def init_asr_model(
     asr_model_file = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(asr_model_file)
 
-    args = SimpleNamespace()
+    args = SimpleNamespace(**additional_args)
     if pkwrap_dp_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
             epsilon=str(pkwrap_dp_dim),
+            **additional_args,
         )
     if pkwrap_vq_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
             codebook_size=pkwrap_vq_dim,
+            **additional_args,
         )
 
     asr_net = asr_model_file.build(args)

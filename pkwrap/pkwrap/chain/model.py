@@ -209,13 +209,13 @@ class ChainModel(nn.Module):
         model = self.Net(chain_opts.output_dim)
         base_model = chain_opts.base_model
         model = model.to(device)
-        try:
-            if load_model:
+        if load_model:
+            try:
                 model.load_state_dict(torch.load(base_model))
-        except Exception as e:
-            logging.error(e)
-            logging.error("Cannot load model {}".format(base_model))
-            sys.exit(1)
+            except Exception as e:
+                logging.warning("Warninig cannot load model {}".format(base_model))
+                logging.warning(e)
+                model.load_state_dict(torch.load(base_model), strict=False)
 
         model.eval()
         if share_memory:

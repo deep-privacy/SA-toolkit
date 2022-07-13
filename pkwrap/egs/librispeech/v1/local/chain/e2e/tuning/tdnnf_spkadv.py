@@ -41,9 +41,9 @@ class XVector(nn.Module):
         self.number_of_spk =  number_of_spk  # Number of speaker in the dataset (Libri train-clean 100)
 
         self.embedding_size = 256            # dim x-vector
-        self.sequence_network = sidekit.nnet.PreFastResNet34()
-        self.stat_pooling = sidekit.nnet.AttentivePooling(4096, 1, global_context=False)
-        self.before_speaker_embedding = torch.nn.Linear(in_features = int((2560/80)*self.asr_bn_out_dim),
+        self.sequence_network = sidekit.nnet.PreHalfResNet34()
+        self.stat_pooling = sidekit.nnet.AttentivePooling(8192, 1, global_context=False)
+        self.before_speaker_embedding = torch.nn.Linear(in_features = int(((2560*2)/80)*self.asr_bn_out_dim),
                                                             out_features = self.embedding_size)
         self.after_speaker_embedding = sidekit.nnet.ArcMarginProduct(self.embedding_size,
                 int(self.number_of_spk),

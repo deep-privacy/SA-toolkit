@@ -109,7 +109,7 @@ class NaturalAffineTransform(nn.Module):
             self.__class__.__name__,
             self.feat_dim,
             self.out_dim,
-            self.scale,
+            self.scale if hasattr(self, "scale") else None,
         )
         return s
 
