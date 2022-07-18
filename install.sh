@@ -111,17 +111,17 @@ if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster (Cuda 11.3 compatibl
 fi
 ## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
-  echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 10.2!"
-  CUDAROOT=/opt/cuda/10.2
+  echo "Installing on Lium, check your GPU (for this node) compatibility with CUDA 11.5!"
+  CUDAROOT=/opt/cuda/11.5
   echo "Using local \$CUDAROOT: $CUDAROOT"
   cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
   cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
   echo "Cuda version: $cuda_version_witout_dot"
 
-  torch_version=1.8.2
-  torchvision_version=0.9.2
-  torchaudio_version=0.8.2
-  torch_wheels="https://download.pytorch.org/whl/lts/1.8/torch_lts.html"
+  torch_version=1.11.0
+  torchvision_version=0.12.0
+  torchaudio_version=0.11.0
+  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 fi
 
 mark=.done-venv
@@ -177,17 +177,6 @@ export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH
 
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
-
-# mark=.done-k2
-# if [ ! -f $mark ]; then
-  # echo " == Installing k2 =="
-  # git clone https://github.com/k2-fsa/k2.git
-  # cd k2
-  # python3 setup.py install
-  # cd $home
-  # touch $mark
-# fi
-
 
 mark=.done-pytorch
 if [ ! -f $mark ]; then
@@ -253,7 +242,7 @@ if [ ! -f $mark ]; then
   rm -rf kaldi || true
   git clone https://github.com/kaldi-asr/kaldi.git || true
   cd kaldi
-  # git checkout ac29a6ff0 # Working version from 03 june 2022
+  # git checkout 05f66603a
   echo " === Applying personal patch on kaldi ==="
   git apply ../kaldi.patch
   cd tools
@@ -280,14 +269,10 @@ export KALDI_ROOT=$home/kaldi
 mark=.done-pkwrap
 if [ ! -f $mark ]; then
   echo " == Building pkwrap src =="
-  # rm -rf pkwrap
-  # git clone https://github.com/idiap/pkwrap.git
   cd pkwrap
-  # git checkout ccf4094
   make clean
   python3 setup.py install
   pip3 install -e .
-  # make test
   cd $home
   touch $mark
 fi
@@ -296,9 +281,14 @@ fi
 mark=.done-python-requirements-kaldi-feat
 if [ ! -f $mark ]; then
   echo " == Building kaldifeat =="
-  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release"
+  \rm -rf kaldifeat || true
+  git clone https://github.com/csukuangfj/kaldifeat kaldifeat
+  cd kaldifeat
+  git checkout cec876b
+  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release -Wno-dev"
   export KALDIFEAT_MAKE_ARGS="-j $nj"
-  LDFLAGS="-L$venv_dir/lib" pip3 install kaldifeat==1.16 || exit 1
+  which python3
+  LDFLAGS="-L$venv_dir/lib" python setup.py install || exit 1
   cd $home
   python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
   touch $mark
@@ -307,9 +297,11 @@ fi
 mark=.done-sidekit
 if [ ! -f $mark ]; then
   echo " == Building sidekit =="
-  git clone https://git-lium.univ-lemans.fr/speaker/sidekit
+  if [ ! -d sidekit ]; then
+    git clone https://git-lium.univ-lemans.fr/speaker/sidekit sidekit
+  fi
   cd sidekit
-  # git checkout 3af95d6cbb1378c9bb68e85f6ed8591a7a761ac0
+  # git checkout 70d68c2
   pip3 install -e .
   cd $home
   touch $mark
@@ -320,6 +312,8 @@ if [ ! -f $mark ]; then
   echo " == Building anonymization_metrics =="
   rm -rf anonymization_metrics || true
   git clone https://gitlab.inria.fr/magnet/anonymization_metrics.git
+  cd anonymization_metrics
+  # git checkout 4787d4f
   cd $home
   pip3 install seaborn
   touch $mark
@@ -332,6 +326,7 @@ if [ ! -f $mark ]; then
   rm -rf feerci || true
   git clone https://github.com/feerci/feerci
   cd feerci
+  # git checkout 12b5fed
   pip install Cython
   pip3 install -e .
   cd $home

@@ -328,7 +328,7 @@ def train_lfmmi_one_iter(
         dataset,
         **add_param,
         collate_fn=Wav2vec2EgsCollectFn,
-        num_workers=12,
+        num_workers=10,
     )
 
     #  for mb_id, data in enumerate(dataloader):

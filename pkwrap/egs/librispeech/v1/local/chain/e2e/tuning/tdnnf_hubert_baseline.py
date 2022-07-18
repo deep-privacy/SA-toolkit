@@ -46,12 +46,7 @@ def build(args):
         ):
             super().__init__()
 
-            #  https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt
-            #  https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_base_en_v2.pt
-            #  https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_large_west_germanic_v2.pt
-            model = "wav2vec2_large_west_germanic_v2.pt"
-            url = "https://dl.fbaipublicfiles.com/voxpopuli/models/"
-            model_cache_file = os.path.join(torch.hub.get_dir(), model)
+            model_cache_file = "/lium/scratch/pchampi/checkpoint_best_baseline_100.pt"
             if not os.path.exists(model_cache_file):
                 os.makedirs(torch.hub.get_dir(), exist_ok=True)
                 torch.hub.download_url_to_file(
@@ -66,7 +61,7 @@ def build(args):
             )
 
             self.preprocessor = feat_model[0]
-            input_dim = 1024  # self.preprocessor output dim
+            input_dim = 768  # self.preprocessor output dim
 
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
