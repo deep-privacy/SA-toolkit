@@ -213,10 +213,7 @@ def build(args):
                     self.acc_sum_perplexity.add_(self.perplexity.item() * deriv)
                     return
 
-                # Accumulate another loss
-                if not self.quant.freeze:
-                    deriv += self.vq_loss.to(deriv.device)
-                # With it's stats
+                # stats
                 self.acc_sum_vq.add_(self.vq_loss.item())
                 self.acc_sum_perplexity.add_(self.perplexity.item())
 

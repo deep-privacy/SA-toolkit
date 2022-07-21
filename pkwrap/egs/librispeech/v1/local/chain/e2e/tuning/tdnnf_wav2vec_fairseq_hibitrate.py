@@ -275,7 +275,7 @@ if __name__ == "__main__":
             x = torch.arange(N * C).reshape(N, C).float().cuda()
             nnet_output, xent_output = model.forward(x)
             print(C, model.bottleneck_out.shape, C / model.bottleneck_out.shape[1])
-            print(nnet_output.shape, C / nnet_output.shape[1])
+            #  print(nnet_output.shape, C / nnet_output.shape[1])
         sys.exit(0)
 
     ChainE2EModel(build(args), cmd_line=True)

@@ -16,13 +16,14 @@ from pkwrap.nn import (
     OrthonormalLinear,
     VectorQuantizerEMA,
     TDNNFBatchNorm_LD,
+    RevGrad,
 )
 from pkwrap.chain import ChainE2EModel
 import numpy as np
 from torch.nn.utils import clip_grad_value_
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 import sys
 import configargparse
 
@@ -32,6 +33,8 @@ import kaldifeat
 import sidekit.nnet
 from collections import OrderedDict
 
+#  A gradient reversal function which reverses the gradient in the backward pass.
+revgrad = RevGrad.apply
 
 # XVector from sidekit taking asr bn input features
 class XVector(nn.Module):
@@ -128,6 +131,9 @@ def build(args):
         ):
             super().__init__()
 
+            # use additional_obj to do the backward, not done by the trainer
+            self.trainer_do_backward = False
+
             # Adversarial network
             self.acc_sum_asi_loss = torch.tensor(0.0, requires_grad=False) # for logging
             self.acc_sum_asi_accuracy = 0.0 # for logging
@@ -137,6 +143,9 @@ def build(args):
             ]
             self.spk2id = dict(map(lambda x: (x[0], x[1]), spk2id_lines))
             self.asi = XVector(asr_bn_out_dim=prefinal_bottleneck_dim, number_of_spk=len(self.spk2id))
+
+            if args.adversarial_training == "True":
+                self.asi = revgrad(self.asi)
 
             # Preprocessor
             opts = kaldifeat.FbankOptions()
@@ -229,6 +238,22 @@ def build(args):
         def after_one_iter_hook(self):
             self.asi.save_optimizer()
 
+
+        def init_custom_load(self, init_weight_provided):
+            """
+            Filter the state dict dictionary
+            """
+            logging.info("Filtering keys with init_custom_load")
+
+            if not args.adversarial_training == "True":
+                return init_weight_provided
+
+            # From a sidekit model (sidekit training loop)
+            state_dict = init_weight_provided["model_state_dict"]
+            state_dict = {k.replace("external_model.model.",""): v for k, v in state_dict.items()}
+            return state_dict
+
+
         @torch.no_grad()
         def validate_model(self):
             N = 2
@@ -315,6 +340,12 @@ def build(args):
                     label[i] = int(self.spk2id[m.name.split("-")[2]])
                 (speaker_loss, cce_prediction), xvec  = self.asi(self.bottleneck_out.permute(0, 2, 1).contiguous(),
                                                           target=label)
+
+                # Accumulate another loss
+                if args.adversarial_training == "True":
+                    deriv += speaker_loss.to(deriv.device)
+                    speaker_loss = deriv
+
                 if self.training:
                     speaker_loss.backward()
                     torch.nn.utils.clip_grad_norm_(self.asi.parameters(), 1.)
@@ -338,12 +369,11 @@ def build(args):
                     self.acc_sum_asi_accuracy += ((torch.argmax(cce_prediction.data, 1) == label).sum()).cpu() * deriv
                     return
 
-                # Accumulate another loss
-                if args.adversarial_training == "True":
-                    deriv += speaker_loss.to(deriv.device)
-                # With it's stats
+                # stats
                 self.acc_sum_asi_loss.add_(speaker_loss.item())
-                self.acc_sum_asi_accuracy += ((torch.argmax(cce_prediction.data, 1) == label).sum()).cpu()
+                accuracy = ((torch.argmax(cce_prediction.data, 1) == label).sum()).cpu()
+                self.acc_sum_asi_accuracy += accuracy
+                logging.debug("ASI accuracy={}".format(accuracy))
 
                 # Logs stats during training
                 if should_log:
@@ -400,4 +430,25 @@ if __name__ == "__main__":
     parser.add("--spk2id", default="./data/spk2id", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
+
+    if os.environ.get("TESTING", "0") == "1":
+        args.adversarial_training = "True"
+        model = build(args)(output_dim=3280).cuda()
+
+        model.load_state_dict(model.init_custom_load(torch.load("./exp/spk/adv/tmp_model_custom.pt")))
+
+        import torchaudio
+        x,_ = torchaudio.load("/lium/raid01_b/pchampi/lab/Voice-Privacy-Challenge-2022/baseline/corpora/LibriSpeech/train-clean-100/196/122150/196-122150-0032.flac")
+        x,_ = torchaudio.load("/lium/raid01_b/pchampi/lab/Voice-Privacy-Challenge-2022/baseline/corpora/LibriSpeech/train-clean-100/3436/172171/3436-172171-0035.flac")
+        nnet_output, xent_output = model.forward(x.cuda())
+        (_, cce_prediction), xvec  = model.asi(model.bottleneck_out.permute(0, 2, 1).contiguous())
+        print("cce_prediction",torch.argmax(cce_prediction.data, 1))
+
+        import pkwrap.infer_helper as infer_helper
+
+        text = infer_helper.kaldi_asr_decode(nnet_output)  # is this even text ?
+        print("Text:", text)
+
+        sys.exit(0)
+
     ChainE2EModel(build(args), cmd_line=True)

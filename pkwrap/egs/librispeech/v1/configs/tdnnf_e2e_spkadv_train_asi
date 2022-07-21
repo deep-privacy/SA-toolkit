@@ -30,9 +30,6 @@ train_stage = 4
 # train_stage = 200
 # train_stage = last
 
-# CREATE the spk2id file with
-# source configs/local.conf; grep "^^[0-9]*\s+\|.*$1" -E  $corpus/SPEAKERS.TXT | grep train-clean-100 | awk -F'|' '{gsub(/[ ]+/, ""); print $1, NR-1}' > ./data/spk2id
-
 model_file = local/chain/e2e/tuning/tdnnf_spkadv.py
 dirname = e2e_tdnnf_train_adv
 model_args = ["--freeze-encoder", "True", "--adversarial-training", "False", "--spk2id", "./data/spk2id"]

@@ -46,7 +46,7 @@ def build(args):
         ):
             super().__init__()
 
-            model_cache_file = "/lium/scratch/pchampi/checkpoint_best_baseline_100.pt"
+            model_cache_file = "/lium/scratch/pchampi/checkpoint_best_legacy_100.pt"
             if not os.path.exists(model_cache_file):
                 os.makedirs(torch.hub.get_dir(), exist_ok=True)
                 torch.hub.download_url_to_file(
@@ -270,7 +270,7 @@ if __name__ == "__main__":
             x = torch.arange(N * C).reshape(N, C).float().cuda()
             nnet_output, xent_output = model.forward(x)
             print(C, model.bottleneck_out.shape, C / model.bottleneck_out.shape[1])
-            print(nnet_output.shape, C / nnet_output.shape[1])
+            #  print(nnet_output.shape, C / nnet_output.shape[1])
         sys.exit(0)
 
     ChainE2EModel(build(args), cmd_line=True)

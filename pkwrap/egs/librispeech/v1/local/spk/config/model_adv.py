@@ -6,11 +6,14 @@ import torchaudio
 import sidekit.nnet
 
 import sys
+import os
 import pkwrap
 import pkwrap.infer_helper as infer_helper
 
 from types import SimpleNamespace
 
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def build():
     class Net(nn.Module):
@@ -19,7 +22,8 @@ def build():
 
             self.bn_extractor_func, self.model = pkwrap.infer_helper.init_asr_model(
                 model="local/chain/e2e/tuning/tdnnf_spkadv.py",
-                exp_path="exp/chain/e2e_tdnnf/",
+                exp_path="exp/chain/e2e_tdnnf/", # First stage
+                #  exp_path="exp/chain/e2e_tdnnf_rev_grad/", # second stage
                 additional_args={
                     "adversarial_training": "False",
                     "spk2id": "./data/spk2id",

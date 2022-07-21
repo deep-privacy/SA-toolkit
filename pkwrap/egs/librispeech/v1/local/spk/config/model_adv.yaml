@@ -1,6 +1,6 @@
 # Model description
 
-speaker_number: 251
+speaker_number: 1417
 
 loss:
     type: aam

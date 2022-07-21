@@ -202,7 +202,7 @@ def init_synt_model(
 def kaldi_asr_decode(out, get_align=False):
     kaldiark = tempfile.NamedTemporaryFile(suffix=".ark").name
     writer = kaldiio.WriteHelper(f"ark,t:{kaldiark}")
-    writer("test_utts", out[0].cpu().numpy())
+    writer("test_utts", out[0].detach().cpu().numpy())
     writer.close()
 
     pkwrap_path = pkwrap.__path__[0] + "/../egs/librispeech/v1/"  # kaldi/pkwrap egs dir

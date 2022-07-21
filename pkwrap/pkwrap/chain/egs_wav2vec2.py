@@ -68,8 +68,8 @@ def prepare_e2e(egs):
      And a merged supervision for LF-MMI training
 
      signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
-     signalv2 = prepare(['flac', '-c', '-d', '-s', 'XX/1272-128104-0000.flac', "|"])
-     signalv3 = prepare(['XX/1272-128104-0000.flac'])
+     signalv2 = prepare_e2e(['flac', '-c', '-d', '-s', 'XX/1272-128104-0000.flac', "|"])
+     signalv3 = prepare_e2e(['XX/1272-128104-0000.flac'])
      print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
      print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))
 
@@ -141,9 +141,9 @@ def Wav2vec2EgsCollectFn(batch):
         if torch.utils.data.get_worker_info() is not None:
             # If we're in a background process, concatenate directly into a
             # shared memory tensor to avoid an extra copy
-            numel = sum([x.numel() for x in batch])
+            numel = sum(x.numel() for x in batch)
             storage = elem.storage()._new_shared(numel)
-            out = elem.new(storage)
+            out = elem.new(storage).resize_(len(batch), *list(elem.size()))
         return torch.stack(batch, 0, out=out)
     if isinstance(elem, EgsInfo):
         return list(batch)

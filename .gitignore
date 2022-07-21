@@ -19,3 +19,8 @@ fairseq
 *stderr
 *stdout
 requirements.txt
+sidekit
+core
+*old*
+*.zip
+*hugging_face_upload_*

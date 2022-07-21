@@ -111,6 +111,9 @@ class ChainModel(nn.Module):
         model = self.Net(self.chain_opts.output_dim)
         if self.chain_opts.init_weight_model != "":
             init_weight_provided = torch.load(self.chain_opts.init_weight_model)
+            if hasattr(model, "init_custom_load"):
+                init_weight_provided = model.init_custom_load(init_weight_provided)
+
             init_weight_provided_matched, unmatch = utils.torch.match_state_dict(
                 model.state_dict(), init_weight_provided
             )
@@ -213,9 +216,11 @@ class ChainModel(nn.Module):
             try:
                 model.load_state_dict(torch.load(base_model))
             except Exception as e:
-                logging.warning("Warninig cannot load model {}".format(base_model))
-                logging.warning(e)
-                model.load_state_dict(torch.load(base_model), strict=False)
+                logging.warning("Warning cannot load model {}".format(base_model))
+                logging.warning("Retrying with strict=False")
+                #  logging.warning(e)
+                not_inited = model.load_state_dict(torch.load(base_model), strict=False)
+                logging.warning("Incompatible layers: {}".format(not_inited))
 
         model.eval()
         if share_memory:

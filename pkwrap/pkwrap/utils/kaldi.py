@@ -149,8 +149,8 @@ def load_wav_from_scp(wav):
     (within some tolerance due to numerical precision)
 
     signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
-    signalv2 = prepare('flac -c -d -s XX/1272-128104-0000.flac |')
-    signalv3 = prepare('XX/1272-128104-0000.flac')
+    signalv2 = load_wav_from_scp('flac -c -d -s XX/1272-128104-0000.flac |')
+    signalv3 = load_wav_from_scp('XX/1272-128104-0000.flac')
 
     print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
     print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))

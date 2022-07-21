@@ -163,7 +163,7 @@ fi
 source $venv_dir/bin/activate
 
 export PATH=$CUDAROOT/bin:$PATH
-export LD_LIBRARY_PATH=$CUDAROOT/lib64:$LD_LIBRARY_PATH:$venv_dir/lib/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$venv_dir/lib/:$CUDAROOT/lib64
 export CFLAGS="-I$CUDAROOT/include $CFLAGS"
 export CUDA_HOME=$CUDAROOT
 export CUDA_PATH=$CUDAROOT
@@ -173,7 +173,7 @@ export CUDNN_INCLUDE_DIR="$venv_dir/include"
 export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
 
 export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
-export LD_LIBRARY_PATH=$OPENFST_PATH/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$OPENFST_PATH/lib
 
 export CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"

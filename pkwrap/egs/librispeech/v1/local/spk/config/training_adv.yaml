@@ -11,10 +11,10 @@ epochs: 2000
 lr: 0.001
 patience: 100
 
-multi_gpu: false
+multi_gpu: true
 num_cpu: 16
 
-mixed_precision: false
+mixed_precision: true
 clipping: false
 
 # Optimizer and scheduler options
