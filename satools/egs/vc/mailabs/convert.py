@@ -184,6 +184,12 @@ if __name__ == "__main__":
 
     if args.extract_f0_only:
         print("Only extracting F0 features")
+        satools.hifigan.f0.set_yaapt_opts({
+            "frame_length": 35.0,
+            "frame_space": 20.0,
+            "nccf_thresh1": 0.25,
+            "tda_frame_length": 25.0,
+        })
         for i, sample in enumerate(dataloader):
             bar = progbar(i * batch_size, len(wavs_path))
             message = f"{bar} {i*batch_size}/{len(wavs_path)} "

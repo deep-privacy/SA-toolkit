@@ -5,7 +5,7 @@ KALDI_ROOT=`pwd`/../../../../kaldi
 if [ ! -L ./utils ]; then
   echo "Kaldi root: ${KALDI_ROOT}"
   ./make_links.sh $KALDI_ROOT || exit 1
-  echo "Succesfuly created ln links"
+  echo "Successfuly created ln links"
 fi
 . ./cmd.sh
 . ./path.sh
@@ -39,29 +39,37 @@ new_lang=data/lang_e2e_${phones_type}
 treedir=exp/chain/e2e_${phones_type}_tree  # it's actually just a trivial tree (no tree building)
 dir=exp/chain/e2e_${affix}
 
-required_scripts="download_lm.sh score.sh data_prep.sh prepare_dict.sh format_lms.sh"
+required_scripts="score.sh prepare_dict.sh format_lms.sh"
 for script_name in $required_scripts; do
     if [ ! -f local/$script_name ]; then
         cp $KALDI_ROOT/egs/librispeech/s5/local/$script_name local/
+        if [ $script_name = "prepare_dict.sh" ]; then
+          # For prepare_dict.sh, change librispeech reference to mls reference
+          sed -i 's/librispeech/mls/g' $script_name
+        fi
     fi
 done
 
-#if [ $stage -le -1 ]; then
-#  local/download_lm.sh $lm_url data/local/lm
-#fi
-#
-#required_lm_files="3-gram.arpa.gz 3-gram.pruned.1e-7.arpa.gz 3-gram.pruned.3e-7.arpa.gz 4-gram.arpa.gz"
-#for lm_file in $required_lm_files; do
-#    if [ ! -f data/local/lm/$lm_file ]; then
-#        echo "$0: Did not find $lm_file in data/local/lm. Make sure it exists."
-#        echo "$0: Else run this script with --stage -1 to download the LM."
-#        exit 1
-#    fi
-#done
+if [ $stage -le -1 ]; then
+  echo "$0: Downloading lm"
+  dst_lm_dir=data/local/lm
+  mkdir -p $dst_lm_dir
+  wget https://dl.fbaipublicfiles.com/mls/mls_lm_french.tar.gz -P $dst_lm_dir
+  tar -xzf $dst_lm_dir/mls_lm_french.tar.gz
+  #TODO Prune 3-gram model with ngram and installation of srilm in kaldi
+  # (see https://github.com/kaldi-asr/kaldi/blob/master/egs/librispeech/s5/local/lm/train_lm.sh#L110 for usage)
+  for lm_model in 3-gram.arpa.gz 3-gram.pruned.1e-7.arpa 3-gram.pruned.3e-7.arpa 5-gram.arpa; do
+    gzip $dst_lm_dir/$lm_model
+  done
+  # Converting vocab_counts into vocabulary file
+  cat $dst_lm_dir/vocab_counts.txt | awk '{print $1}' > $dst_lm_dir/mls-vocab.txt
+fi
 
 if [ $stage -le 0 ]; then
   # format the data as Kaldi data directories
  # train-other-500  train-clean-360
+ #TODO : cleaning kaldi scp creation script and add it here
+
   for part in train dev test; do
     # use underscore-separated names in data directories.
     data_name=$(echo $part | sed s/-/_/g)
@@ -79,9 +87,10 @@ if [ $stage -le 1 ]; then
   ln -rs data/local/lm/5-gram_lm.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
   echo "$0: Preparing lexicon"
   cp data/local/lm/mls-vocab.txt data/local/lm_less_phones/
+  if [ ! -f data/local/lm/mls-lexicon.txt ]; then
+    echo "Please create lexicon for mls dataset from 'data/local/lm/mls-vocab.txt' file"
+  fi
   cp data/local/lm/mls-lexicon.txt data/local/lm_less_phones/
-#  cat data/local/lm/mls-lexicon.txt | sed -e 's/[0,1,2]//g' > \
-#    data/local/lm_less_phones/mls-lexicon.txt
 
   echo "$0: Preparing dictionary"
   local/prepare_dict.sh --stage 3 --nj 30 --cmd "$cpu_cmd" \
@@ -95,7 +104,7 @@ if [ $stage -le 1 ]; then
     "<unk>" data/local/lang_tmp_lp data/lang_lp
 
   echo "$0: Formatting LMs"
-#  local/format_lms.sh --src-dir data/lang_lp data/local/lm_less_phones
+  local/format_lms.sh --src-dir data/lang_lp data/local/lm_less_phones
   # Create ConstArpaLm format language model for full 3-gram and 4-gram LMs
   utils/build_const_arpa_lm.sh data/local/lm_less_phones/lm_tglarge.arpa.gz \
     data/lang_lp data/lang_lp_test_tglarge

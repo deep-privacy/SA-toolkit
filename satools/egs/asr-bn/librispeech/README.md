@@ -5,11 +5,8 @@ This folder contains librispeech recipes to train with pkwrap.
 To run the recipe first activate your miniconda env and kaldi env:
 
 ```
-cd ../../../../
-. ./env.sh
-cd -
 ./local/make_links.sh `pwd`/../../../../kaldi
-. ./path.sh
+. ../path.sh
 ```
 
 ## E2E Chain recipe

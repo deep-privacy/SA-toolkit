@@ -83,7 +83,7 @@ def get_f0(
         if f0_cache_lock == None:
             f0_cache_lock = FileLock(f"{cache_file}.lock")
 
-        key = os.path.basename(cache_with_filename)
+        key = cache_with_filename
         if f0_cache != None and key in f0_cache:
             f0 = torch.tensor(f0_cache[key]).unsqueeze(0).unsqueeze(0)
             return norm(f0, f0_stats, cache_with_filename)
@@ -140,12 +140,13 @@ def get_f0(
     f0 = torch.tensor(f0.astype(np.float32))
 
     if cache_with_filename != None:
+        key = cache_with_filename
         with f0_cache_lock:
             kaldiio.save_ark(
                 f"{cache_file}",
-                {os.path.basename(cache_with_filename): f0.squeeze().numpy()},
+                {key: f0.squeeze().numpy()},
                 append=True,
             )
-            f0_cache[os.path.basename(cache_with_filename)] = f0.squeeze().numpy()
+            f0_cache[key] = f0.squeeze().numpy()
 
     return norm(f0, f0_stats, cache_with_filename)
