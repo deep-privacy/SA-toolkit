@@ -11,6 +11,8 @@ from tqdm import tqdm
 
 
 def pad_data(p, out_dir, trim=False, pad=False):
+    # Selecting speakers list from mailabs dataset (don't load mix speech)
+    # Saving speaker name to prefix output audio files
     spk_list = ["ezwa", "nadine-eckert-boulet", "bernard", "gilles-g-le-blanc", "zeckou"]
     for spk in spk_list:
         if spk.replace("-", "_") in p.parts:
@@ -18,6 +20,7 @@ def pad_data(p, out_dir, trim=False, pad=False):
             break
     else:
         return
+
     data, sr = sf.read(p)
     if sr != 16000:
         data = resampy.resample(data, sr, 16000)
