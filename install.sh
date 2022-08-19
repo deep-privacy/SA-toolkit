@@ -59,8 +59,9 @@ if test -f .in_colab_kaggle; then
     # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
     curl -L bit.ly/kaldi-colab | tar xz -C / --exclude='usr*'
     ln -s /opt/kaldi/ kaldi
+    touch .done-kaldi-tools
+    touch .done-kaldi-src
     ) &
-    background_kaldi_install_pid=$!
 
     # Cleanup before install
     echo " - Removing some dist-packages/deps before backup"
@@ -81,6 +82,7 @@ if test -f .in_colab_kaggle; then
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     cp -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
       /tmp/backup/lib/python$current_python_version_with_dot/dist-packages || true
+    wait # wait for kaldi download
     touch $mark
   fi
 fi
@@ -235,12 +237,6 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
-
-if [ ! -z ${background_kaldi_install_pid+x} ]; then
-  touch .done-kaldi-tools
-  touch .done-kaldi-src
-  wait $background_kaldi_install_pid || echo "Failed to install the pre-compiled version of kaldi" && exit 1
-fi
 
 mark=.done-kaldi-tools
 if [ ! -f $mark ]; then
