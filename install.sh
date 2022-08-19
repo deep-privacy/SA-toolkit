@@ -56,8 +56,6 @@ if test -f .in_colab_kaggle; then
   if [ ! -f $mark ]; then
     echo " - Downloading a pre-compiled version of kaldi"
     ( # Skip kaldi install
-    touch .done-kaldi-tools
-    touch .done-kaldi-src
     # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
     curl -L bit.ly/kaldi-colab | tar xz -C /
     ln -s /opt/kaldi/ kaldi
@@ -238,11 +236,13 @@ if [ ! -f $mark ]; then
 fi
 
 
-
-mark=.done-kaldi-tools
-if [ -f $mark ] && [ -f .in_colab_kaggle ]; then
+if [ -z ${background_kaldi_install_pid+x} ]; then
+  touch .done-kaldi-tools
+  touch .done-kaldi-src
   wait $background_kaldi_install_pid || echo "Failed to install the pre-compiled version of kaldi" && exit 1
 fi
+
+mark=.done-kaldi-tools
 if [ ! -f $mark ]; then
   echo " == Building Kaldi tools =="
   rm -rf kaldi || true
