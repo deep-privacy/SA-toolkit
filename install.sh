@@ -236,7 +236,7 @@ if [ ! -f $mark ]; then
 fi
 
 
-if [ -z ${background_kaldi_install_pid+x} ]; then
+if [ ! -z ${background_kaldi_install_pid+x} ]; then
   touch .done-kaldi-tools
   touch .done-kaldi-src
   wait $background_kaldi_install_pid || echo "Failed to install the pre-compiled version of kaldi" && exit 1
