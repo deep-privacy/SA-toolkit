@@ -134,7 +134,7 @@ if [ ! -f $mark ]; then
     wget $conda_url || exit 1
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
-  [ -d $venv_dir ] && yes | rm -r $venv_dir
+  [ -d $venv_dir ] && yes | rm -rf $venv_dir
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
@@ -240,7 +240,7 @@ fi
 
 
 mark=.done-kaldi-tools
-if [ -f $mark ]; then
+if [ -f $mark ] && [ -f .in_colab_kaggle ]; then
   wait $background_kaldi_install_pid || echo "Failed to install the pre-compiled version of kaldi" && exit 1
 fi
 if [ ! -f $mark ]; then
