@@ -57,7 +57,7 @@ if test -f .in_colab_kaggle; then
     echo " - Downloading a pre-compiled version of kaldi"
     ( # Skip kaldi install
     # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
-    curl -L bit.ly/kaldi-colab | tar xz -C /
+    curl -L bit.ly/kaldi-colab | tar xz -C / --exclude='usr*'
     ln -s /opt/kaldi/ kaldi
     ) &
     background_kaldi_install_pid=$!
