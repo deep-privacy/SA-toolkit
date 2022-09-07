@@ -55,12 +55,13 @@ if test -f .in_colab_kaggle; then
   mark=.done-colab-specific
   if [ ! -f $mark ]; then
     echo " - Downloading a pre-compiled version of kaldi"
-    # Skip kaldi install
+    ( # Skip kaldi install
+    # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
+    curl -L bit.ly/kaldi-colab | tar xz -C / --exclude='usr*'
+    ln -s /opt/kaldi/ kaldi
     touch .done-kaldi-tools
     touch .done-kaldi-src
-    # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
-    curl -L bit.ly/kaldi-colab | tar xz -C /
-    ln -s /opt/kaldi/ kaldi
+    ) &
 
     # Cleanup before install
     echo " - Removing some dist-packages/deps before backup"
@@ -81,6 +82,7 @@ if test -f .in_colab_kaggle; then
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
     cp -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
       /tmp/backup/lib/python$current_python_version_with_dot/dist-packages || true
+    wait # wait for kaldi download
     touch $mark
   fi
 fi
@@ -132,7 +134,7 @@ if [ ! -f $mark ]; then
     wget $conda_url || exit 1
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
-  [ -d $venv_dir ] && yes | rm -r $venv_dir
+  [ -d $venv_dir ] && yes | rm -rf $venv_dir
   sh $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
