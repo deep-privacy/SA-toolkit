@@ -15,7 +15,7 @@ graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
 # train params
-num_epochs = 4
+num_epochs = 2
 num_jobs_initial = 1
 num_jobs_final = 1
 lr_initial = 0.0001
@@ -23,8 +23,8 @@ lr_final =   0.00001
 diagnostics_interval = 20
 checkpoint_interval =  20
 # fits on a 47 GB card with wav2vec2 large
-minibatch_size = 8
-grad_acc_steps = 16
+minibatch_size = 6
+grad_acc_steps = 22
 train_stage = last
 # train_stage = 365
 
@@ -33,8 +33,8 @@ l2_regularize_factor = 0.2
 
 final_combination_n_model = 1
 
-model_file = local/chain/e2e/tuning/mls_tdnnf_wav2vec_fairseq_hibitrate.py
-dirname = mls_e2e_tdnnf_wav2vec_fairseq_hibitrate
+model_file = local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py
+dirname = e2e_tdnnf_wav2vec_fairseq_hibitrate
 
 [test]
 test_set = data/mls_test_fbank_hires

@@ -268,10 +268,10 @@ if [ ! -f $mark ]; then
 fi
 
 export KALDI_ROOT=$home/kaldi
-mark=.done-pkwrap
+mark=.done-satools
 if [ ! -f $mark ]; then
-  echo " == Building pkwrap src =="
-  cd pkwrap
+  echo " == Building satools src =="
+  cd satools
   make clean
   python3 setup.py install
   pip3 install -e .

@@ -1,15 +1,6 @@
 #!/bin/bash
 
 set -e
-KALDI_ROOT=`pwd`/../../../../kaldi
-if [ ! -L ./utils ]; then
-  echo "Kaldi root: ${KALDI_ROOT}"
-  ./make_links.sh $KALDI_ROOT || exit 1
-  echo "Successfuly created ln links"
-fi
-. ./cmd.sh
-. ./path.sh
-export LD_LIBRARY_PATH="$(pwd)/lib:$LD_LIBRARY_PATH"
 
 stage=1
 train_set=mls_train
@@ -33,6 +24,22 @@ frame_subsampling_factor=3
 
 . ./utils/parse_options.sh
 . configs/local.conf
+. ./path.sh
+
+KALDI_ROOT=`pwd`/../../../../kaldi
+if [ ! -L ./utils ]; then
+  echo "Kaldi root: ${KALDI_ROOT}"
+  ./make_links.sh $KALDI_ROOT || exit 1
+  echo "Successfuly created ln links"
+fi
+
+export LD_LIBRARY_PATH="$(pwd)/lib:$LD_LIBRARY_PATH"
+# Grid parameters for Kaldi scripts
+export train_cmd="run.pl"
+export cpu_cmd="run.pl"
+export decode_cmd="run.pl"
+export mkgraph_cmd="run.pl"
+
 
 # Setting directory names
 new_lang=data/lang_e2e_${phones_type}
@@ -45,7 +52,8 @@ for script_name in $required_scripts; do
         cp $KALDI_ROOT/egs/librispeech/s5/local/$script_name local/
         if [ $script_name = "prepare_dict.sh" ]; then
           # For prepare_dict.sh, change librispeech reference to mls reference
-          sed -i 's/librispeech/mls/g' $script_name
+          sed -i 's/librispeech/mls/g' local/$script_name
+          sed -i 's/<UNK>/<unk>/g' local/$script_name
         fi
     fi
 done
@@ -81,10 +89,18 @@ fi
 
 if [ $stage -le 1 ]; then
   mkdir -p data/local/lm_less_phones
-  ln -rs data/local/lm/3-gram_lm.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
-  ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
-  ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
-  ln -rs data/local/lm/5-gram_lm.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
+  if [ ! -L data/local/lm_less_phones/lm_tglarge.arpa.gz ]; then
+    ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
+  fi
+  if [ ! -L data/local/lm_less_phones/lm_tgmed.arpa.gz ]; then
+    ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
+  fi
+  if [ ! -L data/local/lm_less_phones/lm_tgsmall.arpa.gz ]; then
+    ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
+  fi
+  if [ ! -L data/local/lm_less_phones/lm_fglarge.arpa.gz ]; then
+    ln -rs data/local/lm/5-gram.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
+  fi
   echo "$0: Preparing lexicon"
   cp data/local/lm/mls-vocab.txt data/local/lm_less_phones/
   if [ ! -f data/local/lm/mls-lexicon.txt ]; then

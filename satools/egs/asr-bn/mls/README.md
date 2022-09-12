@@ -13,13 +13,13 @@ To run the recipe first activate your miniconda env and kaldi env:
 
 To run the 1000h setup (train split of mls), follow the steps below
 
-1. Change the path to mls database in ``conf/local.conf`` (downloadable here : http://openslr.org/94/)
+1. Change the path to mls database in ``configs/local.conf`` (downloadable here : http://openslr.org/94/)
 
 2. Prepare data directories with
 
 ```
 local/chain/e2e/prepare_data.sh
-local/chain/e2e/get_egs.sh --data ./data/mls_train_fbank_hires --fstdir ./exp/chain/e2e_biphone_tree --dir exp/chain/e2e_tdnnf/fst_egs
+local/chain/e2e/get_egs.sh --data ./data/mls_train_sp_fbank_hires --fstdir ./exp/chain/e2e_biphone_tree --dir exp/chain/e2e_tdnnf/fst_egs
 ```
 
 3. Train (and test ``dev``) using the configuration below
