@@ -33,10 +33,10 @@ def build(args):
         def __init__(
             self,
             output_dim,
-            hidden_dim=1024,
-            bottleneck_dim=128,
+            hidden_dim=1024, # 1600
+            bottleneck_dim=128, # 160
             prefinal_bottleneck_dim=256,
-            kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3],
+            kernel_size_list=[3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3], # TODO : ajouter hidden layer 17
             subsampling_factor_list=[1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1],
             frame_subsampling_factor=3,
             p_dropout=0.1,

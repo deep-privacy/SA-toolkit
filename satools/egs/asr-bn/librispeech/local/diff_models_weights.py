@@ -1,6 +1,6 @@
 import torch
 import sys
-import satools
+import pkwrap
 
 
 #  python3 ./local/diff_models_weights.py ./exp/chain/e2e_tdnnf_vq_sizeco_64/final.pt ./exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_64/final.pt
@@ -9,7 +9,7 @@ diffa = torch.load(sys.argv[1])
 
 diffb = torch.load(sys.argv[2])
 
-diffb_same_keys_as_a, unmatch = satools.utils.torch.match_state_dict(
+diffb_same_keys_as_a, unmatch = pkwrap.utils.torch.match_state_dict(
     diffa,
     diffb,
 )

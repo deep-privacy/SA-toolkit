@@ -9,8 +9,8 @@ import os
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-import satools
-from satools.nn import (
+import pkwrap
+from pkwrap.nn import (
     TDNNFBatchNorm,
     NaturalAffineTransform,
     OrthonormalLinear,
@@ -18,7 +18,7 @@ from satools.nn import (
     TDNNFBatchNorm_LD,
     RevGrad,
 )
-from satools.chain import ChainE2EModel
+from pkwrap.chain import ChainE2EModel
 import numpy as np
 from torch.nn.utils import clip_grad_value_
 import logging
@@ -149,9 +149,9 @@ def build(args):
 
             # Preprocessor
             opts = kaldifeat.FbankOptions()
-            self.features_opts = satools.utils.kaldifeat_set_option(
+            self.features_opts = pkwrap.utils.kaldifeat_set_option(
                 opts,
-                satools.__path__[0]
+                pkwrap.__path__[0]
                 + "/../egs/librispeech/v1/"
                 + "./configs/fbank_hires.conf",
             )
@@ -164,7 +164,7 @@ def build(args):
             num_layers = len(kernel_size_list)
             input_dim = self.features_opts.mel_opts.num_bins
 
-            self.cmvn = satools.cmvn.UttCMVN()
+            self.cmvn = pkwrap.cmvn.UttCMVN()
 
             # input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
@@ -224,11 +224,11 @@ def build(args):
                 orthonormal_constraint=-1.0,
             )
 
-            self.chain_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.chain_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.chain_output.weight.data.zero_()
             self.chain_output.bias.data.zero_()
 
-            self.xent_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.xent_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 
@@ -444,7 +444,7 @@ if __name__ == "__main__":
         (_, cce_prediction), xvec  = model.asi(model.bottleneck_out.permute(0, 2, 1).contiguous())
         print("cce_prediction",torch.argmax(cce_prediction.data, 1))
 
-        import satools.infer_helper as infer_helper
+        import pkwrap.infer_helper as infer_helper
 
         text = infer_helper.kaldi_asr_decode(nnet_output)  # is this even text ?
         print("Text:", text)
