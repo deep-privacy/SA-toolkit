@@ -5,7 +5,6 @@ set -e
 stage=1
 train_set=mls_train
 affix=tdnnf
-# affix=tdnnf_vq
 
 corpus=
 lm_url=www.openslr.org/resources/11
@@ -60,29 +59,37 @@ done
 
 if [ $stage -le -1 ]; then
   echo "$0: Downloading lm"
+  # Checking if ngram is installed. Useful for pruning lm
+  if [ ! ngram ]; then
+    echo "Error : ngram not found. Please run kaldi/tools/extras/install_srilm.sh to install it."
+    exit 1
+  fi
+
   dst_lm_dir=data/local/lm
   mkdir -p $dst_lm_dir
   wget https://dl.fbaipublicfiles.com/mls/mls_lm_french.tar.gz -P $dst_lm_dir
-  tar -xzf $dst_lm_dir/mls_lm_french.tar.gz
-  #TODO Prune 3-gram model with ngram and installation of srilm in kaldi
-  # (see https://github.com/kaldi-asr/kaldi/blob/master/egs/librispeech/s5/local/lm/train_lm.sh#L110 for usage)
-  for lm_model in 3-gram.arpa.gz 3-gram.pruned.1e-7.arpa 3-gram.pruned.3e-7.arpa 5-gram.arpa; do
+  tar -xzf $dst_lm_dir/mls_lm_french.tar.gz -C $dst_lm_dir --strip-components=1
+  rm $dst_lm_dir/mls_lm_french.tar.gz
+  # Prune 3-gram lm
+  ngram -prune 0.0000003 -lm $dst_lm_dir/"3-gram_lm.arpa" -write-lm "3-gram_lm.pruned.3e-7.arpa"
+  ngram -prune 0.0000001 -lm $dst_lm_dir/"3-gram_lm.arpa" -write-lm "3-gram_lm.pruned.1e-7.arpa"
+  # Zip all lm
+  for lm_model in 3-gram_lm.arpa 3-gram_lm.pruned.1e-7.arpa 3-gram_lm.pruned.3e-7.arpa 5-gram_lm.arpa; do
     gzip $dst_lm_dir/$lm_model
   done
-  # Converting vocab_counts into vocabulary file
+  # Convert vocab_counts into vocabulary file
   cat $dst_lm_dir/vocab_counts.txt | awk '{print $1}' > $dst_lm_dir/mls-vocab.txt
 fi
 
 if [ $stage -le 0 ]; then
   # format the data as Kaldi data directories
- # train-other-500  train-clean-360
- #TODO : cleaning kaldi scp creation script and add it here
-
   for part in train dev test; do
-    # use underscore-separated names in data directories.
-    data_name=$(echo $part | sed s/-/_/g)
+    data_name=mls_$part
     if [ ! -d data/${data_name} ]; then
-        local/data_prep.sh $corpus/$part data/${data_name}_fbank_hires
+        local/mls_to_kaldi.py \
+          --mls_root $corpus \
+          --data_split $part \
+          --out_dir data/${data_name}_fbank_hires
     fi
   done
 fi
@@ -90,21 +97,22 @@ fi
 if [ $stage -le 1 ]; then
   mkdir -p data/local/lm_less_phones
   if [ ! -L data/local/lm_less_phones/lm_tglarge.arpa.gz ]; then
-    ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
+    ln -rs data/local/lm/3-gram_lm.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
   fi
   if [ ! -L data/local/lm_less_phones/lm_tgmed.arpa.gz ]; then
-    ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
+    ln -rs data/local/lm/3-gram_lm.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
   fi
   if [ ! -L data/local/lm_less_phones/lm_tgsmall.arpa.gz ]; then
-    ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
+    ln -rs data/local/lm/3-gram_lm.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
   fi
   if [ ! -L data/local/lm_less_phones/lm_fglarge.arpa.gz ]; then
-    ln -rs data/local/lm/5-gram.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
+    ln -rs data/local/lm/5-gram_lm.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
   fi
   echo "$0: Preparing lexicon"
   cp data/local/lm/mls-vocab.txt data/local/lm_less_phones/
   if [ ! -f data/local/lm/mls-lexicon.txt ]; then
-    echo "Please create lexicon for mls dataset from 'data/local/lm/mls-vocab.txt' file"
+    echo "Please create lexicon for mls dataset from 'data/local/lm/mls-vocab.txt' in 'data/local/lm/mls-lexicon.txt'"
+    exit 1
   fi
   cp data/local/lm/mls-lexicon.txt data/local/lm_less_phones/
 
@@ -175,7 +183,7 @@ fi
 
 # Generate a decoding graph to decode the validation data
 # for early stopping
-if [ $stage -le 9 ]; then
+if [ $stage -le 6 ]; then
   cp $dir/0.trans_mdl $dir/final.mdl
   utils/lang/check_phones_compatible.sh \
     data/lang_lp_test_tgsmall/phones.txt $new_lang/phones.txt
@@ -183,41 +191,4 @@ if [ $stage -le 9 ]; then
     --self-loop-scale 1.0 --remove-oov data/lang_lp_test_tgsmall \
     $dir $treedir/graph_tgsmall || exit 1;
   rm $dir/final.mdl
-fi
-
-exit 0 # using raw wav instead of kaldi beased feats
-# checkout "local/chain/e2e/get_egs.sh"
-
-if [ $stage -le 6 ]; then
-  echo 'Generating egs to be used during the training'
-  bash steps/chain/e2e/get_egs_e2e.sh \
-    --cmd "$cpu_cmd" \
-    --cmvn-opts  "$cmvn_opts" \
-    --left-context $left_context \
-    --right-context $right_context \
-    --frame-subsampling-factor $frame_subsampling_factor \
-    --stage $get_egs_stage \
-    --frames-per-iter $frames_per_iter \
-    --srand 1234 \
-    data/${train_set}_sp_fbank_hires $dir $treedir $dir/egs
-fi
-
-if [ $stage -le 7 ]; then
-  echo 'Dumping output units and feature dimensions for training'
-  num_targets=$(tree-info ${treedir}/tree | grep num-pdfs | awk '{print $2}')
-  echo $num_targets > $dir/num_pdfs
-  cp $dir/egs/info/feat_dim $dir/feat_dim
-fi
-
-if [ $stage -le 8 ]; then
-  echo 'Preparing the validation folder for tracking WER'
-  mkdir -p $dir/egs/valid_diagnostic
-  nnet3-chain-copy-egs \
-    ark:$dir/egs/valid_diagnostic.cegs ark,t:- \
-    | grep 'NumInputs' | sed -e 's/<\/Nnet3ChainEg> //g' |  cut -d ' ' -f 1 > $dir/egs/valid_diagnostic/utt_ids
-  echo "dummy text" > $dir/egs/valid_diagnostic/text
-  rm  $dir/egs/valid_diagnostic/text
-  for id in `cat  $dir/egs/valid_diagnostic/utt_ids`; do
-    grep $id data/${train_set}_sp_fbank_hires/text >>  $dir/egs/valid_diagnostic/text
-  done
 fi
