@@ -250,6 +250,7 @@ if [ ! -f $mark ]; then
   cd tools
   extras/check_dependencies.sh || exit 1
   make -j $nj || exit 1
+  # Installing srilm to modify language models.
   cd $home
   touch $mark
 fi
@@ -295,6 +296,9 @@ if [ ! -f $mark ]; then
   python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
   touch $mark
 fi
+
+mark=.done-srilm
+url=https://github.com/BitSpeech/SRILM/archive/refs/tags/1.7.3.tar.gz
 
 mark=.done-sidekit
 if [ ! -f $mark ]; then

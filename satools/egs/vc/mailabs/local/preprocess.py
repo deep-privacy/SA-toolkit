@@ -1,4 +1,5 @@
 import argparse
+import os.path
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -8,20 +9,11 @@ import resampy
 import soundfile as sf
 import librosa
 from tqdm import tqdm
+import satools
 
 
 def pad_data(p, out_dir, trim=False, pad=False):
-    # Selecting speakers list from mailabs dataset (don't load mix speech)
-    # Saving speaker name to prefix output audio files
-    spk_list = ["ezwa", "nadine-eckert-boulet", "bernard", "gilles-g-le-blanc", "zeckou"]
-    for spk in spk_list:
-        if spk.replace("-", "_") in p.parts:
-            out_spk = spk
-            break
-    else:
-        return
-
-    data, sr = sf.read(p)
+    data, sr = satools.utils.kaldi.load_wav_from_scp(p, out_type="soundfile")
     if sr != 16000:
         data = resampy.resample(data, sr, 16000)
         sr = 16000
@@ -39,21 +31,32 @@ def pad_data(p, out_dir, trim=False, pad=False):
             )
         assert data.shape[0] % 1280 == 0
 
-    outpath = out_dir / (out_spk + "_" + p.name)
+    outpath = Path(os.path.join(out_dir, os.path.splitext(os.path.basename(p))[0] + ".wav"))
     outpath.parent.mkdir(exist_ok=True, parents=True)
     sf.write(outpath, data, sr)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--srcdir", type=Path, required=True)
+    parser.add_argument("--srcdir", type=Path, default="")
+    parser.add_argument("--wavscp", type=Path, default="")
     parser.add_argument("--outdir", type=Path, required=True)
     parser.add_argument("--trim", action="store_true")
     parser.add_argument("--pad", action="store_true")
     parser.add_argument("--postfix", type=str, default="wav")
     args = parser.parse_args()
 
-    files = list(Path(args.srcdir).glob(f"**/*{args.postfix}"))
+    if args.wavscp:
+        # Loading files from wav.scp file
+        with open(args.wavscp, 'r') as wav_scp_file:
+            files = [" ".join(line.split()[1:]) for line in wav_scp_file]
+    elif args.srcdir:
+        # Loading files from directory
+        files = list(Path(args.srcdir).glob(f"**/*{args.postfix}"))
+        files = [p.as_posix() for p in files]
+    else:
+        raise ValueError("Please provide srcdir or wavscp argument")
+
     out_dir = Path(args.outdir)
 
     pad_data_ = partial(pad_data, out_dir=out_dir, trim=args.trim, pad=args.pad)
