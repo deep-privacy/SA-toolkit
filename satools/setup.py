@@ -19,8 +19,8 @@ if not KALDI_ROOT:
     quit(1)
 KALDI_LIB_DIR = os.path.join(KALDI_ROOT, "src", "lib")
 
-PACKAGE_NAME = "pkwrap"
-EXTENSION_NAME = "_pkwrap"
+PACKAGE_NAME = "satools"
+EXTENSION_NAME = "_satools"
 SRC_FILES = [
     "src/pkwrap-main.cc",
     "src/matrix.cc",

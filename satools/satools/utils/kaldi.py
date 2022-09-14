@@ -143,10 +143,10 @@ def read_wav_scp(wav_scp):
     return utt2wav
 
 
-def load_wav_from_scp(wav):
+def load_wav_from_scp(wav, out_type="torch"):
     """Reads a wav.scp entry like kaldi with embeded unix command
     and returns a pytorch tensor like it was open with torchaudio.load()
-    (within some tolerance due to numerical precision)
+    (within some tolerance due to numerical precision) or the direct ouput of soundfile.read()
 
     signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
     signalv2 = load_wav_from_scp('flac -c -d -s XX/1272-128104-0000.flac |')
@@ -159,7 +159,7 @@ def load_wav_from_scp(wav):
         wav: a list containing the scp entry
 
     Returns:
-        feats_torch torch.tensor dtype float32
+        out_feats: torch.tensor dtype float32 (default) or output of soundfile.read()
     """
     if wav.strip().endswith("|"):
         devnull = open(os.devnull, "w")
@@ -174,7 +174,11 @@ def load_wav_from_scp(wav):
             raise IOError("Error processing wav file: {}\n{}".format(wav, e))
     else:
         sample, sr = soundfile.read(wav)
-    feats_torch = torch.tensor(
-        sample, dtype=torch.float32, requires_grad=False
-    ).unsqueeze(0)
-    return feats_torch, sr
+
+    if out_type == "torch":
+        out_feats = torch.tensor(
+            sample, dtype=torch.float32, requires_grad=False
+        ).unsqueeze(0)
+    else:
+        out_feats = sample
+    return out_feats, sr

@@ -8,15 +8,15 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-import pkwrap
-from pkwrap.nn import (
+import satools
+from satools.nn import (
     TDNNFBatchNorm,
     NaturalAffineTransform,
     OrthonormalLinear,
     VectorQuantizerEMA,
     TDNNFBatchNorm_LD,
 )
-from pkwrap.chain import ChainE2EModel
+from satools.chain import ChainE2EModel
 import numpy as np
 from torch.nn.utils import clip_grad_value_
 import logging
@@ -150,11 +150,11 @@ def build(args):
                 orthonormal_constraint=-1.0,
             )
 
-            self.chain_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.chain_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.chain_output.weight.data.zero_()
             self.chain_output.bias.data.zero_()
 
-            self.xent_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.xent_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 

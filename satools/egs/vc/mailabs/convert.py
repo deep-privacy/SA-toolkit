@@ -1,5 +1,5 @@
-import satools.infer_helper as demo
-import satools
+import pkwrap.infer_helper as demo
+import pkwrap
 
 import argparse
 import json
@@ -126,14 +126,14 @@ if __name__ == "__main__":
     os.makedirs(out_dir, exist_ok=True)
 
     if args.target_id != None:
-        spk2target = satools.utils.kaldi.read_wav_scp(args.target_id)
+        spk2target = pkwrap.utils.kaldi.read_wav_scp(args.target_id)
 
     if args._in_scp != None:
-        wavs_scp = satools.utils.kaldi.read_wav_scp(args._in_scp)
+        wavs_scp = pkwrap.utils.kaldi.read_wav_scp(args._in_scp)
         wav2utt = {"".join(v): k for k, v in wavs_scp.items()}
         wavs_path = list(wavs_scp.values())
         wavs_path = list(demo.split(wavs_path, args.of))[args.part]
-        torch_dataset = satools.hifigan.dataset.WavList(
+        torch_dataset = pkwrap.hifigan.dataset.WavList(
             wavs_path, load_func=satools.utils.kaldi.load_wav_from_scp
         )
     else:
@@ -326,7 +326,7 @@ if __name__ == "__main__":
         and os.getenv("TARGET_single", default="false") != "true"
         and args.f0_stats != parser.get_default("f0_stats")
     ):
-        # same as in pkwrap/hifigan/f0.py
+        # same as in satools/hifigan/f0.py
         def d(a):
             if a.endswith("|"):
                 return a.split("/")[-1].split()[0]
