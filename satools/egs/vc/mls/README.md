@@ -3,13 +3,13 @@ Hifi-GAN Synthesis from Vector quantized features
 
 
 ## Data
-1. Download MAILABS dataset from [here](https://data.solak.de/data/Training/stt_tts/fr_FR.tgz) into ```data/mailabs``` folder.
+1. Download MLS dataset from [here](https://www.openslr.org/94/) into ```data/mls``` folder.
 2. Preprocess data with padding
 
 ```bash
 python ./local/preprocess.py \
---srcdir data/mailabs/M-AILABS_French_v0.9 \
---outdir data/mailabs/wavs \
+--srcdir data/mls/train \
+--outdir data/mls/wavs \
 --pad
 ```
 
@@ -20,12 +20,10 @@ python ./local/preprocess.py \
 ngpu=$(python3 -c "import torch; print(torch.cuda.device_count())")
 python -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py
 ```
-
-### DP models
 ```
 python3 local/get_f0_stats_hifi_gan_w2w2.py \
-  --srcdir ./data/mailabs/wavs/
-  --outstats ./data/mailabs/stats.json
+  --srcdir ./data/mls/wavs/
+  --outstats ./data/mls/stats.json
 
 python3 -m torch.distributed.launch --nproc_per_node 2 \
   ./local/tuning/hifi_gan_wav2vec2.py \
@@ -94,16 +92,16 @@ python -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_
 ```
 # Create spk2target mapping
 python3 create_random_target.py \
-    --target-list data/mailabs/stats.json \
+    --target-list data/mls/stats.json \
     --in-wavscp ../asr-bn/mls/data/mls_french/test_kaldi/wav.scp \
-    --in-utt2spk ../asr-bn/mls/data/mls_french/test_kaldi/utt2spk --same-spk "ezwa" \
+    --in-utt2spk ../asr-bn/mls/data/mls_french/test_kaldi/utt2spk --same-spk "10065" \
     > target-mapping
 
 python3 ./convert.py \
-    --model-type wav2vec2_mailabs \
+    --model-type wav2vec2_mls \
     --num-workers 4 \
     --batch-size 64  \
     --out generated_mls_test_137000 \
-    --in-wavscp /home/hnourtel/storageTalc3/mls_french/test_kaldi/wav.scp \
-    --f0-stats "$(cat data/mailabs/stats.json)" \
+    --in-wavscp /home/test/wav.scp \
+    --f0-stats "$(cat data/mls/stats.json)" \
     --target_id target-mapping
