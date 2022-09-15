@@ -23,7 +23,7 @@ frame_subsampling_factor=3
 
 . ./utils/parse_options.sh
 . configs/local.conf
-. ../path.sh
+. ./path.sh
 
 KALDI_ROOT=`pwd`/../../../kaldi
 if [ ! -L ./utils ]; then
@@ -86,7 +86,7 @@ if [ $stage -le 0 ]; then
   for part in train dev test; do
     data_name=mls_$part
     if [ ! -d data/${data_name} ]; then
-        local/mls_to_kaldi.py \
+        python3 local/mls_to_kaldi.py \
           --mls_root $corpus \
           --data_split $part \
           --out_dir data/${data_name}_fbank_hires

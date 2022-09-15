@@ -10,7 +10,7 @@ def main():
     parser.add_argument('--use_book_in_spk', type=bool, default=True, help="Indicates if speaker id contains book id or not")
 
     args = parser.parse_args()
-    mls_root = args.mls_path
+    mls_root = args.mls_root
     data_split = args.data_split
     out_dir = args.out_dir
     use_book_in_spk = args.use_book_in_spk

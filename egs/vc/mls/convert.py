@@ -1,5 +1,5 @@
-import pkwrap.infer_helper as demo
-import pkwrap
+import satools.infer_helper as demo
+import satools
 
 import argparse
 import json
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     f0_stats = json.loads(args.f0_stats.replace("'", '"'))
 
     #  dim = 128
-    #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
+    #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/satools/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
     #  out_dir = "generated_train-clean-360_vq_" + str(dim)
 
     audio_extension = args.ext
@@ -126,14 +126,14 @@ if __name__ == "__main__":
     os.makedirs(out_dir, exist_ok=True)
 
     if args.target_id != None:
-        spk2target = pkwrap.utils.kaldi.read_wav_scp(args.target_id)
+        spk2target = satools.utils.kaldi.read_wav_scp(args.target_id)
 
     if args._in_scp != None:
-        wavs_scp = pkwrap.utils.kaldi.read_wav_scp(args._in_scp)
+        wavs_scp = satools.utils.kaldi.read_wav_scp(args._in_scp)
         wav2utt = {"".join(v): k for k, v in wavs_scp.items()}
         wavs_path = list(wavs_scp.values())
         wavs_path = list(demo.split(wavs_path, args.of))[args.part]
-        torch_dataset = pkwrap.hifigan.dataset.WavList(
+        torch_dataset = satools.hifigan.dataset.WavList(
             wavs_path, load_func=satools.utils.kaldi.load_wav_from_scp
         )
     else:
@@ -213,7 +213,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
                 exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                pkwrap_vq_dim=dim,
+                vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_model(
@@ -239,7 +239,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_dp.py",
                 exp_path=f"exp/chain/e2e_tdnnf_dp_e{dp_dim}/",
-                pkwrap_dp_dim=dp_dim,
+                dp_dim=dp_dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -253,7 +253,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
                 exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                pkwrap_vq_dim=dim,
+                vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -262,7 +262,7 @@ if __name__ == "__main__":
                 asr_bn_model=pk_model,
                 model_weight="g_00045000",
             )
-    if args.model_type == "wav2vec2_mailabs":
+    if args.model_type == "wav2vec2_mls":
         forward_asr, pk_model = demo.init_asr_model(
             model=f"local/chain/e2e/tuning/mls_tdnnf_wav2vec_fairseq_hibitrate.py",
             exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
@@ -294,7 +294,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_{dp_dim}/",
-                pkwrap_dp_dim=dp_dim,
+                dp_dim=dp_dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -311,7 +311,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
-                pkwrap_vq_dim=dim,
+                vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(

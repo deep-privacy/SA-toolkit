@@ -115,7 +115,7 @@ if __name__ == "__main__":
     f0_stats = json.loads(args.f0_stats.replace("'", '"'))
 
     #  dim = 128
-    #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
+    #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/satools/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
     #  out_dir = "generated_train-clean-360_vq_" + str(dim)
 
     audio_extension = args.ext
@@ -207,7 +207,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
                 exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                pkwrap_vq_dim=dim,
+                vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_model(
@@ -233,7 +233,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_dp.py",
                 exp_path=f"exp/chain/e2e_tdnnf_dp_e{dp_dim}/",
-                pkwrap_dp_dim=dp_dim,
+                dp_dim=dp_dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -247,7 +247,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
                 exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                pkwrap_vq_dim=dim,
+                vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -288,7 +288,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_{dp_dim}/",
-                pkwrap_dp_dim=dp_dim,
+                dp_dim=dp_dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -305,7 +305,7 @@ if __name__ == "__main__":
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
                 exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
-                pkwrap_vq_dim=dim,
+                vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -320,7 +320,7 @@ if __name__ == "__main__":
         and os.getenv("TARGET_single", default="false") != "true"
         and args.f0_stats != parser.get_default("f0_stats")
     ):
-        # same as in pkwrap/hifigan/f0.py
+        # same as in satools/hifigan/f0.py
         def d(a):
             if a.endswith("|"):
                 return a.split("/")[-1].split()[0]
