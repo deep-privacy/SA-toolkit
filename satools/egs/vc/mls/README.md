@@ -16,18 +16,17 @@ python ./local/preprocess.py \
 ## Training
 
 ### Train HifiGAN model
-```bash
-ngpu=$(python3 -c "import torch; print(torch.cuda.device_count())")
-python -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py
-```
+
 ```
 python3 local/get_f0_stats_hifi_gan_w2w2.py \
-  --srcdir ./data/mls/wavs/
-  --outstats ./data/mls/stats.json
+    --srcdir ./data/mls/wavs/
+    --outstats ./data/mls/stats.json
 
-python3 -m torch.distributed.launch --nproc_per_node 2 \
-  ./local/tuning/hifi_gan_wav2vec2.py \
-  --batch_size 40
+python3 -m torch.distributed.launch --nproc_per_node 2 ./local/tuning/hifi_gan_wav2vec2.py \
+    --batch_size 40 \
+    --bn_dataset mls \
+    --data_dir data/mls/wavs/ \
+    --f0_stats data/mls/stats.json
 ```
 
 # DP models
