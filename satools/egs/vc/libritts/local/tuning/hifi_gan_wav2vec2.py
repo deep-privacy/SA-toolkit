@@ -146,7 +146,7 @@ def build(args, spkids):
                 pkwrap_path = satools.__path__[0] + "/../egs/" + args.bn_dataset
                 model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
 
-                config_path = pkwrap_path + model
+                config_path = os.path.join(pkwrap_path, model)
                 if not os.path.exists(config_path):
                     raise FileNotFoundError(
                         "No file found at location {}".format(config_path)

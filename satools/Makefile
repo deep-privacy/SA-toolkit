@@ -9,7 +9,7 @@ test-gpu:
 	queue.pl -l q_gpu -V test_gpu.log tests/test-gpu.py
 
 clean:
-	rm -rf build dist *.egg-info *.egg-info/ *pkwrap*.so
+	rm -rf build dist *.egg-info *.egg-info/ *satools*.so
 
 cleanly: clean package
 
