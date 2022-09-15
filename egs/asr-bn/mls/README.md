@@ -7,7 +7,7 @@ To run the recipe first activate your miniconda env and kaldi env:
 ```
 ./local/make_links.sh `pwd`/../../../kaldi
 . ../../../env.sh
-. ../path.sh
+. ./path.sh
 ```
 
 ## E2E Chain recipe
