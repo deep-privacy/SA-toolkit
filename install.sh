@@ -252,9 +252,6 @@ if [ ! -f $mark ]; then
   make -j $nj || exit 1
 
   # Installing srilm to modify language models.
-  # Activate virtual environement to be able to compile srilm
-  source venv/bin/activate
-  cd kaldi/tools
   # Modifiying installation script. Original one can be find under : kaldi/tools/extras/install_srilm.sh
   sed -i -e "s|wget.*srilm_url.*$|wget -O ./srilm.tar.gz 'https://github.com/BitSpeech/SRILM/archive/refs/tags/1.7.3.tar.gz';then|g" install_srilm.sh
   sed -i -e "s|tar -xvzf ../srilm.tar.gz|tar -xvzf ../srilm.tar.gz --strip-components=1|g" install_srilm.sh
@@ -262,7 +259,6 @@ if [ ! -f $mark ]; then
   # Running installation with fake arguments to bypass argument checking
   ./install_srilm.sh x x x
 
-  cd $home
   cd $home
   touch $mark
 fi
