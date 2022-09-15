@@ -21,14 +21,10 @@ def build():
             super().__init__()
 
             self.bn_extractor_func, self.model = satools.infer_helper.init_asr_model(
-                model="local/chain/e2e/tuning/tdnnf_spkadv.py",
-                exp_path="exp/chain/e2e_tdnnf/", # First stage
-                #  exp_path="exp/chain/e2e_tdnnf_rev_grad/", # second stage
-                additional_args={
+                model="local/chain/e2e/tuning/tdnnf_spkadv.py", exp_path="exp/chain/e2e_tdnnf/", additional_args={
                     "adversarial_training": "False",
                     "spk2id": "./data/spk2id",
-                },
-            )
+                })
             self.print_text = False
 
             time_masking = torchaudio.transforms.TimeMasking(time_mask_param=5)

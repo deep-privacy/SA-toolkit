@@ -127,28 +127,20 @@ if __name__ == "__main__":
 
     if args.model_type == "tdnnf":
         if dim == -1 or dim == 0:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf.py",
-                exp_path=f"exp/chain/e2e_tdnnf/",
-            )
+            forward_asr, pk_model = demo.init_asr_model(model=f"local/chain/e2e/tuning/tdnnf.py",
+                                                        exp_path=f"exp/chain/e2e_tdnnf/")
         else:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
-                exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                pkwrap_vq_dim=dim,
-            )
+            forward_asr, pk_model = demo.init_asr_model(model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
+                                                        exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/", vq_dim=dim)
     if args.model_type == "wav2vec2":
         if dim == -1 or dim == 0:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
-            )
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/")
         else:
             forward_asr, pk_model = demo.init_asr_model(
                 model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
-                pkwrap_vq_dim=dim,
-            )
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/", vq_dim=dim)
 
     for i, sample in enumerate(dataloader):
         p = convert(sample)

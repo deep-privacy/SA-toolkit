@@ -2,7 +2,7 @@
 
 set -e
 
-stage=1
+stage=-1
 train_set=mls_train
 affix=tdnnf
 
@@ -23,9 +23,9 @@ frame_subsampling_factor=3
 
 . ./utils/parse_options.sh
 . configs/local.conf
-. ./path.sh
+. ../path.sh
 
-KALDI_ROOT=`pwd`/../../../../kaldi
+KALDI_ROOT=`pwd`/../../../kaldi
 if [ ! -L ./utils ]; then
   echo "Kaldi root: ${KALDI_ROOT}"
   ./make_links.sh $KALDI_ROOT || exit 1
@@ -71,8 +71,8 @@ if [ $stage -le -1 ]; then
   tar -xzf $dst_lm_dir/mls_lm_french.tar.gz -C $dst_lm_dir --strip-components=1
   rm $dst_lm_dir/mls_lm_french.tar.gz
   # Prune 3-gram lm
-  ngram -prune 0.0000003 -lm $dst_lm_dir/"3-gram_lm.arpa" -write-lm "3-gram_lm.pruned.3e-7.arpa"
-  ngram -prune 0.0000001 -lm $dst_lm_dir/"3-gram_lm.arpa" -write-lm "3-gram_lm.pruned.1e-7.arpa"
+  ngram -prune 0.0000003 -lm $dst_lm_dir/"3-gram_lm.arpa" -write-lm $dst_lm_dir/"3-gram_lm.pruned.3e-7.arpa"
+  ngram -prune 0.0000001 -lm $dst_lm_dir/"3-gram_lm.arpa" -write-lm $dst_lm_dir/"3-gram_lm.pruned.1e-7.arpa"
   # Zip all lm
   for lm_model in 3-gram_lm.arpa 3-gram_lm.pruned.1e-7.arpa 3-gram_lm.pruned.3e-7.arpa 5-gram_lm.arpa; do
     gzip $dst_lm_dir/$lm_model

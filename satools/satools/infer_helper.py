@@ -19,8 +19,8 @@ def split(a, n):
 def init_asr_model(
     model,
     exp_path,
-    pkwrap_dp_dim=-1,
-    pkwrap_vq_dim=-1,
+    dp_dim=-1,
+    vq_dim=-1,
     get_model_module=False,
     load_model=True,
     additional_args={},
@@ -37,16 +37,16 @@ def init_asr_model(
     spec.loader.exec_module(asr_model_file)
 
     args = SimpleNamespace(**additional_args)
-    if pkwrap_dp_dim != -1:
+    if dp_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
-            epsilon=str(pkwrap_dp_dim),
+            epsilon=str(dp_dim),
             **additional_args,
         )
-    if pkwrap_vq_dim != -1:
+    if vq_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
-            codebook_size=pkwrap_vq_dim,
+            codebook_size=vq_dim,
             **additional_args,
         )
 

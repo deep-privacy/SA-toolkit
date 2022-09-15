@@ -5,7 +5,8 @@ This folder contains mls recipes to train with pkwrap.
 To run the recipe first activate your miniconda env and kaldi env:
 
 ```
-./local/make_links.sh `pwd`/../../../../kaldi
+./local/make_links.sh `pwd`/../../../kaldi
+. ../../../env.sh
 . ../path.sh
 ```
 
