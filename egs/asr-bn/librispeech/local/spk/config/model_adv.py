@@ -1,18 +1,12 @@
+import logging
+
+import satools.infer_helper as infer_helper
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchaudio
 
-import sidekit.nnet
-
-import sys
-import os
 import satools
-import satools.infer_helper as infer_helper
 
-from types import SimpleNamespace
-
-import logging
 logging.basicConfig(level=logging.INFO)
 
 def build():

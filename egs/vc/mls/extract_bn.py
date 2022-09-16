@@ -1,25 +1,17 @@
-import satools.infer_helper as demo
-import satools
-
 import argparse
-import json
-import sys
 import os
-from multiprocessing import Manager, Pool
-from tqdm import tqdm
+import random
+import sys
+from multiprocessing import Process
 from pathlib import Path
 
-import random
 import numpy as np
-from scipy.io import wavfile
-
-import torch
-import torchaudio
-
-from multiprocessing import Process
-
+import satools.infer_helper as demo
 import satools.utils.ioTools as readwrite
-from kaldiio import WriteHelper, ReadHelper
+import torch
+from tqdm import tqdm
+
+import satools
 
 
 def stream(message):

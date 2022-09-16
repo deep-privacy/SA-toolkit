@@ -1,24 +1,24 @@
-from dataclasses import dataclass
+import copy
+import glob
+import itertools
+import json
 import logging
+import os
+import time
+from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+from carbontracker.tracker import CarbonTracker
 from torch.distributed import init_process_group
 from torch.utils.tensorboard import SummaryWriter
-import os
-import json
-from pathlib import Path
-import glob
-import copy
-import time
-import itertools
-from carbontracker.tracker import CarbonTracker
 
-
-from .. import utils
-from .. import script_utils
 from . import dataset
 from . import nn_speech
+from .. import script_utils
+from .. import utils
+
 
 #  torch.set_num_threads(1)
 #  torch.set_num_interop_threads(1)

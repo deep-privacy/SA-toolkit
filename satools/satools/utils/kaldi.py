@@ -1,12 +1,14 @@
 """Wrappers to call kaldi's utils/ scripts"""
-from ..script_utils import run
-import subprocess
 import configparser
-import torch
-import soundfile
 import io
 import os
+import subprocess
 import sys
+
+import soundfile
+import torch
+
+from ..script_utils import run
 
 
 def split_data(data_folder, num_jobs):

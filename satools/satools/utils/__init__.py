@@ -1,3 +1,4 @@
+from . import kaldi
 from .fs import (
     split_data,
     num_lines,
@@ -6,10 +7,7 @@ from .fs import (
     cat,
     creation_date_file,
 )
-from . import kaldi
-
 from .kaldi import read_kaldi_conf, kaldifeat_set_option
-
 from .torch import *
 
 

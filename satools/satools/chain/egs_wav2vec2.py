@@ -1,14 +1,14 @@
 """Module to prepare egs for e2e-lfmmi training with wav2vec2 models"""
 
-import time
+import io
 import logging
 import os
-from collections import defaultdict
 import subprocess
-import io
-import random
-import torch
+import time
+from collections import defaultdict
+
 import soundfile
+import torch
 
 try:
     from _pkwrap import kaldi  # lazy import (kaldi-free decoding)

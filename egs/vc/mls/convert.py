@@ -1,20 +1,18 @@
-import satools.infer_helper as demo
-import satools
-
 import argparse
 import json
-import sys
 import os
-from tqdm import tqdm
+import random
+import sys
+from multiprocessing import Process
 from pathlib import Path
 
-import random
 import numpy as np
-from scipy.io import wavfile
-
+import satools.infer_helper as demo
 import torch
+from scipy.io import wavfile
+from tqdm import tqdm
 
-from multiprocessing import Process
+import satools
 
 
 def stream(message):
@@ -347,7 +345,7 @@ if __name__ == "__main__":
             #  }
             #
             # this module was purposly not included in this SA-toolkit
-            from f0DP import load_AE, DP_F0, gauss_interpolate
+            from f0DP import load_AE, DP_F0
 
             DP_eps = float(args.dp_pitch)
 

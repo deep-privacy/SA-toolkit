@@ -2,19 +2,18 @@
  wrap scripts in kaldi utils directory
 """
 
-import subprocess
-from .. import script_utils
-import sys
-import os
-from datetime import datetime
-from tqdm import tqdm
-from pathlib import Path
 import logging
+import os
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
 
-from filelock import FileLock
-import torch
-import numpy as np
 import kaldiio
+import torch
+from tqdm import tqdm
+
+from .. import script_utils
 
 run = script_utils.run
 

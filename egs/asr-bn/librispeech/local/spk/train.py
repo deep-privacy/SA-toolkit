@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
-import argparse
-import sidekit
 import os
-
 import warnings
+
+import sidekit
 
 warnings.filterwarnings("ignore")
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")

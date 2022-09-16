@@ -9,7 +9,6 @@ import logging
 logging.basicConfig(
     level=logging.DEBUG, format=f"{__name__} %(levelname)s: %(message)s"
 )
-import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform, OrthonormalLinear

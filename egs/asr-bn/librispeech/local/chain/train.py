@@ -5,21 +5,20 @@ description = """
   It takes a config file, if none is provided the script will look at configs/default.
 """
 
-import os
-import sys
-import glob
-import shutil
-import datetime
-import math
-import json
-import torch
-import pkwrap
 import argparse
-import subprocess
-import configparser
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import concurrent
+import configparser
+import datetime
+import glob
+import json
 import logging
+import os
+import shutil
+import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import pkwrap
+import torch
 
 logging.basicConfig(level=logging.INFO, format="pkwrap %(levelname)s: %(message)s")
 logging.getLogger("geocoder").setLevel(logging.WARNING)

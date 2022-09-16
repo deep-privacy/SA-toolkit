@@ -1,14 +1,13 @@
-import torch
-import torch.nn as nn
-
+import logging
 import random
-import satools
-from satools.hifigan import F0QuantModel
-
-import configargparse
 import sys
 
-import logging
+import configargparse
+import torch
+import torch.nn as nn
+from satools.hifigan import F0QuantModel
+
+import satools
 
 logging.basicConfig(level=logging.INFO)
 

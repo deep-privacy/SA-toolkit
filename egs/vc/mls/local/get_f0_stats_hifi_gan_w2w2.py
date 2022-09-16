@@ -1,14 +1,17 @@
-import satools
-from tqdm import tqdm
-import soundfile as sf
+import argparse
+import json
+import math
+import os
 from multiprocessing import Pool
 from pathlib import Path
-import argparse
+
 import numpy
-import math
+import soundfile as sf
 import torch
-import os
-import json
+from tqdm import tqdm
+
+import satools
+
 
 def calc_stats(file):
     x, sr = sf.read(file)

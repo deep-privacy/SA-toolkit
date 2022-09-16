@@ -1,15 +1,15 @@
 import logging
+
 import torch
-import torch.nn as nn
-from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
+from torch.nn.utils import clip_grad_value_
+
 from .egs_wav2vec2 import (
     Wav2vec2BatchSampler,
     Wav2vec2EgsCollectFn,
     GetSupervisionFromWav2Vec2Egs,
 )
 from .. import nsg
-
 
 try:
     from _pkwrap import kaldi  # lazy import (kaldi-free decoding)

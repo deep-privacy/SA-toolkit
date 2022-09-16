@@ -2,8 +2,12 @@
 
 from __future__ import print_function
 
-import sys, os, string, re, signal, errno
-
+import errno
+import os
+import re
+import signal
+import string
+import sys
 
 # redefine readline to pass invalidly encoded characters unchanged, if possible
 if hasattr(sys.stdin, 'reconfigure') and hasattr(sys.stdout, 'reconfigure'):

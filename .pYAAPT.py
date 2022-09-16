@@ -40,14 +40,12 @@ Version 1.0.11
 23/Jan/2021 Bernardo J.B. Schmitt - bernardo.jb.schmitt@gmail.com
 """
 
+import amfm_decompy.basic_tools as basic
 import numpy as np
 import numpy.lib.stride_tricks as stride_tricks
+import scipy.interpolate as scipy_interp
 from scipy.signal import firwin, medfilt, lfilter
 from scipy.signal.windows import hann, kaiser
-import scipy.interpolate as scipy_interp
-
-import amfm_decompy.basic_tools as basic
-
 
 """
 --------------------------------------------

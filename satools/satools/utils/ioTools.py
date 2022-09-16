@@ -6,17 +6,17 @@ ioTools FROM: https://github.com/nii-yamagishilab/project-CURRENNT-public/tree/m
 
 from __future__ import absolute_import
 from __future__ import print_function
+
+import os
+import pickle
 import re
 
 import numpy as np
-import os
+
 
 # if __name__ == "__main__" and __package__ is None:
 #    import os, sys
 #    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-import pickle
 
 
 ##########################################################

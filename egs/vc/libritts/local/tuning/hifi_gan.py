@@ -1,15 +1,16 @@
+# IMPORT F0 Quant
+import os
+import random
+import sys
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
-from torch.nn.utils import weight_norm, remove_weight_norm
-
-import random
-import satools
 from satools.hifigan import HifiGanModel
+from torch.nn.utils import weight_norm, remove_weight_norm
+from torch.nn.utils.rnn import pad_sequence
 
-# IMPORT F0 Quant
-import sys, os
+import satools
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 from f0_quant import build as f0_quant_builder
@@ -21,7 +22,6 @@ import configargparse
 from types import SimpleNamespace
 
 import logging
-import time
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("geocoder").setLevel(logging.WARNING)

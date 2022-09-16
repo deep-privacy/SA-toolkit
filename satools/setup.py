@@ -5,10 +5,10 @@
 
 import os
 import sys
-from setuptools import setup, find_packages
-from torch.utils import cpp_extension
 
 import torch
+from setuptools import setup, find_packages
+from torch.utils import cpp_extension
 
 PYTORCH_VERSION = torch.__version__
 PYTORCH_MAJOR_VER, PYTORCH_MIN_VER = list(map(int, PYTORCH_VERSION.split(".")[:2]))

@@ -5,21 +5,18 @@
 # after fg rescoring
 #  %WER 5.12 [ 2787 / 54402, 316 ins, 326 del, 2145 sub ]
 
+import logging
+
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
-import satools
+import torch.nn.functional as F
+from satools.chain import ChainE2EModel
 from satools.nn import (
     TDNNFBatchNorm,
-    NaturalAffineTransform,
-    OrthonormalLinear,
-    VectorQuantizerEMA,
     TDNNFBatchNorm_LD,
 )
-from satools.chain import ChainE2EModel
-import numpy as np
-from torch.nn.utils import clip_grad_value_
-import logging
+
+import satools
 
 logging.basicConfig(level=logging.DEBUG)
 import sys

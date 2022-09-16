@@ -3,7 +3,7 @@
   Amir Harati April 2018
 """
 import argparse
-from shutil import copyfile
+
 
 def main():
     parser = argparse.ArgumentParser()

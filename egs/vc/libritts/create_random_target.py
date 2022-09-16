@@ -1,8 +1,9 @@
 import argparse
-import satools
 import json
 import random
 import sys
+
+import satools
 
 if __name__ == "__main__":
     """

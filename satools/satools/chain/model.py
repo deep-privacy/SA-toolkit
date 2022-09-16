@@ -1,28 +1,23 @@
-import os
-import sys
-import json
-from collections import Counter
-import logging
 import argparse
+import logging
+import os
 from dataclasses import dataclass
-import numpy
+
+import kaldiio
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchaudio
-from .. import script_utils
-from .. import utils
-from .. import tensorboard
-from .objf import train_lfmmi_one_iter, compute_chain_objf
+from tqdm import tqdm
+
 from .egs_wav2vec2 import (
     Wav2vec2EgsDataset,
     Wav2vec2DecodeDataset,
     Wav2vec2EgsCollectFn,
 )
-
-import kaldiio
-import matplotlib.pyplot as plt
-from tqdm import tqdm
+from .objf import train_lfmmi_one_iter, compute_chain_objf
+from .. import script_utils
+from .. import tensorboard
+from .. import utils
 
 
 @dataclass

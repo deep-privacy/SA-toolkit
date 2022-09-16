@@ -1,16 +1,13 @@
-import torch
-import torchaudio
-
-from librosa.filters import mel as librosa_mel_fn
-import librosa
-
-import numpy as np
 import random
 
-from . import f0
-
-
+import librosa
 import matplotlib
+import numpy as np
+import torch
+import torchaudio
+from librosa.filters import mel as librosa_mel_fn
+
+from . import f0
 
 matplotlib.use("Agg")
 import matplotlib.pylab as plt

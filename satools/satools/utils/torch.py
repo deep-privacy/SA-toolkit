@@ -32,8 +32,9 @@ def match_state_dict(state_dict_a, state_dict_b):
     return matched_state_dict, unmatched_state_dict
 
 
-from torch.nn.utils.weight_norm import WeightNorm
 import copy
+
+from torch.nn.utils.weight_norm import WeightNorm
 
 
 def fix_weight_norm_deepcopy(model):

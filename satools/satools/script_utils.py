@@ -8,9 +8,8 @@ try:
 except ImportError as error:
     pass
 
-import shutil
-import os
 import math
+import os
 import subprocess
 import sys
 

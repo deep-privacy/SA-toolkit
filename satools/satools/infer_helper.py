@@ -1,12 +1,16 @@
-import torch, torchaudio
-import numpy as np
-import tempfile, os, subprocess
-import satools
-import json
 import importlib
+import json
+import os
+import subprocess
+import tempfile
 from types import SimpleNamespace
+
 import kaldiio
 import librosa
+import numpy as np
+import torch
+
+import satools
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

@@ -4,11 +4,12 @@ from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 
+import librosa
 import numpy as np
 import resampy
 import soundfile as sf
-import librosa
 from tqdm import tqdm
+
 import satools
 
 

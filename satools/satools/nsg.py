@@ -6,11 +6,12 @@ that require compute-exclusive mode. Most of the implementation is based on Kald
 vectorization is applied to avoid big for loops.
 """
 
-from dataclasses import dataclass
-from typing import Sequence
-import torch
-from math import exp
 import logging
+from dataclasses import dataclass
+from math import exp
+
+import torch
+
 
 # keeping this implementation in python for now. even if it is run, I don't
 # expect it to be run multiple times.

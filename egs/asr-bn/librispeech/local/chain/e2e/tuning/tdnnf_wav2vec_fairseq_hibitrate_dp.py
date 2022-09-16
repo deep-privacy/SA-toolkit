@@ -5,21 +5,17 @@
 # after fg rescoring
 #  ??
 
-import torch
-import torch.nn.functional as F
-import torch.nn as nn
+import logging
+
 import pkwrap
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from pkwrap.chain import ChainE2EModel
 from pkwrap.nn import (
     TDNNFBatchNorm,
-    NaturalAffineTransform,
-    OrthonormalLinear,
-    VectorQuantizerEMA,
     TDNNFBatchNorm_LD,
 )
-from pkwrap.chain import ChainE2EModel
-import numpy as np
-from torch.nn.utils import clip_grad_value_
-import logging
 from scipy.stats import laplace
 
 logging.basicConfig(level=logging.DEBUG)

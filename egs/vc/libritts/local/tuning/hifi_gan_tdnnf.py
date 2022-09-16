@@ -1,24 +1,21 @@
+# IMPORT BN
+import importlib.util
+import json
+import logging
+import os
+import random
+import sys
+from types import SimpleNamespace
+
+import configargparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
-from torch.nn.utils import weight_norm, remove_weight_norm
-import json
-
-import random
-import satools
 from satools.hifigan import HifiGanModel
+from torch.nn.utils import weight_norm, remove_weight_norm
+from torch.nn.utils.rnn import pad_sequence
 
-import sys, os
-
-# IMPORT BN
-import importlib.util
-
-import configargparse
-from types import SimpleNamespace
-
-import logging
-import time
+import satools
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("geocoder").setLevel(logging.WARNING)

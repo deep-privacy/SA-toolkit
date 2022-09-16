@@ -1,14 +1,14 @@
 """ Neural network architectures and relevant utility functions"""
 
+import logging
+from dataclasses import dataclass
+from itertools import combinations, product
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .objf import OnlineNaturalGradient
 
-from dataclasses import dataclass
-from itertools import combinations, product
-import logging
-from .. import nsg
+from .objf import OnlineNaturalGradient
 
 
 @dataclass
