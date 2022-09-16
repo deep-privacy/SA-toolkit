@@ -4,7 +4,7 @@
 """
 
 try:
-    from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+    from _satools import kaldi  # lazy import (kaldi-free decoding)
 except ImportError as error:
     pass
 

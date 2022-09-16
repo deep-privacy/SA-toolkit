@@ -12,7 +12,7 @@ from .egs_wav2vec2 import (
 from .. import nsg
 
 try:
-    from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+    from _satools import kaldi  # lazy import (kaldi-free decoding)
 except ImportError as error:
     pass
 
@@ -141,7 +141,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
     This class wraps Natural Gradient implemented in Kaldi by calling
     nnet3's precondition_directions (wrapped through pybind11)
     When implemented as an autograd Function we can easily wrap
-    it in a Linear layer. See pkwrap.nn.NaturalAffineTransform.
+    it in a Linear layer. See satools.nn.NaturalAffineTransform.
     """
 
     @staticmethod

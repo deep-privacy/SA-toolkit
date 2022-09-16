@@ -11,8 +11,8 @@ logging.basicConfig(
 )
 import torch.nn.functional as F
 import torch.nn as nn
-from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform, OrthonormalLinear
-from pkwrap.chain import ChainModel
+from satools.nn import TDNNFBatchNorm, NaturalAffineTransform, OrthonormalLinear
+from satools.chain import ChainModel
 
 
 class Net(nn.Module):

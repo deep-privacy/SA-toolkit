@@ -28,11 +28,11 @@ def get_preconditioner_from_ngstate(ngstate):
     assert ngstate is not None
     global log_kaldi_warning
     try:
-        from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free decoding)
     except ImportError as error:
         if log_kaldi_warning:
             logging.critical(
-                "pkwrap: -- Failed to import kaldi you better not be in training mode (no backward possible) --"
+                "satools: -- Failed to import kaldi you better not be in training mode (no backward possible) --"
             )
             log_kaldi_warning = False
         return None
@@ -241,7 +241,7 @@ class TDNNF_LD(nn.Module):
         if bypass_scale > 0.0 and feat_dim == output_dim:
             if bottleneck_ld != None:
                 logging.critical(
-                    "pkwrap: -- Warning using bypass on the TDNNF_LD layer!"
+                    "satools: -- Warning using bypass on the TDNNF_LD layer!"
                 )
             self.use_bypass = True
             if self.context_len > 1:

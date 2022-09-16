@@ -1,6 +1,6 @@
 # README
 
-This folder contains librispeech recipes to train with pkwrap.
+This folder contains librispeech recipes to train with the SA-toolkit.
 
 To run the recipe first activate your miniconda env and kaldi env:
 

@@ -110,7 +110,7 @@ def build(args):
             ]
             self.f0_quant.load_state_dict(self.f0_quant_state)
 
-            pkwrap_path = satools.__path__[0] + "/../egs/librispeech/v1/"
+            satools_path = satools.__path__[0] + "/../../egs/asr-bn/librispeech/"
             model_weight = "final.pt"
 
             # loading from args
@@ -118,12 +118,12 @@ def build(args):
             exp_path = args.asrbn_tdnnf_exp_path  # eg: "exp/chain/e2e_tdnnf/"
 
             num_pdfs_train = satools.script_utils.read_single_param_file(
-                pkwrap_path + exp_path + "/num_pdfs"
+                satools_path + exp_path + "/num_pdfs"
             )
             assert num_pdfs_train == self.bn_asr_output_dim
 
             self.bn_model_state = torch.load(
-                pkwrap_path + exp_path + model_weight, map_location="cpu"
+                satools_path + exp_path + model_weight, map_location="cpu"
             )
             self.bn_asr.load_state_dict(self.bn_model_state)
 
@@ -161,10 +161,10 @@ def build(args):
                         epsilon=str(args.asrbn_tdnnf_dp),  # eg: 180000
                     )
 
-                pkwrap_path = satools.__path__[0] + "/../egs/librispeech/v1/"
+                satools_path = satools.__path__[0] + "/../../egs/asr-bn/librispeech/"
                 model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
 
-                config_path = pkwrap_path + model
+                config_path = satools_path + model
                 if not os.path.exists(config_path):
                     raise FileNotFoundError(
                         "No file found at location {}".format(config_path)

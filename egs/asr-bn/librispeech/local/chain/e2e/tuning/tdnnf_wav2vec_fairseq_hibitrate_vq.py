@@ -7,12 +7,12 @@
 
 import logging
 
-import pkwrap
+import satools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pkwrap.chain import ChainE2EModel
-from pkwrap.nn import (
+from satools.chain import ChainE2EModel
+from satools.nn import (
     TDNNFBatchNorm,
     VectorQuantizerEMA,
     TDNNFBatchNorm_LD,
@@ -170,11 +170,11 @@ def build(args):
                 orthonormal_constraint=-1.0,
             )
 
-            self.chain_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.chain_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.chain_output.weight.data.zero_()
             self.chain_output.bias.data.zero_()
 
-            self.xent_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.xent_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 

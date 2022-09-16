@@ -29,10 +29,10 @@ def init_asr_model(
     load_model=True,
     additional_args={},
 ):
-    pkwrap_path = satools.__path__[0] + "/../egs/librispeech/v1/"
+    satools_path = os.path.join(satools.__path__[0], "/../../egs/asr-bn/librispeech/")
     model_weight = "final.pt"
 
-    config_path = pkwrap_path + model
+    config_path = os.path.join(satools_path, model)
 
     if not os.path.exists(config_path):
         raise FileNotFoundError("No file found at location {}".format(config_path))
@@ -58,15 +58,15 @@ def init_asr_model(
 
     print("Loading '{}'".format(exp_path + model_weight))
 
-    pkwrap_chain = satools.chain.ChainE2EModel(
+    satools_chain = satools.chain.ChainE2EModel(
         asr_net,
         cmd_line=False,
         **{
-            "dir": pkwrap_path + exp_path,
-            "base_model": pkwrap_path + exp_path + model_weight,
+            "dir": satools_path + exp_path,
+            "base_model": satools_path + exp_path + model_weight,
         },
     )
-    forward, net = pkwrap_chain.get_forward(
+    forward, net = satools_chain.get_forward(
         device=device,
         share_memory=True,
         get_model_module=True,
@@ -79,11 +79,10 @@ def init_asr_model(
 def init_synt_hifigan_w2v2(
     model, exp_path, asr_bn_model, model_weight, json_stats_file=None, no_spk_info=False
 ):
-    pkwrap_path_asr = satools.__path__[0] + "/../egs/librispeech/v1/"
-    pkwrap_path = satools.__path__[0] + "/../egs/LJSpeech/"
+    satools_path = satools.__path__[0] + "/../../egs/vc/libritts/"
     model_weight = "/" + model_weight
 
-    config_path = pkwrap_path + model
+    config_path = satools_path + model
 
     if not os.path.exists(config_path):
         raise FileNotFoundError("No file found at location {}".format(config_path))
@@ -104,7 +103,7 @@ def init_synt_hifigan_w2v2(
     )
 
     if json_stats_file == None:
-        f0_stats = open(f"{pkwrap_path}/data/LibriTTS/stats.json", "r").readline()
+        f0_stats = open(f"{satools_path}/data/LibriTTS/stats.json", "r").readline()
     else:
         f0_stats = open(json_stats_file).readline()
     spkids = list(json.loads(f0_stats).keys())
@@ -115,7 +114,7 @@ def init_synt_hifigan_w2v2(
     )
 
     print("Loading '{}'".format(exp_path + model_weight))
-    model_state = torch.load(pkwrap_path + exp_path + model_weight, map_location="cpu")
+    model_state = torch.load(satools_path + exp_path + model_weight, map_location="cpu")
     synt_net.load_state_dict(model_state["generator"])
 
     generator = synt_net.to(device)
@@ -152,11 +151,10 @@ def init_synt_model(
     hifigan_upsample_rates="5, 4, 4, 3, 2",
     asrbn_interpol_bitrate=-1,
 ):
-    pkwrap_path_asr = satools.__path__[0] + "/../egs/librispeech/v1/"
-    pkwrap_path = satools.__path__[0] + "/../egs/LJSpeech/"
+    satools_path = satools.__path__[0] + "/../../egs/vc/libritts/"
     model_weight = "/" + model_weight
 
-    config_path = pkwrap_path + model
+    config_path = satools_path + model
 
     if not os.path.exists(config_path):
         raise FileNotFoundError("No file found at location {}".format(config_path))
@@ -165,7 +163,7 @@ def init_synt_model(
     spec.loader.exec_module(model_file)
 
     args = SimpleNamespace(
-        f0_quant_state=pkwrap_path + "/" + f0_quant_state,
+        f0_quant_state=satools_path + "/" + f0_quant_state,
         hifigan_upsample_rates=hifigan_upsample_rates,
         asrbn_interpol_bitrate=asrbn_interpol_bitrate,
     )
@@ -175,7 +173,7 @@ def init_synt_model(
     )
 
     print("Loading '{}'".format(exp_path + model_weight))
-    model_state = torch.load(pkwrap_path + exp_path + model_weight, map_location="cpu")
+    model_state = torch.load(satools_path + exp_path + model_weight, map_location="cpu")
     synt_net.load_state_dict(model_state["generator"])
 
     generator = synt_net.to(device)
@@ -209,7 +207,7 @@ def kaldi_asr_decode(out, get_align=False):
     writer("test_utts", out[0].detach().cpu().numpy())
     writer.close()
 
-    pkwrap_path = satools.__path__[0] + "/../egs/librispeech/v1/"  # kaldi/pkwrap egs dir
+    satools_path = satools.__path__[0] + "/../../egs/asr-bn/librispeech/"  # kaldi/satools egs dir
 
     res = subprocess.run(
         f"cat {kaldiark} | grep -m1 nan",
@@ -220,14 +218,14 @@ def kaldi_asr_decode(out, get_align=False):
     if res.returncode == 0:
         return ""
 
-    decode = f"cd {pkwrap_path}; . ./path.sh; cat {kaldiark} | {pkwrap_path}/shutil/decode/latgen-faster-mapped.sh {pkwrap_path}/exp/chain/e2e_biphone_tree/graph_tgsmall/words.txt {pkwrap_path}/exp/chain/e2e_tdnnf/0.trans_mdl exp/chain/e2e_biphone_tree/graph_tgsmall/HCLG.fst {kaldiark}.ark_lat.1.gz"
+    decode = f"cd {satools_path}; . ./path.sh; cat {kaldiark} | {satools_path}/shutil/decode/latgen-faster-mapped.sh {satools_path}/exp/chain/e2e_biphone_tree/graph_tgsmall/words.txt {satools_path}/exp/chain/e2e_tdnnf/0.trans_mdl exp/chain/e2e_biphone_tree/graph_tgsmall/HCLG.fst {kaldiark}.ark_lat.1.gz"
     text = subprocess.check_output(decode + " 2>&1| grep ^test_utts", shell=True)
     text = text.decode("UTF-8").replace("test_utts", "").replace("\\n", "").strip()
 
     if get_align:
         res = subprocess.run(
             f"""
-            cd {pkwrap_path}; . ./path.sh; \
+            cd {satools_path}; . ./path.sh; \
             ./local/show_align_fromlat.sh {kaldiark}.ark_lat.1.gz
             """,
             shell=True,

@@ -17,10 +17,10 @@ import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import pkwrap
+import satools
 import torch
 
-logging.basicConfig(level=logging.INFO, format="pkwrap %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="satools %(levelname)s: %(message)s")
 logging.getLogger("geocoder").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
@@ -203,7 +203,7 @@ def run_job(
 
 def train():
     parser = argparse.ArgumentParser(description="Acoustic model training script")
-    pkwrap.script_utils.add_chain_recipe_opts(parser)
+    satools.script_utils.add_chain_recipe_opts(parser)
     # the idea behind a test config is that one can run different configurations of test
     parser.add_argument(
         "--test-config", default="test", help="name of the test to be run"
@@ -279,7 +279,7 @@ def train():
             opf.write(num_pdfs)
             opf.close()
     if not os.path.isfile(os.path.join(dirname, "0.trans_mdl")):
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             [
                 "copy-transition-model",
                 os.path.join(tree_dir, "final.mdl"),
@@ -289,14 +289,14 @@ def train():
     #   create or copy the egs folder
     if stage <= 4 and not ("egs_dir" in exp_cfg and exp_cfg["egs_dir"]):
         logging.info("Creating egs")
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             ["./local/chain/e2e/get_egs.sh", train_set, tree_dir, egs_dir]
         )
     else:
         egs_dir = exp_cfg["egs_dir"]
 
     if not os.path.isfile(os.path.join(dirname, "den.fst")):
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             [
                 "cp",
                 os.path.join(egs_dir + "/../", "den.fst"),
@@ -304,7 +304,7 @@ def train():
             ]
         )
     if not os.path.isfile(os.path.join(dirname, "normalization.fst")):
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             [
                 "cp",
                 os.path.join(egs_dir + "/../", "normalization.fst"),
@@ -313,7 +313,7 @@ def train():
         )
 
     # we start training with
-    num_archives = pkwrap.script_utils.get_egs_info(egs_dir)
+    num_archives = satools.script_utils.get_egs_info(egs_dir)
     if multi_egs_loading == False:
         num_archives = 1
     num_epochs = trainer_opts.num_epochs
@@ -364,7 +364,7 @@ def train():
         assert train_stage >= 0
         num_archives_processed = 0
         for iter_no in range(0, num_iters):
-            num_jobs = pkwrap.script_utils.get_current_num_jobs(
+            num_jobs = satools.script_utils.get_current_num_jobs(
                 iter_no,
                 num_iters,
                 trainer_opts.num_jobs_initial,
@@ -375,7 +375,7 @@ def train():
                 num_archives_processed += num_jobs
                 continue
             assert num_jobs > 0
-            lr = pkwrap.script_utils.get_learning_rate(
+            lr = satools.script_utils.get_learning_rate(
                 iter_no,
                 num_jobs,
                 num_iters,
@@ -479,9 +479,9 @@ def train():
                     ]
                 )
                 for mdl in model_list:
-                    pkwrap.script_utils.run(["rm", mdl])
+                    satools.script_utils.run(["rm", mdl])
             else:
-                pkwrap.script_utils.run(
+                satools.script_utils.run(
                     [
                         "mv",
                         os.path.join(dirname, "{}.1.pt".format(iter_no)),
@@ -492,7 +492,7 @@ def train():
             if iter_no >= 15 and (iter_no - 10) % trainer_opts.checkpoint_interval != 0:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no - 10))
                 if os.path.isfile(mdl):
-                    pkwrap.script_utils.run(["rm", mdl])
+                    satools.script_utils.run(["rm", mdl])
     if stage <= 7:
         # do final model combination
         n_models = (
@@ -507,7 +507,7 @@ def train():
         logging.info("Final model combination...")
         diagnostic_name = "valid"
         egs_file = os.path.join(egs_dir, "fst_valid.scp")
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             [
                 *cuda_cmd.split(),
                 "{}/log/combine.log".format(dirname),
@@ -552,12 +552,12 @@ def train():
 
     if stage <= 8:
         if "num_jobs" in decode_params:
-            num_jobs = pkwrap.utils.split_data(
+            num_jobs = satools.utils.split_data(
                 data_dir,
                 int(decode_params["num_jobs"]),
             )
         else:
-            num_jobs = pkwrap.utils.split_data(data_dir)
+            num_jobs = satools.utils.split_data(data_dir)
         logging.info(f"Decoding with {num_jobs} jobs...")
 
         gpu_opts = []
@@ -570,7 +570,7 @@ def train():
             f"tail -F {dirname}/log/tqdm 2> /dev/null", shell=True
         )
 
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             [
                 *cpu_cmd.split(),
                 "JOB=1:{}".format(num_jobs),
@@ -603,7 +603,7 @@ def train():
         if not os.path.isfile(os.path.join(out_dir, "../final.mdl")) and os.path.isfile(
             os.path.join(out_dir, "../0.trans_mdl")
         ):
-            pkwrap.script_utils.run(
+            satools.script_utils.run(
                 [
                     "ln",
                     "-r",
@@ -612,11 +612,11 @@ def train():
                     os.path.join(out_dir, "../final.mdl"),
                 ]
             )
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             ["local/score.sh", "--cmd", cpu_cmd, data_dir, graph_dir, out_dir]
         )
         logging.info(f"Printing best WER without rescoring {out_dir}...")
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             " ".join(
                 [
                     "cat",
@@ -629,7 +629,7 @@ def train():
             ),
             shell=True,
         )
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             " ".join(
                 [
                     "cat",
@@ -640,13 +640,13 @@ def train():
         )
         logging.info(
             " "
-            + pkwrap.script_utils.read_single_param_file(
+            + satools.script_utils.read_single_param_file(
                 "{}/best_wer".format(out_dir), typename=str
             )
         )
 
         logging.info(f"Rescore with a N gram LM...")
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             [
                 "steps/lmrescore_const_arpa.sh",
                 "--cmd",
@@ -659,7 +659,7 @@ def train():
             ]
         )
         logging.info(f"Printing best WER with rescoring {out_dir}_fg...")
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             " ".join(
                 [
                     "cat",
@@ -674,12 +674,12 @@ def train():
         )
         logging.info(
             " "
-            + pkwrap.script_utils.read_single_param_file(
+            + satools.script_utils.read_single_param_file(
                 "{}_fg/best_wer".format(out_dir), typename=str
             )
         )
         logging.info(f"Computing WER details for {out_dir}_fg...")
-        pkwrap.script_utils.run(
+        satools.script_utils.run(
             " ".join(
                 [
                     "./local/wer_detail.sh",

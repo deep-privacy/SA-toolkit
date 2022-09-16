@@ -137,7 +137,7 @@ class ChainModel(nn.Module):
 
     @torch.no_grad()
     def validate(self):
-        from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free decoding)
 
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
@@ -246,7 +246,7 @@ class ChainModel(nn.Module):
 
         write_with_kaldi = True
         try:
-            from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+            from _satools import kaldi  # lazy import (kaldi-free decoding)
         except ImportError as error:
             # shutil/decode/latgen-faster-mapped.sh compatible but slower
             logging.critical(" -- Failed to import kaldi for feat writing --")
@@ -325,7 +325,7 @@ class ChainModel(nn.Module):
     @torch.no_grad()
     def combine_final_model(self):
         """Implements Kaldi-style model ensembling"""
-        from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free decoding)
 
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
@@ -428,7 +428,7 @@ class ChainE2EModel(ChainModel):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
-        from _pkwrap import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free decoding)
 
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts

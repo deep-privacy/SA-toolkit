@@ -4,7 +4,7 @@
 /egs/*/*/steps
 /egs/*/*/utils
 build/*
-pkwrap.egg*
+satools.egg*
 __pycache__*
 
 *.ark

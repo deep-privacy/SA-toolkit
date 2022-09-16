@@ -2,7 +2,7 @@
 
 This toolkit is greatly based on [pkwrap](https://github.com/idiap/pkwrap/blob/e2836a8de516e5ab2030e998bc8f07109d3385eb/README.md) another python wrapper for Kaldi.
 
-Many thanks to the pkwrap authors for providing a extensible toolkit in which I was able to modify to add many features required to build a speaker anonymization toolkit.
+Many thanks to the pkwrap authors for providing an extensible toolkit in which I was able to modify to add many features required to build a speaker anonymization toolkit.
 
 ------------------------------------
 References and Citation
