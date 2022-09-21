@@ -84,7 +84,7 @@ if __name__ == "__main__":
     parser.add_argument("--target_id", type=str, default=None)
     parser.add_argument("--ext", type=str, dest="ext", default="flac")
     parser.add_argument("--out", type=str, dest="_out")
-    parser.add_argument("--vq-dim", type=int, dest="vq_dim")
+    parser.add_argument("--vq-dim", type=int, dest="vq_dim", default=-1)
     parser.add_argument("--dp-e", type=int, dest="dp_dim", default=0)
     parser.add_argument("--model-type", type=str, default="tdnnf")
     parser.add_argument(
@@ -110,7 +110,13 @@ if __name__ == "__main__":
     synthesis_sr = 16000
     global out_dir
 
-    f0_stats = json.loads(args.f0_stats.replace("'", '"'))
+    if os.path.exists(args.f0_stats):
+        # File provided for f0_stats, open it before going through json loading
+        with open(args.f0_stats, 'r') as f0_stats_file:
+            f0_stats = json.loads(f0_stats_file.read())
+    else:
+        f0_stats = json.loads(args.f0_stats.replace("'", '"'))
+
 
     #  dim = 128
     #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/satools/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
@@ -194,133 +200,45 @@ if __name__ == "__main__":
             stream(message)
         sys.exit(0)
 
-    if args.model_type == "tdnnf":
-        if dim == -1 or dim == 0:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf.py",
-                exp_path=f"exp/chain/e2e_tdnnf/",
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_model(
-                model=f"local/tuning/hifi_gan.py",
-                exp_path=f"exp/hifigan",
-                asr_bn_model=pk_model,
-                model_weight="g_00102000",
-            )
-        else:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
-                exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                vq_dim=dim,
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_model(
-                model=f"local/tuning/hifi_gan.py",
-                exp_path=f"exp/hifigan_vq_{dim}_finetuned",
-                asr_bn_model=pk_model,
-                model_weight="g_00075000",
-            )
-    if args.model_type == "libritts_tdnnf":
-        if dim == -1 or dim == 0 and dp_dim == 0:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf.py",
-                exp_path=f"exp/chain/e2e_tdnnf/",
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-                model=f"local/tuning/hifi_gan_tdnnf.py",
-                exp_path=f"exp/hifigan_tdnnf",
-                asr_bn_model=pk_model,
-                model_weight="g_00111000",
-            )
-        elif dp_dim != 0:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_dp.py",
-                exp_path=f"exp/chain/e2e_tdnnf_dp_e{dp_dim}/",
-                dp_dim=dp_dim,
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-                model=f"local/tuning/hifi_gan_tdnnf.py",
-                exp_path=f"exp/hifigan_dp_{dp_dim}/",
-                asr_bn_model=pk_model,
-                model_weight="g_00050000",
-                #  model_weight="g_00112000",
-            )
-        else:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
-                exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
-                vq_dim=dim,
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-                model=f"local/tuning/hifi_gan_tdnnf.py",
-                exp_path=f"exp/hifigan_vq_{dim}/",
-                asr_bn_model=pk_model,
-                model_weight="g_00045000",
-            )
-    if args.model_type == "wav2vec2_mls":
-        forward_asr, pk_model = demo.init_asr_model(
-            model=f"local/chain/e2e/tuning/mls_tdnnf_wav2vec_fairseq_hibitrate.py",
-            exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
-            load_model=False,
-            egs_path="mls/v1/"
-        )
-        forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-            model=f"local/tuning/hifi_gan_wav2vec2.py",
-            exp_path=f"exp/hifigan_w2w2",
-            asr_bn_model=pk_model,
-            model_weight="g_00137000",
-            egs_path="mailabs/",
-            json_stats_file="data/mailabs/stats.json",
-        )
-    if args.model_type == "wav2vec2":
-        if dim == -1 or dim == 0 and dp_dim == 0:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-                model=f"local/tuning/hifi_gan_wav2vec2.py",
-                exp_path=f"exp/hifigan_w2w2",
-                asr_bn_model=pk_model,
-                model_weight="g_00050000",
-            )
-        elif dp_dim != 0:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_{dp_dim}/",
-                dp_dim=dp_dim,
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-                model=f"local/tuning/hifi_gan_wav2vec2.py",
-                exp_path=f"exp/wav2vec_hifigan_dp_e{dp_dim}/",
-                asr_bn_model=pk_model,
-                #  model_weight="g_00050000",
-                #  model_weight="g_00040000",
-                model_weight="g_00070000",
-                #  model_weight="g_00010000",
-                #  model_weight="g_00112000",
-            )
-        else:
-            forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
-                vq_dim=dim,
-                load_model=False,
-            )
-            forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
-                model=f"local/tuning/hifi_gan_wav2vec2.py",
-                exp_path=f"exp/hifigan_w2w2_vq_{dim}",
-                asr_bn_model=pk_model,
-                model_weight="g_00045000",
-            )
+    # Loading model configuration from json config file
+    with open("convert_config.json", 'r') as config_file:
+        config = json.loads(config_file.read())
+    vq = False
+    dp = False
+    if dim > 0:
+        vq = True
+    elif dp_dim > 0:
+        dp = True
+
+    models_list = config["convert_config"]["models_list"]
+    # Select right model according to parameters
+    for cur_model in models_list:
+        if cur_model["model_name"] == args.model_type \
+                and cur_model["vq"] == vq \
+                and cur_model["dp"] == dp:
+            asr_model_config = cur_model["asr_model"]
+            synt_model_config = cur_model["synt_model"]
+            break
+    else:
+        raise ValueError(f"Model type {args.model_type} not found in config file")
+
+    forward_asr, pk_model = demo.init_asr_model(
+        model=asr_model_config["model"],
+        exp_path=eval(compile(asr_model_config["exp_path"], 'exp_path', 'eval')) if asr_model_config["exp_path"][0] == "f" else asr_model_config["exp_path"],
+        load_model=asr_model_config["load_model"],
+        egs_path=asr_model_config["egs_path"]
+    )
+    forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
+        model=synt_model_config["model"],
+        exp_path=eval(compile(synt_model_config["exp_path"], 'exp_path', 'eval')) if synt_model_config["exp_path"][0] == "f" else synt_model_config["exp_path"],
+        asr_bn_model=pk_model,
+        model_weight=synt_model_config["model_weight"],
+        egs_path=synt_model_config["egs_path"],
+        json_stats_file=synt_model_config["json_stats_file"],
+    )
 
     if (
-        (args.model_type == "wav2vec2" or args.model_type == "libritts_tdnnf" or args.model_type == "wav2vec2_mailabs")
+        (args.model_type == "wav2vec2" or args.model_type == "libritts_tdnnf" or args.model_type == "wav2vec2_mls")
         and os.getenv("TARGET_single", default="false") != "true"
         and args.f0_stats != parser.get_default("f0_stats")
     ):

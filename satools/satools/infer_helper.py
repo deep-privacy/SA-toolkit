@@ -27,9 +27,9 @@ def init_asr_model(
     vq_dim=-1,
     get_model_module=False,
     load_model=True,
-    additional_args={},
+    egs_path="asr-bn/librispeech/",
 ):
-    satools_path = os.path.join(satools.__path__[0], "/../../egs/asr-bn/librispeech/")
+    satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
     model_weight = "final.pt"
 
     config_path = os.path.join(satools_path, model)
@@ -40,30 +40,29 @@ def init_asr_model(
     asr_model_file = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(asr_model_file)
 
-    args = SimpleNamespace(**additional_args)
+    args = SimpleNamespace()
     if dp_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
             epsilon=str(dp_dim),
-            **additional_args,
         )
     if vq_dim != -1:
         args = SimpleNamespace(
             freeze_encoder=True,
             codebook_size=vq_dim,
-            **additional_args,
         )
 
     asr_net = asr_model_file.build(args)
 
-    print("Loading '{}'".format(exp_path + model_weight))
+    if load_model:
+        print("Loading '{}'".format(os.path.join(exp_path, model_weight)))
 
     satools_chain = satools.chain.ChainE2EModel(
         asr_net,
         cmd_line=False,
         **{
-            "dir": satools_path + exp_path,
-            "base_model": satools_path + exp_path + model_weight,
+            "dir": os.path.join(satools_path, exp_path),
+            "base_model": os.path.join(satools_path, exp_path, model_weight),
         },
     )
     forward, net = satools_chain.get_forward(
@@ -77,12 +76,16 @@ def init_asr_model(
 
 
 def init_synt_hifigan_w2v2(
-    model, exp_path, asr_bn_model, model_weight, json_stats_file=None, no_spk_info=False
+    model,
+    exp_path,
+    asr_bn_model,
+    model_weight,
+    json_stats_file=None,
+    no_spk_info=False,
+    egs_path = "vc/libritts/",
 ):
-    satools_path = satools.__path__[0] + "/../../egs/vc/libritts/"
-    model_weight = "/" + model_weight
-
-    config_path = satools_path + model
+    satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
+    config_path = os.path.join(satools_path, model)
 
     if not os.path.exists(config_path):
         raise FileNotFoundError("No file found at location {}".format(config_path))
@@ -113,8 +116,8 @@ def init_synt_hifigan_w2v2(
         load_asr_weight=False, asr_bn_model=asr_bn_model
     )
 
-    print("Loading '{}'".format(exp_path + model_weight))
-    model_state = torch.load(satools_path + exp_path + model_weight, map_location="cpu")
+    print("Loading '{}'".format(os.path.join(exp_path, model_weight)))
+    model_state = torch.load(os.path.join(satools_path, exp_path, model_weight), map_location="cpu")
     synt_net.load_state_dict(model_state["generator"])
 
     generator = synt_net.to(device)
@@ -150,8 +153,9 @@ def init_synt_model(
     model_weight="g_best",
     hifigan_upsample_rates="5, 4, 4, 3, 2",
     asrbn_interpol_bitrate=-1,
+    egs_path="vc/libritts/"
 ):
-    satools_path = satools.__path__[0] + "/../../egs/vc/libritts/"
+    satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
     model_weight = "/" + model_weight
 
     config_path = satools_path + model
@@ -201,13 +205,13 @@ def init_synt_model(
     return _forward, generator
 
 
-def kaldi_asr_decode(out, get_align=False):
+def kaldi_asr_decode(out, get_align=False, egs_path="asr-bn/librispeech/"):
     kaldiark = tempfile.NamedTemporaryFile(suffix=".ark").name
     writer = kaldiio.WriteHelper(f"ark,t:{kaldiark}")
     writer("test_utts", out[0].detach().cpu().numpy())
     writer.close()
 
-    satools_path = satools.__path__[0] + "/../../egs/asr-bn/librispeech/"  # kaldi/satools egs dir
+    satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)  # kaldi/satools egs dir
 
     res = subprocess.run(
         f"cat {kaldiark} | grep -m1 nan",

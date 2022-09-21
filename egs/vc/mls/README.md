@@ -92,8 +92,8 @@ python -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_
 # Create spk2target mapping
 python3 create_random_target.py \
     --target-list data/mls/stats.json \
-    --in-wavscp ../asr-bn/mls/data/mls_french/test_kaldi/wav.scp \
-    --in-utt2spk ../asr-bn/mls/data/mls_french/test_kaldi/utt2spk --same-spk "10065" \
+    --in-wavscp ../../asr-bn/mls/data/mls_test_fbank_hires/wav.scp \
+    --in-utt2spk ../../asr-bn/mls/data/mls_test_fbank_hires/utt2spk --same-spk "5232" \
     > target-mapping
 
 python3 ./convert.py \

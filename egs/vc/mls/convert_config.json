@@ -1,0 +1,52 @@
+{
+  "convert_config": {
+    "models_list": [
+      {
+        "model_name": "tdnnf",
+        "dim": -1,
+        "asr_model": {
+          "model": "local/chain/e2e/tuning/tdnnf.py",
+          "exp_path": "exp/chain/e2e_tdnnf/",
+          "load_model": "False"
+        },
+        "synt_model": {
+          "model": "local/tuning/hifi_gan.py",
+          "exp_path": "exp/hifigan",
+          "model_weight": "g_00102000"
+        }
+      },
+      {
+        "model_name": "tdnnf",
+        "dim": 48,
+        "asr_model": {
+          "model": "local/chain/e2e/tuning/tdnnf_vq_bd.py",
+          "exp_path": "f\"exp/chain/e2e_tdnnf_vq_{dim}/\"",
+          "load_model": false
+        },
+        "synt_model": {
+          "model": "local/tuning/hifi_gan.py",
+          "exp_path": "f\"exp/hifigan_vq_{dim}_finetuned\"",
+          "model_weight": "g_00102000"
+        }
+      },
+      {
+        "model_name": "wav2vec2_mls",
+        "dp": false,
+        "vq": false,
+        "asr_model": {
+          "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
+          "exp_path": "exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
+          "load_model": false,
+          "egs_path": "asr-bn/mls/"
+        },
+        "synt_model": {
+          "model": "local/tuning/hifi_gan_wav2vec2.py",
+          "exp_path": "exp/hifigan_w2w2",
+          "model_weight": "g_best",
+          "egs_path": "vc/mls",
+          "json_stats_file": "data/mls/stats.json"
+        }
+      }
+    ]
+  }
+}
