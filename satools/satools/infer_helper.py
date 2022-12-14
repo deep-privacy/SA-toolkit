@@ -12,9 +12,6 @@ import torch
 
 import satools
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
 def split(a, n):
     k, m = divmod(len(a), n)
     return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
@@ -28,6 +25,7 @@ def init_asr_model(
     get_model_module=False,
     load_model=True,
     egs_path="asr-bn/librispeech/",
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
     satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
     model_weight = "final.pt"
@@ -82,7 +80,8 @@ def init_synt_hifigan_w2v2(
     model_weight,
     json_stats_file=None,
     no_spk_info=False,
-    egs_path = "vc/libritts/",
+    egs_path="vc/libritts/",
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
     satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
     config_path = os.path.join(satools_path, model)
@@ -153,7 +152,8 @@ def init_synt_model(
     model_weight="g_best",
     hifigan_upsample_rates="5, 4, 4, 3, 2",
     asrbn_interpol_bitrate=-1,
-    egs_path="vc/libritts/"
+    egs_path="vc/libritts/",
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
     satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
     model_weight = "/" + model_weight
