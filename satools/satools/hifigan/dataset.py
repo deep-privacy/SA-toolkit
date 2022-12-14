@@ -1,3 +1,4 @@
+import os
 import random
 
 import librosa
@@ -14,7 +15,7 @@ import matplotlib.pylab as plt
 
 
 class WavList(torch.utils.data.Dataset):
-    def __init__(self, wavs_paths, load_func=None):
+    def __init__(self, wavs_paths, load_func=None, filter_dir=""):
         if isinstance(wavs_paths, str):
             self.wavs_path = wavs_paths.split(",")
         else:
@@ -27,6 +28,24 @@ class WavList(torch.utils.data.Dataset):
             self.load = _load
         else:
             self.load = load_func
+
+        if filter_dir:
+            self.filter_wavs_path(filter_dir)
+
+    def filter_wavs_path(self, path_dir):
+        print("Filtering wavs list with directory : ", path_dir)
+        if not os.path.exists(path_dir):
+            raise ValueError(f"{path_dir} doesn't exists")
+        if not os.path.isdir(path_dir):
+            raise ValueError(f"{path_dir} is not a directory")
+        wav_list_to_remove = set(os.listdir(path_dir))
+        self.wavs_path = [wav for wav in self.wavs_path if self.format_path_voxceleb_gen(wav) not in wav_list_to_remove]
+
+
+    def format_path_voxceleb_gen(self, path):
+        split_path = path.split("/")
+        basename_split = os.path.splitext(split_path[-1])
+        return f"{split_path[-3]}_{split_path[-2]}_{basename_split[0]}_gen{basename_split[1]}"
 
     def __len__(self):
         return len(self.wavs_path)
@@ -69,7 +88,6 @@ def collate_fn_padd(f0_stats, get_func=None, get_f0=True):
                     .squeeze(dim=1)
                     .permute(1, 0),
                 )
-
             # normalize feats for hifigan grount truth
             _feats_norm = b.squeeze().numpy()
             _feats_norm = _feats_norm * 2 ** 15
