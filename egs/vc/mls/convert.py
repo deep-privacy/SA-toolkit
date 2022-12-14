@@ -105,9 +105,6 @@ def main():
                     pbar.set_description(f"audio file count : {wav_count}")
                     wavs_path.append(file_path)
 
-            # if len(wavs_path) > 10:
-            #     break
-
         # TODO implement wav2utt required by any to many models
         wavs_path = list(demo.split(wavs_path, args.of))[args.part]
         torch_dataset = satools.hifigan.dataset.WavList(wavs_path)
@@ -352,8 +349,7 @@ def convert(sample, device, forward_synt, out_dir, target=None, synthesis_sr=160
             output_file = os.path.join(out_dir, fname_out_name + "_gen.wav")
             wavfile.write(output_file, synthesis_sr, audio[i])
 
-    parallel_write(synthesis_sr, spk_book_in_name)
-    p = Process(target=parallel_write, args=())
+    p = Process(target=parallel_write, args=(synthesis_sr, spk_book_in_name))
     p.start()
     return p
 
