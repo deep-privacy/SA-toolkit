@@ -46,6 +46,42 @@
           "egs_path": "vc/mls",
           "json_stats_file": "data/mls/stats.json"
         }
+      },
+      {
+        "model_name": "wav2vec2",
+        "dp": false,
+        "vq": true,
+        "asr_model": {
+          "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
+          "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/'",
+          "load_model": false,
+          "egs_path": "asr-bn/librispeech/"
+        },
+        "synt_model": {
+          "model": "local/tuning/hifi_gan_wav2vec2.py",
+          "exp_path": "f'exp/hifigan_w2w2_vq_{dim}'",
+          "model_weight": "g_00045000",
+          "egs_path": "vc/libritts",
+          "json_stats_file": "stats.json"
+        }
+      },
+      {
+        "model_name": "wav2vec2_no_vq",
+        "dp": false,
+        "vq": false,
+        "asr_model": {
+          "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
+          "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/'",
+          "load_model": false,
+          "egs_path": "asr-bn/librispeech/"
+        },
+        "synt_model": {
+          "model": "local/tuning/hifi_gan_wav2vec2.py",
+          "exp_path": "exp/hifigan_w2w2",
+          "model_weight": "g_00050000",
+          "egs_path": "vc/libritts",
+          "json_stats_file": "stats.json"
+        }
       }
     ]
   }
