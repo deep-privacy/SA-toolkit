@@ -8,7 +8,6 @@ import librosa
 import numpy as np
 import torch
 from filelock import FileLock
-
 logging.getLogger("filelock").setLevel(logging.INFO)
 
 MAX_WAV_VALUE = 32768.0
@@ -20,7 +19,6 @@ log_one = True
 yaapt_opts = None
 norm_function = None
 cache_file = ".f0_cache"
-
 
 def set_yaapt_opts(opts):
     global yaapt_opts
@@ -61,7 +59,6 @@ def get_f0(
     interp=False,
     cache_with_filename=None,
 ):
-
     norm = m_std_norm
     global norm_function
     if norm_function != None:
@@ -118,6 +115,26 @@ def get_f0(
                 signal,
                 **_yaapt_opts,
             )
+        except IndexError:
+            print(
+                "Error occured while computing: "
+                + str(cache_with_filename)
+                + " f0 | "
+                + str(audio.shape),
+                flush=True,
+            )
+            print("Error skipped, f0 forced to 0 for this file")
+            # Calculating F0 with random data to have YAAPT output shape
+            y_pad = np.random.randn(*y_pad.shape)
+            signal = basic.SignalObj(y_pad, rate)
+            pitch = pYAAPT.yaapt(
+                signal,
+                **_yaapt_opts,
+            )
+            # Replace YAAPT output with zeroes
+            pitch.samp_interp = np.zeros_like(pitch.samp_interp)
+            pitch.samp_values = np.zeros_like(pitch.samp_values)
+
         except Exception as e:
             print(
                 "Error occured while computing: "
@@ -149,3 +166,13 @@ def get_f0(
             f0_cache[key] = f0.squeeze().numpy()
 
     return norm(f0, f0_stats, cache_with_filename)
+
+
+def merge_cache_files(cache_files_list, new_cache_filename):
+    for f0_cache in cache_files_list:
+        f0_data = dict(kaldiio.load_ark(f0_cache))
+        kaldiio.save_ark(
+            f"{new_cache_filename}",
+            f0_data,
+            append=True,
+        )
