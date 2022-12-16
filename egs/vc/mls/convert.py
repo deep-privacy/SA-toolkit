@@ -58,6 +58,7 @@ def main():
         dest="f0_stats",
         default="{'f0_mean': 209.04119886766213, 'f0_std': 58.75603900262766}",
     )
+    parser.add_argument("--config-file", type=str, help="File containing model configuration in JSON format", required=True)
     args = parser.parse_args()
 
     global wav2utt
@@ -77,6 +78,7 @@ def main():
     dp_dim = args.dp_dim
     out_dir = args._out
     os.makedirs(out_dir, exist_ok=True)
+    config_file = args.config_file
 
     if args.target_id != None:
         spk2target = satools.utils.kaldi.read_wav_scp(args.target_id)
@@ -147,7 +149,7 @@ def main():
         print("Apply differential privacy on the F0 shape")
 
     # Loading model configuration from json config file
-    with open("convert_config.json", 'r') as config_file:
+    with open(config_file, 'r') as config_file:
         config = json.loads(config_file.read())
     vq = False
     dp = False
