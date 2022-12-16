@@ -246,6 +246,8 @@ def main():
             spk_id = spk2target[filename2wav[filename]]
             pitch = f0
 
+            # Applying noise if requested.
+            # Only one type of noise can be added, with the priority given in the order of following if/elif statements
             if target_noise_db > 0:
                 # Set a target channel noise power to something very noisy
                 # Convert to linear Watt units
@@ -261,8 +263,6 @@ def main():
                 pitch[ii] = 0
             elif pitch_quant:
                 pitch = quantize_f0_torch(pitch, num_bins=2)
-            elif args.dp_pitch == "0":
-                pitch = satools.hifigan.f0.m_std_norm(pitch, f0_stats[spk_id], filename)
             elif args.dp_pitch != "0":
                 pitch = pitch.squeeze()
 
@@ -287,8 +287,10 @@ def main():
                     ]
                 )
 
-                pitch = satools.hifigan.f0.m_std_norm(pitch, f0_stats[spk_id], filename)
                 pitch = pitch.unsqueeze(dim=0).unsqueeze(dim=0)
+
+            # Apply normalization to the speech
+            pitch = satools.hifigan.f0.m_std_norm(pitch, f0_stats[spk_id], filename)
 
             return pitch
 
