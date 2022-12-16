@@ -40,7 +40,7 @@ def build(args):
             self.features_opts = satools.utils.kaldifeat_set_option(
                 opts,
                 satools.__path__[0]
-                + "/../../egs/asr-bn/librispeech/"
+                + "/../../egs/asr/librispeech/"
                 + "./configs/fbank_hires.conf",
             )
             self.fbank = kaldifeat.Fbank(self.features_opts)

@@ -45,9 +45,9 @@ tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E
 
 python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py \
    --checkpoint_path exp/hifigan_vq_${dim}_finetuned \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_${dim}/ \
-    --asrbn_tdnnf_vq ${dim} \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_${dim}/ \
+    --asr_tdnnf_vq ${dim} \
     --training_epochs 300 \
     --cold_restart  \
     --init_weight_model ./exp/hifigan/g_best
@@ -69,9 +69,9 @@ tail e2e_tdnnf_dp*/decode_dev_clean*final_fg/scoringDetails/best_wer | grep "WER
 
 python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py \
     --checkpoint_path exp/hifigan_dp_220000_finetuned \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e220000/ \
-    --asrbn_tdnnf_dp 220000 \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e220000/ \
+    --asr_tdnnf_dp 220000 \
     --training_epochs 300 \
     --cold_restart  \
     --init_weight_model ./exp/hifigan/g_best
@@ -81,12 +81,12 @@ python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan
 ```bash
 python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py \
     --checkpoint_path exp/hifigan_wav2vec2_highbitrate \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate_vq.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_hibitrate_vq_256/ \
-    --asrbn_tdnnf_vq 256 \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_hibitrate_vq.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_hibitrate_vq_256/ \
+    --asr_tdnnf_vq 256 \
     --hifigan_upsample_rates "5,4,4,2,2" \
     --batch_size 8 \
-    --asrbn_interpol_bitrate 320
+    --asr_interpol_bitrate 320
 ```
 
 ### convert
@@ -125,10 +125,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   ./local/tuning/hifi_gan_wav2vec2.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 256 \
+  --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_w2w2_vq_256 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_256/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_256/ \
   --cold_restart  \
   --init_weight_model ./exp/hifigan_w2w2/g_best
 
@@ -137,10 +137,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   ./local/tuning/hifi_gan_wav2vec2.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 512 \
+  --asr_tdnnf_vq 512 \
   --checkpoint_path exp/hifigan_w2w2_vq_512 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_512/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_512/ \
   --cold_restart  \
   --init_weight_model ./exp/hifigan_w2w2/g_best
 
@@ -148,10 +148,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   ./local/tuning/hifi_gan_wav2vec2.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 512 \
+  --asr_tdnnf_vq 512 \
   --checkpoint_path exp/hifigan_w2w2_vq_512 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_512/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_512/ \
   --init_weight_model exp/hifigan_w2w2_vq_512/g_00038000
 
 
@@ -159,10 +159,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   ./local/tuning/hifi_gan_wav2vec2.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 128 \
+  --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_w2w2_vq_128 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
   --cold_restart  \
   --init_weight_model ./exp/hifigan_w2w2/g_best
 
@@ -171,10 +171,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   ./local/tuning/hifi_gan_wav2vec2.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 128 \
+  --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_w2w2_vq_128 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_128/ \
   --init_weight_model exp/hifigan_w2w2_vq_128/g_00042000
 ```
 
@@ -192,9 +192,9 @@ tail e2e_tdnnf_dp*/decode_dev_clean*final_fg/scoringDetails/best_wer | grep "WER
 
 python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_tdnnf.py \
     --checkpoint_path exp/hifigan_dp_220000 \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e220000/ \
-    --asrbn_tdnnf_dp 220000 \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e220000/ \
+    --asr_tdnnf_dp 220000 \
     --batch_size 40 \
     --no-caching \
     --cold_restart  \
@@ -202,9 +202,9 @@ python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan
 
 python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_tdnnf.py \
     --checkpoint_path exp/hifigan_dp_e180000 \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e180000/ \
-    --asrbn_tdnnf_dp 180000 \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e180000/ \
+    --asr_tdnnf_dp 180000 \
     --batch_size 40 \
     --no-caching \
     --cold_restart  \
@@ -213,9 +213,9 @@ python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan
 python3 -m torch.distributed.launch --nproc_per_node 2 \
     local/tuning/hifi_gan_tdnnf.py \
     --checkpoint_path exp/hifigan_dp_e180000 \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e180000/ \
-    --asrbn_tdnnf_dp 180000 \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_dp.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_dp_e180000/ \
+    --asr_tdnnf_dp 180000 \
     --batch_size 40 \
     --no-caching \
     --init_weight_model exp/hifigan_dp_e180000/g_00075000;
@@ -223,9 +223,9 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
 
 python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_wav2vec2.py \
     --checkpoint_path exp/wav2vec_hifigan_dp_e100000 \
-    --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py \
-    --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_100000/ \
-    --asrbn_tdnnf_dp 100000 \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py \
+    --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_100000/ \
+    --asr_tdnnf_dp 100000 \
     --batch_size 40 \
     --no-caching
 ```
@@ -241,10 +241,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 128 \
+  --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_vq_128 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --cold_restart  \
   --init_weight_model exp/hifigan_tdnnf/g_00111000
 
@@ -252,10 +252,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 256 \
+  --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_vq_256 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
   --cold_restart  \
   --init_weight_model exp/hifigan_tdnnf/g_00111000
 
@@ -264,18 +264,18 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 128 \
+  --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_vq_128 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --init_weight_model exp/hifigan_vq_128/g_00042000; sleep 60; python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 256 \
+  --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_vq_256 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
   --init_weight_model exp/hifigan_vq_256/g_00042000
 ```
 

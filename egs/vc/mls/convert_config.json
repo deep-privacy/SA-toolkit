@@ -37,7 +37,7 @@
           "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
           "exp_path": "exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
           "load_model": false,
-          "egs_path": "asr-bn/mls/"
+          "egs_path": "asr/mls/"
         },
         "synt_model": {
           "model": "local/tuning/hifi_gan_wav2vec2.py",
@@ -55,7 +55,7 @@
           "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
           "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/'",
           "load_model": false,
-          "egs_path": "asr-bn/librispeech/"
+          "egs_path": "asr/librispeech/"
         },
         "synt_model": {
           "model": "local/tuning/hifi_gan_wav2vec2.py",
@@ -73,7 +73,7 @@
           "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
           "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/'",
           "load_model": false,
-          "egs_path": "asr-bn/librispeech/"
+          "egs_path": "asr/librispeech/"
         },
         "synt_model": {
           "model": "local/tuning/hifi_gan_wav2vec2.py",

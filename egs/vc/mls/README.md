@@ -41,10 +41,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 128 \
+  --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_vq_128 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --cold_restart  \
   --init_weight_model exp/hifigan_tdnnf/g_00111000
 
@@ -52,10 +52,10 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 256 \
+  --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_vq_256 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
   --cold_restart  \
   --init_weight_model exp/hifigan_tdnnf/g_00111000
 
@@ -64,18 +64,18 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 128 \
+  --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_vq_128 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --init_weight_model exp/hifigan_vq_128/g_00042000; sleep 60; python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
   --batch_size 40 \
   --no-caching \
-  --asrbn_tdnnf_vq 256 \
+  --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_vq_256 \
-  --asrbn_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
-  --asrbn_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
   --init_weight_model exp/hifigan_vq_256/g_00042000
 ```
 
@@ -92,8 +92,8 @@ python -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan_
 # Create spk2target mapping
 python3 create_random_target.py \
     --target-list data/mls/stats.json \
-    --in-wavscp ../../asr-bn/mls/data/mls_test_fbank_hires/wav.scp \
-    --in-utt2spk ../../asr-bn/mls/data/mls_test_fbank_hires/utt2spk --same-spk "5232" \
+    --in-wavscp ../../asr/mls/data/mls_test_fbank_hires/wav.scp \
+    --in-utt2spk ../../asr/mls/data/mls_test_fbank_hires/utt2spk --same-spk "5232" \
     > target-mapping
 
 python3 ./convert.py \

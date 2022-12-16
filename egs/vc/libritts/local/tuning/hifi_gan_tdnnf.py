@@ -98,12 +98,12 @@ def build(args, spkids):
 
     class Net(nn.Module):
         def after_load_hook(self):
-            satools_path = satools.__path__[0] + "/../../egs/asr-bn/librispeech/"
+            satools_path = satools.__path__[0] + "/../../egs/asr/librispeech/"
             model_weight = "final.pt"
 
             # loading from args
-            model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
-            exp_path = args.asrbn_tdnnf_exp_path  # eg: "exp/chain/e2e_tdnnf/"
+            model = args.asr_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
+            exp_path = args.asr_tdnnf_exp_path  # eg: "exp/chain/e2e_tdnnf/"
 
             num_pdfs_train = satools.script_utils.read_single_param_file(
                 satools_path + exp_path + "/num_pdfs"
@@ -135,22 +135,22 @@ def build(args, spkids):
                 self.bn_asr = asr_bn_model
             else:
                 # IMPORT LIB
-                # ASR-BN features
+                # ASR features
                 bnargs = SimpleNamespace()
-                if args.asrbn_tdnnf_vq != -1:
+                if args.asr_tdnnf_vq != -1:
                     bnargs = SimpleNamespace(
                         freeze_encoder=True,
-                        codebook_size=args.asrbn_tdnnf_vq,  # eg: 16
+                        codebook_size=args.asr_tdnnf_vq,  # eg: 16
                     )
-                if args.asrbn_tdnnf_dp != -1:
+                if args.asr_tdnnf_dp != -1:
                     bnargs = SimpleNamespace(
                         freeze_encoder=True,
-                        epsilon=str(args.asrbn_tdnnf_dp),  # eg: 180000
+                        epsilon=str(args.asr_tdnnf_dp),  # eg: 180000
                     )
 
 
-                satools_path = satools.__path__[0] + "/../../egs/asr-bn/librispeech/"
-                model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
+                satools_path = satools.__path__[0] + "/../../egs/asr/librispeech/"
+                model = args.asr_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
 
                 config_path = satools_path + model
                 if not os.path.exists(config_path):
@@ -235,19 +235,19 @@ def build(args, spkids):
             f0_h_q = kwargs["f0"]
 
             bn_asr_h = []
-            asrbn_cache = os.path.join(args.checkpoint_path, "cache_asrbn_train")
+            asr_cache = os.path.join(args.checkpoint_path, "cache_asr_train")
             for b_id in range(len(kwargs["filenames"])):
                 feat_len, f0_len = self.get_feat_f0_len(kwargs, b_id)
                 key = kwargs["filenames"][b_id]
 
-                bn_asr_h_ori = satools.utils.fs.get_from_cache(key, asrbn_cache)
+                bn_asr_h_ori = satools.utils.fs.get_from_cache(key, asr_cache)
                 if bn_asr_h_ori == None:
                     ori_feats, _, ori_f0s, _ = kwargs["full_audio_to_cache"]
                     bn_asr_h_ori = self.extract_bn_only(
                         ori_feats[b_id].unsqueeze(0)[..., :feat_len]
                     )
                     bn_asr_h_ori = bn_asr_h_ori.squeeze(0)
-                    satools.utils.fs.put_in_cache(bn_asr_h_ori, key, asrbn_cache)
+                    satools.utils.fs.put_in_cache(bn_asr_h_ori, key, asr_cache)
 
                 feat_subsampling = feat_len / bn_asr_h_ori.shape[-1]
                 _feats_idx, _f0s_idx = kwargs["sampling_iter_idx"][b_id]
@@ -340,14 +340,14 @@ if __name__ == "__main__":
     parser.add_argument("--no-caching", default=False, action="store_true")
     parser.add_argument("--no-spk-info", default=False, action="store_true")
     parser.add_argument(
-        #  "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_vq_bd.py", type=str
-        "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf.py", type=str
+        #  "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_vq_bd.py", type=str
+        "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf.py", type=str
     )
     parser.add_argument(
-        "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf/", type=str
+        "--asr_tdnnf_exp_path", default="exp/chain/e2e_tdnnf/", type=str
     )
-    parser.add_argument("--asrbn_tdnnf_vq", default=-1, type=int)
-    parser.add_argument("--asrbn_tdnnf_dp", default=-1, type=int)
+    parser.add_argument("--asr_tdnnf_vq", default=-1, type=int)
+    parser.add_argument("--asr_tdnnf_dp", default=-1, type=int)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
 

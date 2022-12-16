@@ -24,7 +24,7 @@ def init_asr_model(
     vq_dim=-1,
     get_model_module=False,
     load_model=True,
-    egs_path="asr-bn/librispeech/",
+    egs_path="asr/librispeech/",
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
     satools_path = os.path.join(satools.__path__[0], "../../egs", egs_path)
@@ -151,7 +151,7 @@ def init_synt_model(
     f0_quant_state="exp/f0_vq/g_best",
     model_weight="g_best",
     hifigan_upsample_rates="5, 4, 4, 3, 2",
-    asrbn_interpol_bitrate=-1,
+    asr_interpol_bitrate=-1,
     egs_path="vc/libritts/",
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
@@ -169,7 +169,7 @@ def init_synt_model(
     args = SimpleNamespace(
         f0_quant_state=satools_path + "/" + f0_quant_state,
         hifigan_upsample_rates=hifigan_upsample_rates,
-        asrbn_interpol_bitrate=asrbn_interpol_bitrate,
+        asr_interpol_bitrate=asr_interpol_bitrate,
     )
 
     synt_net = model_file.build(args)(
@@ -205,7 +205,7 @@ def init_synt_model(
     return _forward, generator
 
 
-def kaldi_asr_decode(out, get_align=False, egs_path="asr-bn/librispeech/"):
+def kaldi_asr_decode(out, get_align=False, egs_path="asr/librispeech/"):
     kaldiark = tempfile.NamedTemporaryFile(suffix=".ark").name
     writer = kaldiio.WriteHelper(f"ark,t:{kaldiark}")
     writer("test_utts", out[0].detach().cpu().numpy())

@@ -97,12 +97,12 @@ def build(args, spkids):
     class Net(nn.Module):
         def after_load_hook(self):
 
-            satools_path = os.path.join(satools.__path__[0], "../../egs/asr-bn", args.bn_dataset)
+            satools_path = os.path.join(satools.__path__[0], "../../egs/asr", args.bn_dataset)
             model_weight = "final.pt"
 
             # loading from args
-            model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
-            exp_path = args.asrbn_tdnnf_exp_path  # eg: "exp/chain/e2e_tdnnf/"
+            model = args.asr_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
+            exp_path = args.asr_tdnnf_exp_path  # eg: "exp/chain/e2e_tdnnf/"
             num_pdfs_train = satools.script_utils.read_single_param_file(
                 os.path.join(satools_path, exp_path, "num_pdfs")
             )
@@ -128,21 +128,21 @@ def build(args, spkids):
                 self.bn_asr = asr_bn_model
             else:
                 # IMPORT LIB
-                # ASR-BN features
+                # ASR features
                 bnargs = SimpleNamespace()
-                if args.asrbn_tdnnf_vq != -1:
+                if args.asr_tdnnf_vq != -1:
                     bnargs = SimpleNamespace(
                         freeze_encoder=True,
-                        codebook_size=args.asrbn_tdnnf_vq,  # eg: 16
+                        codebook_size=args.asr_tdnnf_vq,  # eg: 16
                     )
-                if args.asrbn_tdnnf_dp != -1:
+                if args.asr_tdnnf_dp != -1:
                     bnargs = SimpleNamespace(
                         freeze_encoder=True,
-                        epsilon=str(args.asrbn_tdnnf_dp),  # eg: 180000
+                        epsilon=str(args.asr_tdnnf_dp),  # eg: 180000
                     )
 
-                satools_path = os.path.join(satools.__path__[0], "../../egs/asr-bn", args.bn_dataset)
-                model = args.asrbn_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
+                satools_path = os.path.join(satools.__path__[0], "../../egs/asr", args.bn_dataset)
+                model = args.asr_tdnnf_model  # eg: "local/chain/e2e/tuning/tdnnf.py"
 
                 config_path = os.path.join(satools_path, model)
                 if not os.path.exists(config_path):
@@ -262,13 +262,13 @@ if __name__ == "__main__":
     parser.add_argument("--training_epochs", default=1500, type=int)
     parser.add_argument("--cold_restart", default=False, action="store_true")
     parser.add_argument(
-        "--asrbn_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py", type=str
+        "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py", type=str
     )
     parser.add_argument(
-        "--asrbn_tdnnf_exp_path", default="exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/", type=str
+        "--asr_tdnnf_exp_path", default="exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/", type=str
     )
-    parser.add_argument("--asrbn_tdnnf_vq", default=-1, type=int)
-    parser.add_argument("--asrbn_tdnnf_dp", default=-1, type=int)
+    parser.add_argument("--asr_tdnnf_vq", default=-1, type=int)
+    parser.add_argument("--asr_tdnnf_dp", default=-1, type=int)
     parser.add_argument("--bn_dataset", default="librispeech", type=str)
     parser.add_argument("--data_dir", default="./data/LibriTTS/wavs_16khz", type=str)
     parser.add_argument("--f0_stats", default="./data/LibriTTS/stats.json", type=str)

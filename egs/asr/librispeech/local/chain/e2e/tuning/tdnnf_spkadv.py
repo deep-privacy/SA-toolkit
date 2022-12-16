@@ -33,15 +33,15 @@ revgrad = RevGrad.apply
 
 # XVector from sidekit taking asr bn input features
 class XVector(nn.Module):
-    def __init__(self, asr_bn_out_dim, number_of_spk):
+    def __init__(self, asr_out_dim, number_of_spk):
         super().__init__()
-        self.asr_bn_out_dim = asr_bn_out_dim # bottleneck_out dim from the acoustic model
-        self.number_of_spk =  number_of_spk  # Number of speaker in the dataset (Libri train-clean 100)
+        self.asr_out_dim = asr_out_dim # bottleneck_out dim from the acoustic model
+        self.number_of_spk = number_of_spk  # Number of speaker in the dataset (Libri train-clean 100)
 
         self.embedding_size = 256            # dim x-vector
         self.sequence_network = sidekit.nnet.PreHalfResNet34()
         self.stat_pooling = sidekit.nnet.AttentivePooling(8192, 1, global_context=False)
-        self.before_speaker_embedding = torch.nn.Linear(in_features = int(((2560*2)/80)*self.asr_bn_out_dim),
+        self.before_speaker_embedding = torch.nn.Linear(in_features = int(((2560*2)/80)*self.asr_out_dim),
                                                             out_features = self.embedding_size)
         self.after_speaker_embedding = sidekit.nnet.ArcMarginProduct(self.embedding_size,
                 int(self.number_of_spk),
@@ -137,7 +137,7 @@ def build(args):
                 for line in open(args.spk2id)
             ]
             self.spk2id = dict(map(lambda x: (x[0], x[1]), spk2id_lines))
-            self.asi = XVector(asr_bn_out_dim=prefinal_bottleneck_dim, number_of_spk=len(self.spk2id))
+            self.asi = XVector(asr_out_dim=prefinal_bottleneck_dim, number_of_spk=len(self.spk2id))
 
             if args.adversarial_training == "True":
                 self.asi = revgrad(self.asi)
@@ -147,7 +147,7 @@ def build(args):
             self.features_opts = satools.utils.kaldifeat_set_option(
                 opts,
                 satools.__path__[0]
-                + "/../../egs/asr-bn/librispeech/"
+                + "/../../egs/asr/librispeech/"
                 + "./configs/fbank_hires.conf",
             )
             self.fbank = kaldifeat.Fbank(self.features_opts)
