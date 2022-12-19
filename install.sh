@@ -195,7 +195,7 @@ if [ ! -f $mark ]; then
   echo " == Installing python libraries =="
 
   \rm requirements.txt || true
-  echo numpy==1.20 >> requirements.txt # force numpy version to 1.20 (required by Numba)
+  echo numpy==1.20.3 >> requirements.txt # force numpy version to 1.20.3 (required by Numba and pandas)
 
   echo scikit-learn==0.24.2 >> requirements.txt
   echo tensorboard >> requirements.txt
@@ -304,9 +304,6 @@ if [ ! -f $mark ]; then
   python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
   touch $mark
 fi
-
-mark=.done-srilm
-url=https://github.com/BitSpeech/SRILM/archive/refs/tags/1.7.3.tar.gz
 
 mark=.done-sidekit
 if [ ! -f $mark ]; then

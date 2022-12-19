@@ -40,3 +40,8 @@ Add results to git:
 ```
 git add e2e_wav2vec2_fairseq_hibitrate/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/wer_details/* -f
 ```
+
+For testing an already trained model, change parameters into the test part of the configuration file and run the command below :
+```
+local/chain/train.py --stage 8 --conf configs/tdnnf_e2e_wav2vec2_fairseq_hibitrate
+```
