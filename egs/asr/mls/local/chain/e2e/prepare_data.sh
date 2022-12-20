@@ -60,8 +60,8 @@ done
 if [ $stage -le -1 ]; then
   echo "$0: Downloading lm"
   # Checking if ngram is installed. Useful for pruning lm
-  if [ ! ngram ]; then
-    echo "Error : ngram not found. Please run kaldi/tools/extras/install_srilm.sh to install it."
+  if ! command -v ngram &> /dev/null; then
+    echo "Error : ngram not found. Please run kaldi/tools/install_srilm.sh to install it."
     exit 1
   fi
 
