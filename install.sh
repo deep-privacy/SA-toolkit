@@ -37,7 +37,7 @@ if test -f .in_colab_kaggle; then
   # use the same python version as collab one (necessary for the overwrite)
   current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
   current_python_version_with_dot=$(python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]) )')
-  file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64.sh" | head -n 1 | grep -o '".*"' | tr -d '"')
+  file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "Linux.*x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
   echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing $venv_dir OVERWRITE! =="
