@@ -74,10 +74,10 @@ if test -f .in_colab_kaggle; then
     wait # wait for kaldi download
     touch $mark
   fi
-
-  torch_version=1.10.2
-  torchvision_version=0.11.3
-  torchaudio_version=0.10.2
+  
+  torch_version=1.11.0
+  torchvision_version=0.12.0
+  torchaudio_version=0.11.0
 fi
 
 ## Grid5000
