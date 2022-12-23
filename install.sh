@@ -123,7 +123,7 @@ if [ ! -f $mark ]; then
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
   [ -d $venv_dir ] && yes | rm -rf $venv_dir
   bash $name -b -u -p $venv_dir || exit 1
-  . $venv_dir/bin/activate
+  source $venv_dir/bin/activate ''
 
   if test -f .in_colab_kaggle; then
     # add back colab deleted /usr/local dependencies
