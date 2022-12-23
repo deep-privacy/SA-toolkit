@@ -83,7 +83,7 @@ fi
 ## Grid5000
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster (Cuda 11.3 compatible cards (A40))
   echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 11.3!"
-  module_load="source /etc/profile.d/lmod.sh"    ;  eval "$module_load";  echo "$module_load" >> env.sh
+  module_load="source /etc/profile.d/lmod.sh ''"    ;  eval "$module_load";  echo "$module_load" >> env.sh
   module_load="module load cuda/11.3.1_gcc-8.3.0";  eval "$module_load";  echo "$module_load" >> env.sh
   module_load="module load gcc/8.3.0_gcc-8.3.0"  ;  eval "$module_load";  echo "$module_load" >> env.sh
   yes | sudo-g5k apt install python2.7
@@ -149,7 +149,7 @@ if [ ! -f $mark ]; then
 
   touch $mark
 fi
-source $venv_dir/bin/activate
+source $venv_dir/bin/activate ''
 
 export PATH=$CUDAROOT/bin:$PATH
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$venv_dir/lib/:$CUDAROOT/lib64
@@ -335,7 +335,7 @@ if [ ! -f $mark ]; then
 fi
 
 
-echo "source $venv_dir/bin/activate; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
+echo "source $venv_dir/bin/activate ''; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
 echo "export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python;" >> env.sh # WORKING around https://github.com/protocolbuffers/protobuf/issues/10051
 
 echo " == Everything got installed successfully =="
