@@ -51,11 +51,11 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
     done
     # Backup some CUDA before the miniconda overwrite install
     echo " - CUDA /usr/local backup before overwrite"
-    mkdir -p /tmp/backup; mv -r $venv_dir/cuda* /tmp/backup/ || true
+    mkdir -p /tmp/backup; mv -f $venv_dir/cuda* /tmp/backup/ || true
     echo " - Python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
-    mv -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
+    mv -f $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
       /tmp/backup/lib/python$current_python_version_with_dot/dist-packages || true
     wait # wait for kaldi download
     touch $mark
@@ -104,7 +104,7 @@ if [ ! -f $mark ]; then
 
   if test -f .in_colab_kaggle; then
     # add back colab deleted /usr/local dependencies
-    mv -r /tmp/backup/* $venv_dir
+    mv -f /tmp/backup/* $venv_dir
   fi
 
   echo "Installing conda dependencies"
