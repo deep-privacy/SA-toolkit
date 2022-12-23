@@ -32,7 +32,7 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "Linux.*x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
-  echo " == Google colab detected, running $current_python_version | Warning: Performing $venv_dir OVERWRITE! =="
+  echo " == Google colab detected, running python $current_python_version_with_dot | WARNING: Performing $venv_dir OVERWRITE! =="
   mark=.done-colab-specific
   if [ ! -f $mark ]; then
     echo " - Downloading a pre-compiled version of kaldi"
@@ -55,7 +55,7 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
     echo " - Python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
-    mv -f $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
+    cp -r $venv_dir/lib/python$current_python_version_with_dot/dist-packages/* \
       /tmp/backup/lib/python$current_python_version_with_dot/dist-packages || true
     wait # wait for kaldi download
     touch $mark
@@ -104,7 +104,8 @@ if [ ! -f $mark ]; then
 
   if test -f .in_colab_kaggle; then
     # add back colab deleted /usr/local dependencies
-    mv -f /tmp/backup/* $venv_dir
+    cp -r /tmp/backup/* $venv_dir; \rm -rf /tmp/backup/
+    \rm -f $name || true
   fi
 
   echo "Installing conda dependencies"
