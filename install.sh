@@ -283,6 +283,7 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
+export GIT_SSL_NO_VERIFY=1
 mark=.done-sidekit
 if [ ! -f $mark ]; then
   echo " == Building sidekit =="
