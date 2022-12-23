@@ -41,17 +41,6 @@ if test -f .in_colab_kaggle; then
   conda_url=https://repo.anaconda.com/miniconda/$file
 
   echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing $venv_dir OVERWRITE! =="
-
-  echo "Using local \$CUDAROOT: $CUDAROOT"
-  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-  echo "Cuda version: $cuda_version_witout_dot"
-
-  torch_version=1.10.2
-  torchvision_version=0.11.3
-  torchaudio_version=0.10.2
-  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
-
   mark=.done-colab-specific
   if [ ! -f $mark ]; then
     echo " - Downloading a pre-compiled version of kaldi"
@@ -85,46 +74,44 @@ if test -f .in_colab_kaggle; then
     wait # wait for kaldi download
     touch $mark
   fi
+
+  torch_version=1.10.2
+  torchvision_version=0.11.3
+  torchaudio_version=0.10.2
 fi
 
 ## Grid5000
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster (Cuda 11.3 compatible cards (A40))
   echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 11.3!"
-  module_load="source /etc/profile.d/lmod.sh"
-  eval "$module_load"
-  echo "$module_load" >> env.sh
-  module_load="module load cuda/11.3.1_gcc-8.3.0"
-  eval "$module_load"
-  echo "$module_load" >> env.sh
-  module_load="module load gcc/8.3.0_gcc-8.3.0"
-  eval "$module_load"
-  echo "$module_load" >> env.sh
-  CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
+  module_load="source /etc/profile.d/lmod.sh"    ;  eval "$module_load";  echo "$module_load" >> env.sh
+  module_load="module load cuda/11.3.1_gcc-8.3.0";  eval "$module_load";  echo "$module_load" >> env.sh
+  module_load="module load gcc/8.3.0_gcc-8.3.0"  ;  eval "$module_load";  echo "$module_load" >> env.sh
   yes | sudo-g5k apt install python2.7
-  echo "Using local \$CUDAROOT: $CUDAROOT"
-  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-  echo "Cuda version: $cuda_version_witout_dot"
+  CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
 
   torch_version=1.10.2
   torchvision_version=0.11.3
   torchaudio_version=0.10.2
-  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 fi
 ## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   echo "Installing on Lium, check your GPU (for this node) compatibility with CUDA 11.5!"
   CUDAROOT=/opt/cuda/11.5
-  echo "Using local \$CUDAROOT: $CUDAROOT"
-  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-  echo "Cuda version: $cuda_version_witout_dot"
-
+  
   torch_version=1.11.0
   torchvision_version=0.12.0
   torchaudio_version=0.11.0
-  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 fi
+
+echo "Using local \$CUDAROOT: $CUDAROOT"
+cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+if [[ $# -ne 1 ]]; then
+  echo "Using system cuda version: $cuda_version to install pytorch, if not compatible, use ./install.sh '11.1'"
+else
+  echo "Using cuda version: $cuda_version to install pytorch";  cuda_version=$1
+fi
+cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 
 mark=.done-venv
 if [ ! -f $mark ]; then
@@ -182,7 +169,7 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
 mark=.done-pytorch
 if [ ! -f $mark ]; then
-  echo " == Installing pytorch $torch_version for cuda $cuda_version =="
+  echo " == Installing pytorch $torch_version for cuda $cuda_version_witout_dot =="
   # pip3 install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
   pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision==$torchvision_version+cu$cuda_version_witout_dot torchaudio==$torchaudio_version -f $torch_wheels
   cd $home
