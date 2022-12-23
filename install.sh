@@ -135,7 +135,7 @@ if [ ! -f $mark ]; then
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
   [ -d $venv_dir ] && yes | rm -rf $venv_dir
-  sh $name -b -u -p $venv_dir || exit 1
+  bash $name -b -u -p $venv_dir || exit 1
   . $venv_dir/bin/activate
 
   if test -f .in_colab_kaggle; then
