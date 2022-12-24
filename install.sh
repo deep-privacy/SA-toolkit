@@ -301,8 +301,8 @@ if [ ! -f $mark ]; then
     git clone https://github.com/pytorch/fairseq.git
     cd fairseq
     git checkout -b sync_commit 313ff0581561c7725ea9430321d6af2901573dfb
+    pip3 install -e .
     cd ..
-    python3 -m pip install --editable ./fairseq
     touch $mark
 fi
 
