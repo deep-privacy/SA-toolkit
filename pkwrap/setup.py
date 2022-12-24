@@ -74,20 +74,30 @@ if MKL_ROOT:
 LICENSE = "Apache 2.0"
 VERSION = "0.2.31.6"
 
-setup(
-    name=PACKAGE_NAME,
-    version=VERSION,
-    license=LICENSE,
-    packages=find_packages(),
-    ext_modules=[
-        cpp_extension.CppExtension(
-            EXTENSION_NAME,
-            SRC_FILES,
-            language="c++",
-            extra_compile_args=EXTRA_COMPILE_ARGS,
-            libraries=LIBRARIES,
-            library_dirs=LIBRARY_DIRS,
-        )
-    ],
-    cmdclass={"build_ext": cpp_extension.BuildExtension},
-)
+PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT")
+
+if PKWRAP_CPP_EXT == "no":
+    setup(
+        name=PACKAGE_NAME,
+        version=VERSION,
+        license=LICENSE,
+        packages=find_packages(),
+    )
+else:
+    setup(
+        name=PACKAGE_NAME,
+        version=VERSION,
+        license=LICENSE,
+        packages=find_packages(),
+        ext_modules=[
+            cpp_extension.CppExtension(
+                EXTENSION_NAME,
+                SRC_FILES,
+                language="c++",
+                extra_compile_args=EXTRA_COMPILE_ARGS,
+                libraries=LIBRARIES,
+                library_dirs=LIBRARY_DIRS,
+            )
+        ],
+        cmdclass={"build_ext": cpp_extension.BuildExtension},
+    )

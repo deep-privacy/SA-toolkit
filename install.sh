@@ -51,7 +51,7 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
     done
     # Backup some CUDA before the miniconda overwrite install
     echo " - CUDA /usr/local backup before overwrite"
-    mkdir -p /tmp/backup; mv -f $venv_dir/cuda* /tmp/backup/ || true
+    mkdir -p /tmp/backup; cp -r $venv_dir/cuda* /tmp/backup/ || true
     echo " - Python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
@@ -131,7 +131,7 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 mark=.done-pytorch
 if [ ! -f $mark ]; then
   echo " == Installing pytorch $torch_version for cuda $cuda_version =="
-  pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/ \
+  pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu$cuda_version_witout_dot \
     || { echo "Failed to find pytorch $torch_version for cuda '$cuda_version', use please specify another version with: './install.sh --cuda 11.3 --torch 1.12.1'" ; exit 1; }
   cd $home
   touch $mark
@@ -218,6 +218,9 @@ export KALDI_ROOT=$home/kaldi
 mark=.done-pkwrap
 if [ ! -f $mark ]; then
   echo " == Building pkwrap src =="
+  if test -f .in_colab_kaggle; then
+    export PKWRAP_CPP_EXT=no
+  fi
   cd pkwrap
   make clean
   python3 setup.py install
