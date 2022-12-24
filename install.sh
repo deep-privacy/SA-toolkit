@@ -16,20 +16,12 @@ venv_dir=$PWD/venv
 
 # CONDA
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh
+conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py39_22.11.1-1-Linux-x86_64.sh
 
 # Cluster dependent install
 ## Colab
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   touch .in_colab_kaggle
-  venv_dir=/usr/local
-fi
-if test -d /kaggle; then
-  # Kaggle support is still in WIP
-  touch .in_colab_kaggle
-  venv_dir=/opt/conda
-fi
-if test -f .in_colab_kaggle; then
   # Overwrite current python site-package with miniconda one
   # WARNING THIS break everything on anything other than colab!
   venv_dir=/usr/local/
@@ -37,21 +29,10 @@ if test -f .in_colab_kaggle; then
   # use the same python version as collab one (necessary for the overwrite)
   current_python_version=$(python -c 'import sys; print("py" + str(sys.version_info[0]) + str(sys.version_info[1]) )')
   current_python_version_with_dot=$(python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]) )')
-  file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
+  file=$(curl -s -S https://repo.anaconda.com/miniconda/ | grep "$current_python_version" | grep "Linux.*x86_64" | head -n 1 | grep -o '".*"' | tr -d '"')
   conda_url=https://repo.anaconda.com/miniconda/$file
 
-  echo " == Google colab / Kaggle detected, running $current_python_version | Warning: Performing $venv_dir OVERWRITE! =="
-
-  echo "Using local \$CUDAROOT: $CUDAROOT"
-  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-  echo "Cuda version: $cuda_version_witout_dot"
-
-  torch_version=1.10.2
-  torchvision_version=0.11.3
-  torchaudio_version=0.10.2
-  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
-
+  echo " == Google colab detected, running python $current_python_version_with_dot | WARNING: Performing $venv_dir OVERWRITE! =="
   mark=.done-colab-specific
   if [ ! -f $mark ]; then
     echo " - Downloading a pre-compiled version of kaldi"
@@ -59,24 +40,18 @@ if test -f .in_colab_kaggle; then
     # And use pre-compiled version (this is not suitable for model training - kaldi GCC/CUDA mismatch with pkwrap)
     curl -L bit.ly/kaldi-colab | tar xz -C / --exclude='usr*'
     ln -s /opt/kaldi/ kaldi
-    touch .done-kaldi-tools
-    touch .done-kaldi-src
+    touch .done-kaldi-src .done-kaldi-tools
     ) &
 
     # Cleanup before install
     echo " - Removing some dist-packages/deps before backup"
-    \rm -rf /usr/local/cuda-11.0 || true
-    \rm -rf /usr/local/cuda-10.1 || true
-    \rm -rf /usr/local/cuda-10.0 || true
+    \rm -rf /opt/nvidia /tensorflow-* /usr/local/cuda-10.0 /usr/local/cuda-10.1 /usr/local/cuda-11.0 || true
     for pkg in torch tensorflow plotly cupy ideep4py jaxlib pystan caffe2 music21 xgboost; do
       \rm -rf $venv_dir/lib/python$current_python_version_with_dot/dist-packages/$pkg || true
     done
-    \rm -rf /tensorflow-* || true
-    \rm -rf /opt/nvidia || true
     # Backup some CUDA before the miniconda overwrite install
-    mkdir -p /tmp/backup
     echo " - CUDA /usr/local backup before overwrite"
-    cp -r $venv_dir/cuda* /tmp/backup/ || true
+    mkdir -p /tmp/backup; cp -r $venv_dir/cuda* /tmp/backup/ || true
     echo " - Python dist-package /usr/local backup before overwrite"
     # Backup dist-packages
     mkdir -p /tmp/backup/lib/python$current_python_version_with_dot/dist-packages
@@ -90,41 +65,30 @@ fi
 ## Grid5000
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster (Cuda 11.3 compatible cards (A40))
   echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 11.3!"
-  module_load="source /etc/profile.d/lmod.sh"
-  eval "$module_load"
-  echo "$module_load" >> env.sh
-  module_load="module load cuda/11.3.1_gcc-8.3.0"
-  eval "$module_load"
-  echo "$module_load" >> env.sh
-  module_load="module load gcc/8.3.0_gcc-8.3.0"
-  eval "$module_load"
-  echo "$module_load" >> env.sh
-  CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
+  module_load="source /etc/profile.d/lmod.sh ''; module load cuda/11.3.1_gcc-8.3.0; module load gcc/8.3.0_gcc-8.3.0;";  eval "$module_load";  echo "$module_load" >> env.sh
   yes | sudo-g5k apt install python2.7
-  echo "Using local \$CUDAROOT: $CUDAROOT"
-  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-  echo "Cuda version: $cuda_version_witout_dot"
-
-  torch_version=1.10.2
-  torchvision_version=0.11.3
-  torchaudio_version=0.10.2
-  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
+  CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
 fi
 ## Lium
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
-  echo "Installing on Lium, check your GPU (for this node) compatibility with CUDA 11.5!"
+  echo "Installing on Lium"
   CUDAROOT=/opt/cuda/11.5
-  echo "Using local \$CUDAROOT: $CUDAROOT"
-  cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
-  cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
-  echo "Cuda version: $cuda_version_witout_dot"
-
-  torch_version=1.11.0
-  torchvision_version=0.12.0
-  torchaudio_version=0.11.0
-  torch_wheels="https://download.pytorch.org/whl/cu$cuda_version_witout_dot/torch_stable.html"
 fi
+
+cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
+torch_version=1.12.1
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -c|--cuda) cuda_version="$2"; shift; echo "Arg Cuda $cuda_version" ;;
+        -t|--torch) torch_version=$2; shift; echo "Arg Torch $torch_version" ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+cuda_version_witout_dot=$(echo $cuda_version | xargs | sed 's/\.//')
+echo "Local \$CUDAROOT: $CUDAROOT with cuda version: $cuda_version"
 
 mark=.done-venv
 if [ ! -f $mark ]; then
@@ -135,44 +99,28 @@ if [ ! -f $mark ]; then
   fi
   [ ! -f $name ] && echo "File $name does not exist" && exit 1
   [ -d $venv_dir ] && yes | rm -rf $venv_dir
-  sh $name -b -u -p $venv_dir || exit 1
-  . $venv_dir/bin/activate
+  bash $name -b -u -p $venv_dir || exit 1
+  source $venv_dir/bin/activate ''
 
   if test -f .in_colab_kaggle; then
     # add back colab deleted /usr/local dependencies
-    cp -r /tmp/backup/* $venv_dir
-    \rm -rf /tmp/backup/
+    cp -r /tmp/backup/* $venv_dir; \rm -rf /tmp/backup/
+    \rm -f $name || true
   fi
 
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge \
-    sox \
-    libflac \
-    inotify-tools \
-    git-lfs \
-    ffmpeg \
-    wget \
-    mkl mkl-include \
-    cmake
-
-    # CHECK the cudnn version -> must be compatible with CUDA_HOME version
-    # In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
-    # --no-deps to avoid isntalling cudatoolkit (using local cuda at CUDA_HOME)
-    yes | conda install -c conda-forge cudnn=8.2.1.32 --no-deps
+    sox libflac inotify-tools git-lfs ffmpeg wget mkl mkl-include cmake
 
   touch $mark
 fi
-source $venv_dir/bin/activate
+source $venv_dir/bin/activate ''
 
 export PATH=$CUDAROOT/bin:$PATH
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$venv_dir/lib/:$CUDAROOT/lib64
 export CFLAGS="-I$CUDAROOT/include $CFLAGS"
 export CUDA_HOME=$CUDAROOT
 export CUDA_PATH=$CUDAROOT
-
-export CUDNN_ROOT="$venv_dir"
-export CUDNN_INCLUDE_DIR="$venv_dir/include"
-export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
 
 export OPENFST_PATH=$(realpath .)/kaldi/tools/openfst
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$OPENFST_PATH/lib
@@ -183,8 +131,8 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 mark=.done-pytorch
 if [ ! -f $mark ]; then
   echo " == Installing pytorch $torch_version for cuda $cuda_version =="
-  # pip3 install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
-  pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision==$torchvision_version+cu$cuda_version_witout_dot torchaudio==$torchaudio_version -f $torch_wheels
+  pip3 install torch==$torch_version+cu$cuda_version_witout_dot torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu$cuda_version_witout_dot \
+    || { echo "Failed to find pytorch $torch_version for cuda '$cuda_version', use please specify another version with: './install.sh --cuda 11.3 --torch 1.12.1'" ; exit 1; }
   cd $home
   touch $mark
 fi
@@ -205,7 +153,6 @@ if [ ! -f $mark ]; then
   # pkwrap additional req
   echo pytorch-memlab==0.2.3 >> requirements.txt
   echo kaldiio==2.15.1 >> requirements.txt
-  echo git+https://github.com/huggingface/transformers.git@d5b82bb70c2e8c4b184a6f2a7d1c91d7fd156956 >> requirements.txt
   echo resampy==0.2.2 >> requirements.txt
   echo ConfigArgParse==1.5.1 >> requirements.txt
   echo librosa==0.8.1 >> requirements.txt
@@ -246,7 +193,7 @@ if [ ! -f $mark ]; then
   cd kaldi
   # git checkout 05f66603a
   echo " === Applying personal patch on kaldi ==="
-  git apply ../kaldi.patch
+  git apply ../.kaldi.patch
   cd tools
   extras/check_dependencies.sh || exit 1
   make -j $nj || exit 1
@@ -280,6 +227,9 @@ export KALDI_ROOT=$home/kaldi
 mark=.done-satools
 if [ ! -f $mark ]; then
   echo " == Building satools src =="
+  if test -f .in_colab_kaggle; then
+    export PKWRAP_CPP_EXT=no
+  fi
   cd satools
   make clean
   python3 setup.py install
@@ -291,6 +241,14 @@ fi
 
 mark=.done-python-requirements-kaldi-feat
 if [ ! -f $mark ]; then
+  export CUDNN_ROOT="$venv_dir"
+  export CUDNN_INCLUDE_DIR="$venv_dir/include"
+  export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
+  # CHECK the cudnn version -> must be compatible with CUDA_HOME version
+  # In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
+  # --no-deps to avoid isntalling cudatoolkit (using local cuda at CUDA_HOME)
+  yes | conda install -c conda-forge cudnn=8.2.1.32 --no-deps
+
   echo " == Building kaldifeat =="
   \rm -rf kaldifeat || true
   git clone https://github.com/csukuangfj/kaldifeat kaldifeat
@@ -305,6 +263,7 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
+export GIT_SSL_NO_VERIFY=1
 mark=.done-sidekit
 if [ ! -f $mark ]; then
   echo " == Building sidekit =="
@@ -351,13 +310,13 @@ if [ ! -f $mark ]; then
     git clone https://github.com/pytorch/fairseq.git
     cd fairseq
     git checkout -b sync_commit 313ff0581561c7725ea9430321d6af2901573dfb
+    pip3 install .
     cd ..
-    python3 -m pip install --editable ./fairseq
     touch $mark
 fi
 
 
-echo "source $venv_dir/bin/activate; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
+echo "source $venv_dir/bin/activate ''; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
 echo "export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python;" >> env.sh # WORKING around https://github.com/protocolbuffers/protobuf/issues/10051
 
 echo " == Everything got installed successfully =="
