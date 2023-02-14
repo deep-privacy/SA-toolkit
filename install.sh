@@ -239,30 +239,6 @@ if [ ! -f $mark ]; then
 fi
 
 
-mark=.done-python-requirements-kaldi-feat
-if [ ! -f $mark ]; then
-  export CUDNN_ROOT="$venv_dir"
-  export CUDNN_INCLUDE_DIR="$venv_dir/include"
-  export CUDNN_LIBRARY="$venv_dir/lib/libcudnn.so"
-  # CHECK the cudnn version -> must be compatible with CUDA_HOME version
-  # In 2022 cudnn-8.2.1.32 compatible with (cuda 10.2, 11.3... and more)
-  # --no-deps to avoid isntalling cudatoolkit (using local cuda at CUDA_HOME)
-  yes | conda install -c conda-forge cudnn=8.2.1.32 --no-deps
-
-  echo " == Building kaldifeat =="
-  \rm -rf kaldifeat || true
-  git clone https://github.com/csukuangfj/kaldifeat kaldifeat
-  cd kaldifeat
-  git checkout cec876b
-  export KALDIFEAT_CMAKE_ARGS="-DCUDNN_LIBRARY=$CUDNN_LIBRARY -DCMAKE_BUILD_TYPE=Release -Wno-dev"
-  export KALDIFEAT_MAKE_ARGS="-j $nj"
-  which python3
-  LDFLAGS="-L$venv_dir/lib" python setup.py install || exit 1
-  cd $home
-  python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
-  touch $mark
-fi
-
 export GIT_SSL_NO_VERIFY=1
 mark=.done-sidekit
 if [ ! -f $mark ]; then

@@ -3,14 +3,19 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-train_set = data/train_clean_100_sp_fbank_hires
+# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
+e2e = True
+train_set = data/mls_train_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
+# dummy folders. will not be touched
+lang = data/lang_nosp_test_tgsmall
+lang_chain = data/lang_chain
 # trained using local/chain/e2e/prepare_data.sh and local/chain/e2e/get_egs.sh
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
 # train params
-num_epochs = 4
+num_epochs = 2
 num_jobs_initial = 1
 num_jobs_final = 1
 lr_initial = 0.0001
@@ -18,8 +23,8 @@ lr_final =   0.00001
 diagnostics_interval = 20
 checkpoint_interval =  20
 # fits on a 47 GB card with wav2vec2 large
-minibatch_size = 8
-grad_acc_steps = 16
+minibatch_size = 6
+grad_acc_steps = 22
 train_stage = last
 # train_stage = 365
 
@@ -28,15 +33,11 @@ l2_regularize_factor = 0.2
 
 final_combination_n_model = 1
 
-model_file = local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py
-dirname = e2e_tdnnf_wav2vec_fairseq_hibitrate
+model_file = local/chain/e2e/tuning/tdnnf_wav2vec2.py
+dirname = e2e_tdnnf_wav2vec2
 
 [test]
-# test_set = data/test_clean_fbank_hires
-test_set = data/test_other_fbank_hires
-# test_set = data/dev_other_fbank_hires
-# test_set = data/dev_clean_fbank_hires
-# test_set = data/dev_clean_fbank_hires
+test_set = data/mls_test_fbank_hires
 # suffix = baseline
 # decode on gpus
 num_jobs = 2

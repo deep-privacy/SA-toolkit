@@ -19,7 +19,7 @@
         "model_name": "tdnnf",
         "dim": 48,
         "asr_model": {
-          "model": "local/chain/e2e/tuning/tdnnf_vq_bd.py",
+          "model": "local/chain/e2e/tuning/tdnnf_vq.py",
           "exp_path": "f\"exp/chain/e2e_tdnnf_vq_{dim}/\"",
           "load_model": false
         },
@@ -34,8 +34,8 @@
         "dp": false,
         "vq": false,
         "asr_model": {
-          "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
-          "exp_path": "exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
+          "model": "local/chain/e2e/tuning/tdnnf_wav2vec2.py",
+          "exp_path": "exp/chain/e2e_tdnnf_wav2vec2/",
           "load_model": false,
           "egs_path": "asr/mls/"
         },
@@ -52,8 +52,8 @@
         "dp": false,
         "vq": true,
         "asr_model": {
-          "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
-          "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/'",
+          "model": "local/chain/e2e/tuning/tdnnf_wav2vec2_vq.py",
+          "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec2_vq_{dim}/'",
           "load_model": false,
           "egs_path": "asr/librispeech/"
         },
@@ -70,8 +70,8 @@
         "dp": false,
         "vq": false,
         "asr_model": {
-          "model": "local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
-          "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/'",
+          "model": "local/chain/e2e/tuning/tdnnf_wav2vec2.py",
+          "exp_path": "f'exp/chain/e2e_tdnnf_wav2vec2/'",
           "load_model": false,
           "egs_path": "asr/librispeech/"
         },

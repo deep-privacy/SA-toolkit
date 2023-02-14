@@ -23,8 +23,7 @@ logging.basicConfig(level=logging.DEBUG)
 import sys
 import configargparse
 
-import kaldifeat
-
+import torchaudio
 
 import sidekit.nnet
 
@@ -143,14 +142,7 @@ def build(args):
                 self.asi = revgrad(self.asi)
 
             # Preprocessor
-            opts = kaldifeat.FbankOptions()
-            self.features_opts = satools.utils.kaldifeat_set_option(
-                opts,
-                satools.__path__[0]
-                + "/../../egs/asr/librispeech/"
-                + "./configs/fbank_hires.conf",
-            )
-            self.fbank = kaldifeat.Fbank(self.features_opts)
+            self.fbank = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_mels=80)
 
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
@@ -385,16 +377,7 @@ def build(args):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            if self.features_opts.device != x.device:
-                self.features_opts.device = x.device
-                self.fbank = kaldifeat.Fbank(self.features_opts)
-
-            # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
-            x *= 32768
-            waveform = [*x]  # batch processing with python list (required by kaldifeat)
-
-            x = self.fbank(waveform)
-            x = torch.stack(x)  # back to tensor
+            x = self.fbank(waveform).permute(0, 2, 1)
             assert x.ndim == 3
             x = self.pad_input(x)
             x = self.cmvn(x)

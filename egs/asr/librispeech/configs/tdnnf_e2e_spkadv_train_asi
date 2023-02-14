@@ -5,7 +5,6 @@ cuda_cmd = ./utils/run.pl
 [exp]
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
-# trained using local/chain/e2e/prepare_data.sh and local/chain/e2e/get_egs.sh
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 

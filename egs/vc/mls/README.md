@@ -43,7 +43,7 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --no-caching \
   --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_vq_128 \
-  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq.py \
   --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --cold_restart  \
   --init_weight_model exp/hifigan_tdnnf/g_00111000
@@ -54,7 +54,7 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --no-caching \
   --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_vq_256 \
-  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq.py \
   --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
   --cold_restart  \
   --init_weight_model exp/hifigan_tdnnf/g_00111000
@@ -66,7 +66,7 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --no-caching \
   --asr_tdnnf_vq 128 \
   --checkpoint_path exp/hifigan_vq_128 \
-  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq.py \
   --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_128/ \
   --init_weight_model exp/hifigan_vq_128/g_00042000; sleep 60; python3 -m torch.distributed.launch --nproc_per_node 2 \
   local/tuning/hifi_gan_tdnnf.py \
@@ -74,7 +74,7 @@ python3 -m torch.distributed.launch --nproc_per_node 2 \
   --no-caching \
   --asr_tdnnf_vq 256 \
   --checkpoint_path exp/hifigan_vq_256 \
-  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+  --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq.py \
   --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_256/ \
   --init_weight_model exp/hifigan_vq_256/g_00042000
 ```

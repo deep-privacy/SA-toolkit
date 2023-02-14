@@ -5,7 +5,6 @@ cuda_cmd = ./utils/run.pl
 [exp]
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
-# trained using local/chain/e2e/prepare_data.sh and local/chain/e2e/get_egs.sh
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
 egs_dir = exp/chain/e2e_tdnnf/fst_egs
 
@@ -27,9 +26,6 @@ model_file = local/chain/e2e/tuning/tdnnf_dp.py
 dirname = e2e_tdnnf_dp_e160000
 model_args = ["--freeze-encoder", "True", "--epsilon", "160000.0"]
 init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
-
-# sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
-# tail e2e_tdnnf_vq_bd_sizeco_*/decode_dev*_fg/scoringDetails/best_wer
 
 [test]
 # test_set = data/test_clean_fbank_hires

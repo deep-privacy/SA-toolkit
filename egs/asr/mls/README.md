@@ -26,22 +26,22 @@ local/chain/e2e/get_egs.sh --data ./data/mls_train_sp_fbank_hires --fstdir ./exp
 3. Train (and test ``dev``) using the configuration below
 
 ```
-local/chain/train.py --stage 4 --conf configs/tdnnf_e2e_wav2vec2_fairseq_hibitrate
+local/chain/train.py --stage 4 --conf configs/tdnnf_e2e_wav2vec22
 ```
 
 
 ```
-find exp/chain/e2e_wav2vec2_fairseq_hibitrate/  -not -path "*decode*" -not -name "*[0-9].pt" -not -path "*log*" -not -path "*runs*" -not -path "*egs*"  -exec zip asr_models.zip {} +
+find exp/chain/e2e_wav2vec22/  -not -path "*decode*" -not -name "*[0-9].pt" -not -path "*log*" -not -path "*runs*" -not -path "*egs*"  -exec zip asr_models.zip {} +
 ```
 
-The model is stored in ``exp/chain/e2e_wav2vec2_fairseq_hibitrate/``. Once the entire script finishes successfully, the expected WER on ``dev_clean`` is
+The model is stored in ``exp/chain/e2e_wav2vec22/``. Once the entire script finishes successfully, the expected WER on ``dev_clean`` is
 
 Add results to git:
 ```
-git add e2e_wav2vec2_fairseq_hibitrate/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/wer_details/* -f
+git add e2e_wav2vec22/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/wer_details/* -f
 ```
 
 For testing an already trained model, change parameters into the test part of the configuration file and run the command below :
 ```
-local/chain/train.py --stage 8 --conf configs/tdnnf_e2e_wav2vec2_fairseq_hibitrate
+local/chain/train.py --stage 8 --conf configs/tdnnf_e2e_wav2vec22
 ```

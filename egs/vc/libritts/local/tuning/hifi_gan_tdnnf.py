@@ -340,7 +340,6 @@ if __name__ == "__main__":
     parser.add_argument("--no-caching", default=False, action="store_true")
     parser.add_argument("--no-spk-info", default=False, action="store_true")
     parser.add_argument(
-        #  "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_vq_bd.py", type=str
         "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf.py", type=str
     )
     parser.add_argument(

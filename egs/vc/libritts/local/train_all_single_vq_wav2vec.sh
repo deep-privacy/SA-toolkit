@@ -12,7 +12,7 @@ do
 ngpu=$(python3 -c "import torch; print(torch.cuda.device_count())")
   python3 -m torch.distributed.launch --nproc_per_node $ngpu local/tuning/hifi_gan.py \
     --checkpoint_path exp/hifigan_vq_${dim}_finetuned \
-    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq_bd.py \
+    --asr_tdnnf_model local/chain/e2e/tuning/tdnnf_vq.py \
     --asr_tdnnf_exp_path exp/chain/e2e_tdnnf_vq_${dim}/ \
     --asr_tdnnf_vq ${dim} \
     --training_epochs 300 \

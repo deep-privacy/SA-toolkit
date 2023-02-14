@@ -262,10 +262,10 @@ if __name__ == "__main__":
     parser.add_argument("--training_epochs", default=1500, type=int)
     parser.add_argument("--cold_restart", default=False, action="store_true")
     parser.add_argument(
-        "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py", type=str
+        "--asr_tdnnf_model", default="local/chain/e2e/tuning/tdnnf_wav2vec2.py", type=str
     )
     parser.add_argument(
-        "--asr_tdnnf_exp_path", default="exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/", type=str
+        "--asr_tdnnf_exp_path", default="exp/chain/e2e_tdnnf_wav2vec2/", type=str
     )
     parser.add_argument("--asr_tdnnf_vq", default=-1, type=int)
     parser.add_argument("--asr_tdnnf_dp", default=-1, type=int)

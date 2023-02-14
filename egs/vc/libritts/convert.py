@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     #  dim = 128
     #  root_data = "/lium/home/pchampi/lab/asr-based-privacy-preserving-separation/satools/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360"
-    #  out_dir = "generated_train-clean-360_vq_" + str(dim)
+    #  out_dir = "generated_train-clean-360_" + str(dim)
 
     audio_extension = args.ext
     dim = args.vq_dim
@@ -203,14 +203,14 @@ if __name__ == "__main__":
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
-                exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
+                model=f"local/chain/e2e/tuning/tdnnf_bd.py",
+                exp_path=f"exp/chain/e2e_tdnnf_{dim}/",
                 vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_model(
                 model=f"local/tuning/hifi_gan.py",
-                exp_path=f"exp/hifigan_vq_{dim}_finetuned",
+                exp_path=f"exp/hifigan_{dim}_finetuned",
                 asr_bn_model=pk_model,
                 model_weight="g_00075000",
             )
@@ -243,21 +243,21 @@ if __name__ == "__main__":
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_vq_bd.py",
-                exp_path=f"exp/chain/e2e_tdnnf_vq_{dim}/",
+                model=f"local/chain/e2e/tuning/tdnnf_bd.py",
+                exp_path=f"exp/chain/e2e_tdnnf_{dim}/",
                 vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
                 model=f"local/tuning/hifi_gan_tdnnf.py",
-                exp_path=f"exp/hifigan_vq_{dim}/",
+                exp_path=f"exp/hifigan_{dim}/",
                 asr_bn_model=pk_model,
                 model_weight="g_00045000",
             )
     if args.model_type == "wav2vec2_mailabs":
         forward_asr, pk_model = demo.init_asr_model(
-            model=f"local/chain/e2e/tuning/mls_tdnnf_wav2vec_fairseq_hibitrate.py",
-            exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
+            model=f"local/chain/e2e/tuning/mls_tdnnf_wav2vec2.py",
+            exp_path=f"exp/chain/e2e_tdnnf_wav2vec2/",
             load_model=False,
             egs_path="mls/v1/"
         )
@@ -272,8 +272,8 @@ if __name__ == "__main__":
     if args.model_type == "wav2vec2":
         if dim == -1 or dim == 0 and dp_dim == 0:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate/",
+                model=f"local/chain/e2e/tuning/tdnnf_wav2vec2.py",
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec2/",
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
@@ -284,8 +284,8 @@ if __name__ == "__main__":
             )
         elif dp_dim != 0:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_dp.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_dp_{dp_dim}/",
+                model=f"local/chain/e2e/tuning/tdnnf_wav2vec2_dp.py",
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec2_dp_{dp_dim}/",
                 dp_dim=dp_dim,
                 load_model=False,
             )
@@ -301,14 +301,14 @@ if __name__ == "__main__":
             )
         else:
             forward_asr, pk_model = demo.init_asr_model(
-                model=f"local/chain/e2e/tuning/tdnnf_wav2vec_fairseq_hibitrate_vq.py",
-                exp_path=f"exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate_vq_{dim}/",
+                model=f"local/chain/e2e/tuning/tdnnf_wav2vec2.py",
+                exp_path=f"exp/chain/e2e_tdnnf_wav2vec2_{dim}/",
                 vq_dim=dim,
                 load_model=False,
             )
             forward_synt, synt_model = demo.init_synt_hifigan_w2v2(
                 model=f"local/tuning/hifi_gan_wav2vec2.py",
-                exp_path=f"exp/hifigan_w2w2_vq_{dim}",
+                exp_path=f"exp/hifigan_w2w2_{dim}",
                 asr_bn_model=pk_model,
                 model_weight="g_00045000",
             )

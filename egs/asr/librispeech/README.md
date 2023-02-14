@@ -46,5 +46,5 @@ find exp/chain/e2e_tdnnf/ exp/chain/e2e_tdnnf_vq_16 exp/chain/e2e_tdnnf_vq_32 ex
 ```
 
 ```
-a=exp/chain/e2e_tdnnf_wav2vec_fairseq_hibitrate; zip -r e2e_tdnnf_wav2vec_fairseq_hibitrate.zip $a/den.fst $a/final.mdl $a/0.trans_mdl $a/final.pt $a/normalization.fst $a/num_pdfs $a/tree
+a=exp/chain/e2e_tdnnf_wav2vec2; zip -r e2e_tdnnf_wav2vec2.zip $a/den.fst $a/final.mdl $a/0.trans_mdl $a/final.pt $a/normalization.fst $a/num_pdfs $a/tree
 ```
