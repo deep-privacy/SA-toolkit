@@ -70,7 +70,6 @@ def build(args):
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
 
-            # input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
             self.output_dim = output_dim
             self.output_subsampling = frame_subsampling_factor

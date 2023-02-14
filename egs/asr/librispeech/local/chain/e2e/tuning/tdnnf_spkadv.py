@@ -153,7 +153,6 @@ def build(args):
 
             self.cmvn = satools.cmvn.UttCMVN()
 
-            # input_dim = feat_dim * 3 + ivector_dim
             self.input_dim = input_dim
             self.output_dim = output_dim
             self.output_subsampling = frame_subsampling_factor
