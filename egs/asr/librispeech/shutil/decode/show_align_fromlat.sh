@@ -24,7 +24,7 @@ lattice-align-words-lexicon \
     "ark:gunzip -c $1.res|" ark:-  \
     | lattice-1best ark:- ark:- |  nbest-to-ctm  ark:- $1.res_align.ctm
 
-python3 local/convert_ctm.py -i $1.res_align.ctm \
+python3 shutil/decode/convert_ctm.py -i $1.res_align.ctm \
     -w exp/chain/e2e_biphone_tree/graph_tgsmall/words.txt \
     -o $1.res_align.ctm_out_ctm
 
@@ -40,7 +40,7 @@ ali-to-phones --ctm-output $exp_dir/0.trans_mdl \
     ark:$1.res_lat_ali \
     $1.phone_alined.ctm
 
-python3 local/convert_ctm.py -i $1.phone_alined.ctm \
+python3 shutil/decode/convert_ctm.py -i $1.phone_alined.ctm \
     -w ./data/lang_lp/phones.txt \
     -o $1.out_phone_ctm
 
@@ -48,4 +48,4 @@ python3 local/convert_ctm.py -i $1.phone_alined.ctm \
 
 copy-int-vector ark,t:$1.res_lat_ali ark,t:$1.transids.txt
 show-transitions ./data/lang_lp/phones.txt $exp_dir/0.trans_mdl > $1.transitions.txt
-python3 ./local/map_kaldi_transitionids.py --input $1.transids.txt --input_transitions $1.transitions.txt --output $1.out_state_seq
+python3 ./shutil/decode/map_kaldi_transitionids.py --input $1.transids.txt --input_transitions $1.transitions.txt --output $1.out_state_seq

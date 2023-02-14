@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# echo ./local/wer_detail.sh $@
-
 dataDir=$1
 decodeDir=$2
 langDir=$3

@@ -18,9 +18,8 @@ export mkgraph_cmd="run.pl"
 export LD_LIBRARY_PATH="$(pwd)/lib:$LD_LIBRARY_PATH"
 
 stage=-1
+# train_600 or train_clean_100 or train_clean_360
 train_set=train_clean_100
-affix=tdnnf
-# affix=tdnnf_vq
 
 corpus=
 lm_url=www.openslr.org/resources/11
@@ -34,16 +33,27 @@ get_egs_stage=-10
 cmvn_opts=""
 left_context=0
 right_context=0
-frames_per_iter=3000000
+
+num_utts_subset=1400    # number of utterances in validation and training
+                        # subsets used for shrinkage and diagnostics.
+frames_per_iter=3000000 # each iteration of training, see this many frames per
+                        # job, measured at the sampling rate of the features
+                        # used.  This is just a guideline; it will pick a number
+                        # that divides the number of samples in the entire data.
+
 frame_subsampling_factor=3
 
 . ./utils/parse_options.sh
 . configs/local.conf
 
+if [[ "$train_set" == "train_600" &&  "$frames_per_iter" == 3000000 ]]; then
+    frames_per_iter=12000000
+fi
+
 # Setting directory names
 new_lang=data/lang_e2e_${phones_type}
 treedir=exp/chain/e2e_${phones_type}_tree  # it's actually just a trivial tree (no tree building)
-dir=exp/chain/e2e_${affix}
+dir=exp/chain/e2e_${train_set}
 
 required_scripts="download_lm.sh score.sh data_prep.sh prepare_dict.sh format_lms.sh"
 for script_name in $required_scripts; do
@@ -67,14 +77,15 @@ done
 
 if [ $stage -le 0 ]; then
   # format the data as Kaldi data directories
- # train-other-500  train-clean-360
-  for part in  train-clean-100 test-clean dev-clean test-other dev-other; do
+  for part in train-other-500  train-clean-360 train-clean-100 test-clean dev-clean test-other dev-other; do
     # use underscore-separated names in data directories.
     data_name=$(echo $part | sed s/-/_/g)
     if [ ! -d data/${data_name} ]; then
         local/data_prep.sh $corpus/$part data/${data_name}_fbank_hires
     fi
   done
+
+  utils/combine_data.sh data/train_600_fbank_hires data/train_clean_100_fbank_hires data/train_other_500_fbank_hires
 fi
 
 if [ $stage -le 1 ]; then
@@ -165,39 +176,75 @@ if [ $stage -le 9 ]; then
   rm $dir/final.mdl
 fi
 
-exit 0 # using raw wav instead of kaldi beased feats
-# checkout "local/chain/e2e/get_egs.sh"
+dir=$dir/fst_egs
+fstdir=$treedir
+data=data/${train_set}_sp_fbank_hires
+mkdir -p $dir $dir/info
 
-if [ $stage -le 6 ]; then
-  echo 'Generating egs to be used during the training'
-  bash steps/chain/e2e/get_egs_e2e.sh \
-    --cmd "$cpu_cmd" \
-    --cmvn-opts  "$cmvn_opts" \
-    --left-context $left_context \
-    --right-context $right_context \
-    --frame-subsampling-factor $frame_subsampling_factor \
-    --stage $get_egs_stage \
-    --frames-per-iter $frames_per_iter \
-    --srand 1234 \
-    data/${train_set}_sp_fbank_hires $dir $treedir $dir/egs
+utils/data/get_utt2dur.sh $data
+
+frames_per_eg=$(cat $data/allowed_lengths.txt | tr '\n' , | sed 's/,$//')
+
+[ ! -f "$data/utt2len" ] && feat-to-len scp:$data/feats.scp ark,t:$data/utt2len
+
+cat $data/utt2len | \
+  awk '{print $1}' | \
+  utils/shuffle_list.pl 2>/dev/null | head -$num_utts_subset > $dir/valid_uttlist
+
+
+len_uttlist=`wc -l $dir/valid_uttlist | awk '{print $1}'`
+if [ $len_uttlist -lt $num_utts_subset ]; then
+  echo "Number of utterances which have length at least $frames_per_eg is really low. Please check your data." && exit 1;
 fi
 
-if [ $stage -le 7 ]; then
-  echo 'Dumping output units and feature dimensions for training'
-  num_targets=$(tree-info ${treedir}/tree | grep num-pdfs | awk '{print $2}')
-  echo $num_targets > $dir/num_pdfs
-  cp $dir/egs/info/feat_dim $dir/feat_dim
+if [ -f $data/utt2uniq ]; then  # this matters if you use data augmentation.
+  # because of this stage we can again have utts with lengths less than
+  # frames_per_eg
+  echo "File $data/utt2uniq exists, so augmenting valid_uttlist to"
+  echo "include all perturbed versions of the same 'real' utterances."
+  mv $dir/valid_uttlist $dir/valid_uttlist.tmp
+  utils/utt2spk_to_spk2utt.pl $data/utt2uniq > $dir/uniq2utt
+  cat $dir/valid_uttlist.tmp | utils/apply_map.pl $data/utt2uniq | \
+    sort | uniq | utils/apply_map.pl $dir/uniq2utt | \
+    awk '{for(n=1;n<=NF;n++) print $n;}' | sort  > $dir/valid_uttlist
+  rm $dir/uniq2utt $dir/valid_uttlist.tmp
 fi
 
-if [ $stage -le 8 ]; then
-  echo 'Preparing the validation folder for tracking WER'
-  mkdir -p $dir/egs/valid_diagnostic
-  nnet3-chain-copy-egs \
-    ark:$dir/egs/valid_diagnostic.cegs ark,t:- \
-    | grep 'NumInputs' | sed -e 's/<\/Nnet3ChainEg> //g' |  cut -d ' ' -f 1 > $dir/egs/valid_diagnostic/utt_ids
-  echo "dummy text" > $dir/egs/valid_diagnostic/text
-  rm  $dir/egs/valid_diagnostic/text
-  for id in `cat  $dir/egs/valid_diagnostic/utt_ids`; do
-    grep $id data/${train_set}_sp_fbank_hires/text >>  $dir/egs/valid_diagnostic/text
-  done
+# awk -v mf_len=222 '{if ($2 == mf_len) print $1}' | \
+cat $data/utt2len | \
+  awk '{print $1}' | \
+   utils/filter_scp.pl --exclude $dir/valid_uttlist | \
+   utils/shuffle_list.pl 2>/dev/null | head -$num_utts_subset > $dir/train_subset_uttlist
+len_uttlist=`wc -l $dir/train_subset_uttlist | awk '{print $1}'`
+if [ $len_uttlist -lt $num_utts_subset ]; then
+  echo "Number of utterances which have length at least $frames_per_eg is really low. Please check your data." && exit 1;
 fi
+
+num_frames=$(steps/nnet2/get_num_frames.sh $data)
+echo $num_frames > $dir/info/num_frames
+
+num_fst_jobs=$(cat $fstdir/num_jobs) || exit 1;
+for id in $(seq $num_fst_jobs); do cat $fstdir/fst.$id.scp; done > $fstdir/fst.scp
+
+utils/filter_scp.pl <(cat $dir/valid_uttlist) \
+  <$fstdir/fst.scp >$dir/fst_valid.scp
+
+utils/filter_scp.pl <(cat $dir/train_subset_uttlist) \
+  <$fstdir/fst.scp >$dir/fst_train_diagnositc.scp
+
+utils/filter_scp.pl --exclude $dir/valid_uttlist \
+  <$fstdir/fst.scp >$dir/fst_train.scp
+
+
+# the + 1 is to round up, not down... we assume it doesn't divide exactly.
+num_archives=$[$num_frames/$frames_per_iter+1]
+
+echo $num_archives >$dir/info/num_archives
+
+utils/shuffle_list.pl $dir/fst_train.scp > $dir/fst_train_shuffle.scp
+
+for n in $(seq $num_archives); do
+  split_scp="$split_scp $dir/fst_train.$n.scp"
+done
+
+utils/split_scp.pl $dir/fst_train_shuffle.scp $split_scp || exit 1;

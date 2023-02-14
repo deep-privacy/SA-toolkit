@@ -4,7 +4,7 @@ import torch
 
 import satools
 
-#  python3 ./local/diff_models_weights.py ./exp/chain/e2e_tdnnf_vq_sizeco_64/final.pt ./exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_64/final.pt
+#  python3 ./shutil/diff_models_weights.py ./exp/chain/e2e_tdnnf_vq_sizeco_64/final.pt ./exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_64/final.pt
 
 diffa = torch.load(sys.argv[1])
 

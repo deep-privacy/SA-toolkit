@@ -6,7 +6,7 @@ cuda_cmd = ./utils/run.pl
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
-egs_dir = exp/chain/e2e_tdnnf/fst_egs
+egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
 num_epochs = 4

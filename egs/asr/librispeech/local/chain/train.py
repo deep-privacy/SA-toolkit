@@ -358,7 +358,7 @@ def train():
         train_stage = trainer_opts.train_stage
         logging.info(f"Starting training from stage={train_stage}")
         logging.info(
-            f"Watch logs with:\n  tail -F {dirname}/log/train.{{0..{num_iters}}}.{{1..{trainer_opts.num_jobs_final}}}.log {dirname}/log/init.log {dirname}/log/compute_prob_valid.{{1..{num_iters}}}.log | sed '/LOG.*Numerator/d' | ./local/grcat conf.log"
+            f"Watch logs with:\n  tail -F {dirname}/log/train.{{0..{num_iters}}}.{{1..{trainer_opts.num_jobs_final}}}.log {dirname}/log/init.log {dirname}/log/compute_prob_valid.{{1..{num_iters}}}.log | sed '/LOG.*Numerator/d' | ./shutil/grcat conf.log"
         )
         logging.info(f"  Open tensorbord with 'tensorboard --logdir {dirname}/runs'")
         assert train_stage >= 0
@@ -682,7 +682,7 @@ def train():
         satools.script_utils.run(
             " ".join(
                 [
-                    "./local/wer_detail.sh",
+                    "./shutil/decode/wer_detail.sh",
                     "--dataDir",
                     "./data/{}".format(data_name),
                     "--decodeDir",
