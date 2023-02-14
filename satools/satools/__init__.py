@@ -7,5 +7,5 @@ from . import hifigan
 from . import utils
 from . import tensorboard
 from . import cmvn
-from . import huggingface
 from . import nsg
+from . import anonymization_metrics

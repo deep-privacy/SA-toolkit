@@ -18,8 +18,9 @@ venv_dir=$PWD/venv
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py39_22.11.1-1-Linux-x86_64.sh
 
-# Cluster dependent install
-## Colab
+# Cluster dependent installs #
+
+## Colab ##
 if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   touch .in_colab_kaggle
   # Overwrite current python site-package with miniconda one
@@ -62,14 +63,15 @@ if stat -t /usr/local/lib/*/dist-packages/google/colab > /dev/null 2>&1; then
   fi
 fi
 
-## Grid5000
+## Grid5000 ##
 if [ "$(id -n -g)" == "g5k-users" ]; then # Grid 5k Cluster (Cuda 11.3 compatible cards (A40))
   echo "Installing on Grid5000, check your GPU (for this node) compatibility with CUDA 11.3!"
   module_load="source /etc/profile.d/lmod.sh ''; module load cuda/11.3.1_gcc-8.3.0; module load gcc/8.3.0_gcc-8.3.0;";  eval "$module_load";  echo "$module_load" >> env.sh
   yes | sudo-g5k apt install python2.7
   CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
 fi
-## Lium
+
+## Lium ##
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   echo "Installing on Lium"
   CUDAROOT=/opt/cuda/11.5
@@ -150,7 +152,7 @@ if [ ! -f $mark ]; then
   echo carbontracker==1.1.6 >> requirements.txt
   echo python-dateutil >> requirements.txt
 
-  # pkwrap additional req
+  # asr additional req
   echo pytorch-memlab==0.2.3 >> requirements.txt
   echo kaldiio==2.15.1 >> requirements.txt
   echo resampy==0.2.2 >> requirements.txt
@@ -160,6 +162,7 @@ if [ ! -f $mark ]; then
   echo amfm_decompy==1.0.11 >> requirements.txt
   echo ffmpeg==1.4 >> requirements.txt
   echo tqdm >> requirements.txt
+  echo 'git+https://github.com/pytorch/fairseq.git@313ff0581561c7725ea9430321d6af2901573dfb' >> requirements.txt
 
   # sidekit additional req
   echo matplotlib==3.4.3 >> requirements.txt
@@ -167,6 +170,9 @@ if [ ! -f $mark ]; then
   echo PyYAML==5.4.1 >> requirements.txt
   echo h5py==3.2.1 >> requirements.txt
   echo ipython==7.27.0 >> requirements.txt
+  echo Cython >> requirements.txt
+  echo 'git+https://github.com/feerci/feerci' >> requirements.txt
+  echo 'pandas>=1.0.5' >> requirements.txt
 
   # demo req
   echo ipywebrtc==0.6.0 >> requirements.txt
@@ -238,7 +244,6 @@ if [ ! -f $mark ]; then
   touch $mark
 fi
 
-
 export GIT_SSL_NO_VERIFY=1
 mark=.done-sidekit
 if [ ! -f $mark ]; then
@@ -252,45 +257,6 @@ if [ ! -f $mark ]; then
   cd $home
   touch $mark
 fi
-
-mark=.done-anonymization_metrics
-if [ ! -f $mark ]; then
-  echo " == Building anonymization_metrics =="
-  rm -rf anonymization_metrics || true
-  git clone https://gitlab.inria.fr/magnet/anonymization_metrics.git
-  cd anonymization_metrics
-  # git checkout 4787d4f
-  cd $home
-  pip3 install seaborn
-  touch $mark
-fi
-
-
-mark=.done-FEERCI
-if [ ! -f $mark ]; then
-  echo " == Building feerci =="
-  rm -rf feerci || true
-  git clone https://github.com/feerci/feerci
-  cd feerci
-  # git checkout 12b5fed
-  pip install Cython
-  pip3 install -e .
-  cd $home
-  touch $mark
-fi
-
-mark=.done-fairseq
-if [ ! -f $mark ]; then
-  echo " == Building fairseq =="
-    rm -rf fairseq || true
-    git clone https://github.com/pytorch/fairseq.git
-    cd fairseq
-    git checkout -b sync_commit 313ff0581561c7725ea9430321d6af2901573dfb
-    pip3 install .
-    cd ..
-    touch $mark
-fi
-
 
 echo "source $venv_dir/bin/activate ''; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
 echo "export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python;" >> env.sh # WORKING around https://github.com/protocolbuffers/protobuf/issues/10051
