@@ -19,7 +19,7 @@ To run the 100h setup, follow the steps below
 
 ```
 local/chain/e2e/prepare_data.sh
-local/chain/e2e/get_egs.sh --data ./data/train_clean_100_sp_fbank_hires --fstdir ./exp/chain/e2e_biphone_tree --dir exp/chain/e2e_tdnnf/fst_egs
+local/chain/e2e/get_egs.sh --data ./data/train_clean_100_sp --fstdir ./exp/chain/e2e_biphone_tree --dir exp/chain/e2e_tdnnf/fst_egs
 ```
 
 3. Train (and test ``dev_clean``) using the configuration below
@@ -37,7 +37,7 @@ The model is stored in ``exp/chain/e2e_tdnnf/``. Once the entire script finishes
 
 Add results to git:
 ```
-git add e2e_tdnnf*/decode_dev_clean_fbank_hires_iterfinal_fg/scoringDetails/wer_details/* -f
+git add e2e_tdnnf*/decode_dev_clean_iterfinal_fg/scoringDetails/wer_details/* -f
 ```
 
 ### Share models

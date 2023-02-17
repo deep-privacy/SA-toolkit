@@ -28,32 +28,29 @@ lm_url=www.openslr.org/resources/11
 shared_phones='true'
 phones_type='biphone'
 
-# Options related to egs generation for training
-get_egs_stage=-10
-cmvn_opts=""
-left_context=0
-right_context=0
-
 num_utts_subset=1400    # number of utterances in validation and training
                         # subsets used for shrinkage and diagnostics.
-frames_per_iter=3000000 # each iteration of training, see this many frames per
+frames_per_iter=10000000 # each iteration of training, see this many frames per
                         # job, measured at the sampling rate of the features
                         # used.  This is just a guideline; it will pick a number
                         # that divides the number of samples in the entire data.
 
-frame_subsampling_factor=3
 
 . ./utils/parse_options.sh
 . configs/local.conf
 
-if [[ "$train_set" == "train_600" &&  "$frames_per_iter" == 3000000 ]]; then
-    frames_per_iter=12000000
+if [[ "$train_set" == "train_600" &&  "$frames_per_iter" == 10000000 ]]; then
+    frames_per_iter=30000000
+fi
+
+if [[ "$train_set" == "train_clean_360" &&  "$frames_per_iter" == 10000000 ]]; then
+    frames_per_iter=20000000
 fi
 
 # Setting directory names
 new_lang=data/lang_e2e_${phones_type}
-treedir=exp/chain/e2e_${phones_type}_tree  # it's actually just a trivial tree (no tree building)
 dir=exp/chain/e2e_${train_set}
+treedir=$dir/e2e_${phones_type}_tree  # it's actually just a trivial tree (no tree building)
 
 required_scripts="download_lm.sh score.sh data_prep.sh prepare_dict.sh format_lms.sh"
 for script_name in $required_scripts; do
@@ -63,6 +60,7 @@ for script_name in $required_scripts; do
 done
 
 if [ $stage -le -1 ]; then
+  echo "-- Stage $stage --"
   local/download_lm.sh $lm_url data/local/lm
 fi
 
@@ -76,19 +74,21 @@ for lm_file in $required_lm_files; do
 done
 
 if [ $stage -le 0 ]; then
+  echo "-- Stage 0 --"
   # format the data as Kaldi data directories
   for part in train-other-500  train-clean-360 train-clean-100 test-clean dev-clean test-other dev-other; do
     # use underscore-separated names in data directories.
     data_name=$(echo $part | sed s/-/_/g)
-    if [ ! -d data/${data_name} ]; then
-        local/data_prep.sh $corpus/$part data/${data_name}_fbank_hires
+    if [ ! -f data/${data_name}/wav.scp ]; then
+        local/data_prep.sh $corpus/$part data/${data_name}
     fi
   done
 
-  utils/combine_data.sh data/train_600_fbank_hires data/train_clean_100_fbank_hires data/train_other_500_fbank_hires
+  utils/combine_data.sh data/train_600 data/train_clean_100 data/train_other_500
 fi
 
-if [ $stage -le 1 ]; then
+if [[ $stage -le 1 &&  ! -f "data/local/lm_less_phones/lm_tglarge.arpa.gz" ]]; then
+  echo "-- Stage 1 --"
   mkdir -p data/local/lm_less_phones
   ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
   ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
@@ -119,39 +119,35 @@ if [ $stage -le 1 ]; then
     data/lang_lp data/lang_lp_test_fglarge
 fi
 
-if [ $stage -le 2 ]; then
-  utils/data/get_utt2dur.sh data/${train_set}_fbank_hires
-  utils/data/perturb_speed_to_allowed_lengths.py 12 \
-    data/${train_set}_fbank_hires \
-    data/${train_set}_sp_fbank_hires
-  utils/fix_data_dir.sh data/${train_set}_sp_fbank_hires
+nj=$(nproc)
+num_spk=$(wc -l < data/${train_set}/spk2utt)
+[ $nj -gt $num_spk ] && nj=$num_spk
 
-  for part in ${train_set}_sp; do
-    datadir=${part}_fbank_hires
-    # Extracting 80 dim filter bank features
-    mkdir -p data/feats/fbank
-    steps/make_fbank.sh --fbank-config configs/fbank_hires.conf \
-      --cmd "$cpu_cmd" --nj 50 data/${datadir} \
-      data/feats/fbank/${datadir} data/feats/fbank/${datadir}/data || exit 1;
-    steps/compute_cmvn_stats.sh data/${datadir} \
-      data/feats/fbank/${datadir} data/feats/fbank/${datadir}/data || exit 1;
-    utils/fix_data_dir.sh data/${datadir} || exit 1
-  done
+if [ $stage -le 2 ]; then
+  echo "-- Stage 2 --"
+  utils/data/get_utt2dur.sh --nj $nj data/${train_set}
+  utils/data/perturb_speed_to_allowed_lengths.py 12 \
+    data/${train_set} \
+    data/${train_set}_sp
+  utils/fix_data_dir.sh data/${train_set}_sp
+
 fi
 
-# feature extraction ends here
 if [ $stage -le 3 ]; then
+  echo "-- Stage 3 --"
   bash shutil/chain/check_lang.sh data/lang_lp $new_lang
 fi
 
 if [ $stage -le 4 ]; then
+  echo "-- Stage 4 --"
   echo 'Estimating a phone language model for the denominator graph...'
   bash shutil/chain/estimate_e2e_phone_lm.sh --cmd "$cpu_cmd" \
     data/lang_lp $treedir \
-    data/${train_set}_sp_fbank_hires $shared_phones $phones_type $new_lang
+    data/${train_set}_sp $shared_phones $phones_type $new_lang
 fi
 
 if [ $stage -le 5 ]; then
+  echo "-- Stage 5 --"
   mkdir -p ${dir}/configs
   mkdir -p ${dir}/init
   cp -r $treedir/tree $dir/
@@ -166,7 +162,8 @@ fi
 
 # Generate a decoding graph to decode the validation data
 # for early stopping
-if [ $stage -le 9 ]; then
+if [ $stage -le 6 ]; then
+  echo "-- Stage 6 --"
   cp $dir/0.trans_mdl $dir/final.mdl
   utils/lang/check_phones_compatible.sh \
     data/lang_lp_test_tgsmall/phones.txt $new_lang/phones.txt
@@ -178,73 +175,81 @@ fi
 
 dir=$dir/fst_egs
 fstdir=$treedir
-data=data/${train_set}_sp_fbank_hires
+data=data/${train_set}_sp
 mkdir -p $dir $dir/info
 
-utils/data/get_utt2dur.sh $data
+if [ $stage -le 7 ]; then
+  echo "-- Stage 7 --"
+  utils/data/get_utt2dur.sh $data
 
-frames_per_eg=$(cat $data/allowed_lengths.txt | tr '\n' , | sed 's/,$//')
+  frames_per_eg=$(cat $data/allowed_lengths.txt | tr '\n' , | sed 's/,$//')
 
-[ ! -f "$data/utt2len" ] && feat-to-len scp:$data/feats.scp ark,t:$data/utt2len
+  # requires computing fbank.. but the model does it
+  # [ ! -f "$data/utt2len" ] && feat-to-len scp:$data/feats.scp ark,t:$data/utt2len
 
-cat $data/utt2len | \
-  awk '{print $1}' | \
-  utils/shuffle_list.pl 2>/dev/null | head -$num_utts_subset > $dir/valid_uttlist
+  # use a good enough approximation
+  [ ! -f "$data/utt2len" ] && awk '{ printf "%s %i\n", $1, 99.9 * $2 }' $data/utt2dur > $data/utt2len
+
+  cat $data/utt2len | \
+    awk '{print $1}' | \
+    utils/shuffle_list.pl 2>/dev/null | head -$num_utts_subset > $dir/valid_uttlist
 
 
-len_uttlist=`wc -l $dir/valid_uttlist | awk '{print $1}'`
-if [ $len_uttlist -lt $num_utts_subset ]; then
-  echo "Number of utterances which have length at least $frames_per_eg is really low. Please check your data." && exit 1;
+  len_uttlist=`wc -l $dir/valid_uttlist | awk '{print $1}'`
+  if [ $len_uttlist -lt $num_utts_subset ]; then
+    echo "Number of utterances which have length at least $frames_per_eg is really low. Please check your data." && exit 1;
+  fi
+
+  if [ -f $data/utt2uniq ]; then  # this matters if you use data augmentation.
+    # because of this stage we can again have utts with lengths less than
+    # frames_per_eg
+    echo "File $data/utt2uniq exists, so augmenting valid_uttlist to"
+    echo "include all perturbed versions of the same 'real' utterances."
+    mv $dir/valid_uttlist $dir/valid_uttlist.tmp
+    utils/utt2spk_to_spk2utt.pl $data/utt2uniq > $dir/uniq2utt
+    cat $dir/valid_uttlist.tmp | utils/apply_map.pl $data/utt2uniq | \
+      sort | uniq | utils/apply_map.pl $dir/uniq2utt | \
+      awk '{for(n=1;n<=NF;n++) print $n;}' | sort  > $dir/valid_uttlist
+    rm $dir/uniq2utt $dir/valid_uttlist.tmp
+  fi
+
+  # awk -v mf_len=222 '{if ($2 == mf_len) print $1}' | \
+  cat $data/utt2len | \
+    awk '{print $1}' | \
+     utils/filter_scp.pl --exclude $dir/valid_uttlist | \
+     utils/shuffle_list.pl 2>/dev/null | head -$num_utts_subset > $dir/train_subset_uttlist
+  len_uttlist=`wc -l $dir/train_subset_uttlist | awk '{print $1}'`
+  if [ $len_uttlist -lt $num_utts_subset ]; then
+    echo "Number of utterances which have length at least $frames_per_eg is really low. Please check your data." && exit 1;
+  fi
+
+  num_frames=$(awk -v s=0.01 '{n += $2} END{printf("%.0f\n", (n / s))}' <$data/utt2dur)
+  echo $num_frames > $dir/info/num_frames
+
+  num_fst_jobs=$(cat $fstdir/num_jobs) || exit 1;
+  for id in $(seq $num_fst_jobs); do cat $fstdir/fst.$id.scp; done > $fstdir/fst.scp
+
+  utils/filter_scp.pl <(cat $dir/valid_uttlist) \
+    <$fstdir/fst.scp >$dir/fst_valid.scp
+
+  utils/filter_scp.pl <(cat $dir/train_subset_uttlist) \
+    <$fstdir/fst.scp >$dir/fst_train_diagnostic.scp
+
+  utils/filter_scp.pl --exclude $dir/valid_uttlist \
+    <$fstdir/fst.scp >$dir/fst_train.scp
+
+
+  # the + 1 is to round up, not down... we assume it doesn't divide exactly.
+  num_archives=$[$num_frames/$frames_per_iter+1]
+
+  echo $num_archives >$dir/info/num_archives
+
+  utils/shuffle_list.pl $dir/fst_train.scp > $dir/fst_train_shuffle.scp
+
+  for n in $(seq $num_archives); do
+    split_scp="$split_scp $dir/fst_train.$n.scp"
+  done
+
+  utils/split_scp.pl $dir/fst_train_shuffle.scp $split_scp || exit 1;
 fi
-
-if [ -f $data/utt2uniq ]; then  # this matters if you use data augmentation.
-  # because of this stage we can again have utts with lengths less than
-  # frames_per_eg
-  echo "File $data/utt2uniq exists, so augmenting valid_uttlist to"
-  echo "include all perturbed versions of the same 'real' utterances."
-  mv $dir/valid_uttlist $dir/valid_uttlist.tmp
-  utils/utt2spk_to_spk2utt.pl $data/utt2uniq > $dir/uniq2utt
-  cat $dir/valid_uttlist.tmp | utils/apply_map.pl $data/utt2uniq | \
-    sort | uniq | utils/apply_map.pl $dir/uniq2utt | \
-    awk '{for(n=1;n<=NF;n++) print $n;}' | sort  > $dir/valid_uttlist
-  rm $dir/uniq2utt $dir/valid_uttlist.tmp
-fi
-
-# awk -v mf_len=222 '{if ($2 == mf_len) print $1}' | \
-cat $data/utt2len | \
-  awk '{print $1}' | \
-   utils/filter_scp.pl --exclude $dir/valid_uttlist | \
-   utils/shuffle_list.pl 2>/dev/null | head -$num_utts_subset > $dir/train_subset_uttlist
-len_uttlist=`wc -l $dir/train_subset_uttlist | awk '{print $1}'`
-if [ $len_uttlist -lt $num_utts_subset ]; then
-  echo "Number of utterances which have length at least $frames_per_eg is really low. Please check your data." && exit 1;
-fi
-
-num_frames=$(steps/nnet2/get_num_frames.sh $data)
-echo $num_frames > $dir/info/num_frames
-
-num_fst_jobs=$(cat $fstdir/num_jobs) || exit 1;
-for id in $(seq $num_fst_jobs); do cat $fstdir/fst.$id.scp; done > $fstdir/fst.scp
-
-utils/filter_scp.pl <(cat $dir/valid_uttlist) \
-  <$fstdir/fst.scp >$dir/fst_valid.scp
-
-utils/filter_scp.pl <(cat $dir/train_subset_uttlist) \
-  <$fstdir/fst.scp >$dir/fst_train_diagnositc.scp
-
-utils/filter_scp.pl --exclude $dir/valid_uttlist \
-  <$fstdir/fst.scp >$dir/fst_train.scp
-
-
-# the + 1 is to round up, not down... we assume it doesn't divide exactly.
-num_archives=$[$num_frames/$frames_per_iter+1]
-
-echo $num_archives >$dir/info/num_archives
-
-utils/shuffle_list.pl $dir/fst_train.scp > $dir/fst_train_shuffle.scp
-
-for n in $(seq $num_archives); do
-  split_scp="$split_scp $dir/fst_train.$n.scp"
-done
-
-utils/split_scp.pl $dir/fst_train_shuffle.scp $split_scp || exit 1;
+echo "Done"

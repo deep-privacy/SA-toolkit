@@ -3,7 +3,6 @@
 import logging
 import os
 
-import satools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +12,8 @@ from satools.nn import (
     VectorQuantizerEMA,
     TDNNFBatchNorm_LD,
 )
+
+import satools
 
 logging.basicConfig(level=logging.DEBUG)
 import sys
@@ -44,7 +45,7 @@ def build(args):
 
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
-            input_dim = self.features_opts.mel_opts.num_bins
+            input_dim = self.fbank.n_mels
 
             self.cmvn = satools.cmvn.UttCMVN()
 
@@ -259,7 +260,7 @@ def build(args):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            x = self.fbank(waveform).permute(0, 2, 1)
+            x = self.fbank(x).permute(0, 2, 1)
             assert x.ndim == 3
             x = self.pad_input(x)
             x = self.cmvn(x)

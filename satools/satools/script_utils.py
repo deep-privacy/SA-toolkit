@@ -15,79 +15,6 @@ import subprocess
 import sys
 
 
-def _add_simple_arg(args, name, default_value, type_name=None):
-    """This function is called by add_chain_recipe_opts. Don't use this directly.
-
-    To avoid repitition in code, this function is called by add_chain_recipe_opts
-    multiple times while changing the name and type of the argument.
-    """
-    #   TODO: add assertions to check type of name and type_name
-    if "-" not in name and "_" in name:
-        name = name.replace("_", "-")
-    if not name.startswith("--"):
-        name = "--{}".format(name)
-    if type_name is None:
-        type_name = type(default_value)
-    args.add_argument(name, default=default_value, type=type_name)
-
-
-def add_chain_recipe_opts(args):
-    """Add command line options to chain training recipes
-
-    Args:
-        args: ArgumentParser object to which options will be added
-            as required by recipes to train chain models
-    """
-    #   TODO: add assertion to check if this is of type ArgumentParser
-    #       TODO: add help statements
-    _add_simple_arg(args, "stage", 0, int)
-    _add_simple_arg(args, "train-stage", 0, int)
-    _add_simple_arg(args, "decode_nj", 30, int)
-    _add_simple_arg(args, "train-set", "train_clean_5", str)
-    _add_simple_arg(args, "test-sets", "dev_clean_2", str)
-    _add_simple_arg(args, "graph-dir", "data/lang/graph", str)
-    _add_simple_arg(args, "gmm", "tri3b", str)
-    _add_simple_arg(args, "srand", 0, int)
-    _add_simple_arg(args, "nnet3-affix", "", str)
-    _add_simple_arg(args, "affix", "", str)
-    _add_simple_arg(args, "tree-affix", "", str)
-    _add_simple_arg(args, "get-egs-stage", -10, int)
-    _add_simple_arg(args, "num-epochs", 4)
-    _add_simple_arg(args, "frames-per-iter", 1200000)
-
-    #   TODO: support multiple chunk widths
-    _add_simple_arg(args, "chunk-width", "140")
-    _add_simple_arg(args, "xent-regularize", 0.01, float)
-    _add_simple_arg(args, "frame-subsampling-factor", 3, int)
-
-    _add_simple_arg(args, "egs_extra_left_context", 5)
-    _add_simple_arg(args, "egs_extra_right_context", 5)
-
-    _add_simple_arg(args, "exp", "exp")
-    _add_simple_arg(args, "data", "data")
-
-    _add_simple_arg(args, "lr_initial", 0.001)
-    _add_simple_arg(args, "lr_final", 0.0001)
-    _add_simple_arg(args, "num_jobs_initial", 2)
-    _add_simple_arg(args, "num_jobs_final", 8)
-    _add_simple_arg(args, "l2_regularize", 10e-5)
-    _add_simple_arg(args, "leaky_hmm_coefficient", 0.1)
-
-
-# for each argument in cfg, override the args default value
-def load_args_from_config(args, cfg):
-    """Override the values of arguments from a config file
-
-    Args:
-        args: ArgumentParser object
-        cfg: a dictionary with arguments to be overridden
-    """
-    for key in cfg:
-        if key in args:
-            type_of_key = type(args.__getattribute__(key))
-            args.__setattr__(key, type_of_key(cfg[key]))
-
-
 # copied from kaldi. Copyright and license apply to the original authors
 def get_current_num_jobs(it, num_it, start, step, end):
     "Get number of jobs for iteration number 'it' of range('num_it')"
@@ -238,7 +165,9 @@ def feat_writer(feature_wspec):
 
 def run(cmd, quit_on_error=True, shell=False):
     """Run a command using subprocess, quit if return code is non-zero"""
-    # TODO(srikanth): test this function after merging into develop
+    if shell == True and isinstance(cmd, list):
+        _str_cmd = [str(c) for c in cmd] # if cmd is pathlib
+        cmd = " ".join(_str_cmd)
     p = subprocess.run(cmd, shell=shell, stdout=subprocess.PIPE)
     if quit_on_error and p.returncode != 0:
         sys.exit(p.returncode)

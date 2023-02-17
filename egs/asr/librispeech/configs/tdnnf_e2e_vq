@@ -3,9 +3,8 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-train_set = data/train_clean_100_sp_fbank_hires
-tree_dir = exp/chain/e2e_biphone_tree
-graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
 egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
@@ -31,11 +30,12 @@ init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 # tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
 
 [test]
-# test_set = data/test_clean_fbank_hires
-# test_set = data/test_other_fbank_hires
-# test_set = data/dev_other_fbank_hires
-# test_set = data/dev_clean_fbank_hires
-test_set = data/dev_clean_fbank_hires
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+# test_set = data/test_clean
+# test_set = data/test_other
+# test_set = data/dev_other
+# test_set = data/dev_clean
+test_set = data/dev_clean
 suffix = _final
 # decode on gpus
 num_jobs = 3

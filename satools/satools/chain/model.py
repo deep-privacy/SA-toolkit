@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 
-from .egs_wav2vec2 import (
+from .egs import (
     Wav2vec2EgsDataset,
     Wav2vec2DecodeDataset,
     Wav2vec2EgsCollectFn,
@@ -106,8 +106,6 @@ class ChainModel(nn.Module):
         model = self.Net(self.chain_opts.output_dim)
         if self.chain_opts.init_weight_model != "":
             init_weight_provided = torch.load(self.chain_opts.init_weight_model)
-            if hasattr(model, "init_custom_load"):
-                init_weight_provided = model.init_custom_load(init_weight_provided)
 
             init_weight_provided_matched, unmatch = utils.torch.match_state_dict(
                 model.state_dict(), init_weight_provided
@@ -122,6 +120,9 @@ class ChainModel(nn.Module):
                     str(unmatch.keys()),
                 )
             )
+
+        if hasattr(model, "init"):
+            model.init()
         torch.save(model.state_dict(), self.chain_opts.base_model)
 
     def train(self):
@@ -145,6 +146,8 @@ class ChainModel(nn.Module):
 
         model = self.Net(self.chain_opts.output_dim)
         model.load_state_dict(torch.load(chain_opts.base_model))
+        #  if torch.__version__.startswith("2."):
+            #  model = torch.compile(model, dynamic=True)
         model.eval()
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
@@ -167,7 +170,7 @@ class ChainModel(nn.Module):
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
-            tensorboard=tensorboard.PkwrapTwensorBoard(self)
+            tensorboard=tensorboard.SATwensorBoard(self)
             if "valid" in self.chain_opts.egs
             else None,
         )
@@ -462,6 +465,8 @@ class ChainE2EModel(ChainModel):
                 weight_decay=chain_opts.l2_regularize_factor,
             )
         model.load_state_dict(torch.load(chain_opts.base_model))
+        #  if torch.__version__.startswith("2."):
+            #  model = torch.compile(model, dynamic=True)
         dataset = Wav2vec2EgsDataset(
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
@@ -478,7 +483,7 @@ class ChainE2EModel(ChainModel):
             grad_acc_steps=chain_opts.grad_acc_steps,
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
-            tensorboard=tensorboard.PkwrapTwensorBoard(self),
+            tensorboard=tensorboard.SATwensorBoard(self),
             optimizer=optimizer,
             sampler=chain_opts.sampler,
         )

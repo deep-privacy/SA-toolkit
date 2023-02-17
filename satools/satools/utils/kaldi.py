@@ -73,34 +73,6 @@ def split_scp(input_file, prefix="", suffix="", num_splits=-1):
     subprocess.run(["utils/split_scp.pl", input_file, *out_scp])
 
 
-def parseval(s):
-    try:
-        return int(s)
-    except ValueError:
-        pass
-    try:
-        return float(s)
-    except ValueError:
-        pass
-    if s.lower() == "true":
-        return True
-    if s.lower() == "false":
-        return False
-    return s
-
-
-def read_kaldi_conf(filename):
-    with open(filename) as f:
-        file_content = "[dummy_section]\n" + f.read()
-    config = configparser.RawConfigParser()
-    config.read_string(file_content)
-    config = config["dummy_section"]
-    return {
-        k.replace("--", "").replace("-", "_"): parseval(v) for k, v in config.items()
-    }
-
-
-
 def read_wav_scp(wav_scp):
     """Reads wav.scp file and returns a dictionary
 

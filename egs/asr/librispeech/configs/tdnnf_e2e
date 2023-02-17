@@ -3,38 +3,40 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-train_set = data/train_clean_100_sp_fbank_hires
-tree_dir = exp/chain/e2e_biphone_tree
-graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
 egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
 num_epochs = 5
 num_jobs_initial = 2
 num_jobs_final = 5
-lr_initial = 0.0005
-lr_final = 0.00001
+lr_initial = 0.0001
+lr_final =   0.00001
 diagnostics_interval = 10
 checkpoint_interval =  20
 minibatch_size = 16
- # merge weight, 10 last epoch checkpoints
-final_combination_n_model = 10
-# train_stage = 15
+ # merge weight, 6 last epoch checkpoints
+final_combination_n_model = 6
+# train_stage = 31
 # train_stage = last
+
+# max_concurrent_jobs = 2
 
 
 model_file = local/chain/e2e/tuning/tdnnf.py
 dirname = e2e_tdnnf
 
 [test]
-# test_set = data/test_clean_fbank_hires
-# test_set = data/test_other_fbank_hires
-# test_set = data/dev_other_fbank_hires
-# test_set = data/dev_clean_fbank_hires
-test_set = data/dev_clean_fbank_hires
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+test_set = data/test_clean
+# test_set = data/test_other
+# test_set = data/dev_other
+# test_set = data/dev_clean
+# test_set = data/dev_clean
 suffix = _final
 # decode on gpus
-num_jobs = 3
+num_jobs = 9
 gpu = True
 
 # vim:set et sw=2 ts=2 ft=toml:

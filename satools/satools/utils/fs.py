@@ -100,20 +100,17 @@ def creation_date_file(file):
 
 def scans_directory_for_ext(root_data, extension):
     logging.info(f"Locating {extension}(s)")
-    wavs_path = []
-    wav_count = 0
-    pbar = tqdm(os.walk(root_data))
-    for root, dirs, files in pbar:
-        if Path(root).parent == Path(root_data):
-            dataset = root.split("/")[-1]
-        for file in files:
-            file_path = os.path.join(root, file)
-            if os.path.splitext(file_path)[1] == f".{extension}":
-                wav_count += 1
-                pbar.set_description(f"file count : {wav_count}")
-                wavs_path.append(file_path)
+    _path = []
+    if extension.startswith("."):
+        extension = extension[1:]
+    pbar = tqdm(Path(root_data).rglob(f"*.{extension}"))
+    _count = 0
+    for file_path in pbar:
+        _count += 1
+        _path.append(str(file_path))
+        pbar.set_description(f"file count : {_count}")
 
-    return wavs_path
+    return _path
 
 
 _cache = {}

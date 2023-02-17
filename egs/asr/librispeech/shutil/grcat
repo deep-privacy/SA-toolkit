@@ -128,6 +128,7 @@ if home and not xdg_data:
 
 conffilepath = [""]
 conffilepath += ["./local/"]
+conffilepath += ["./shutil/"]
 if xdg_data:
     conffilepath += [xdg_data + '/grc/']
 if xdg_config:

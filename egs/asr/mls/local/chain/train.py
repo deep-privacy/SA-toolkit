@@ -39,11 +39,9 @@ class TrainerOpts:
     num_epochs: int = 6
     train_stage: str = "0"
     frames_per_iter: int = 120000
-    chunk_width: str = "140"
     cmd: str = "queue.pl -l q_gpu -V"
     diagnostics_interval: int = 10
     checkpoint_interval: int = 100
-    srand: int = 1
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -85,13 +83,7 @@ def run_diagnostics(
             log_file,
             "env",
             "CUDA_VISIBLE_DEVICES="
-            + str(
-                [
-                    i
-                    for i, value in enumerate(["valid", "train_diagnositc"])
-                    if value == diagnostic_name
-                ][0]
-            ),
+            + str([ i for i, value in enumerate(["valid", "train_diagnositc"]) if value == diagnostic_name ][0] if torch.cuda.device_count() > 1 else 0),
             *model_file,
             "--dir",
             dirname,
@@ -204,12 +196,12 @@ def run_job(
 
 def train():
     parser = argparse.ArgumentParser(description="Acoustic model training script")
-    satools.script_utils.add_chain_recipe_opts(parser)
     # the idea behind a test config is that one can run different configurations of test
     parser.add_argument(
         "--test-config", default="test", help="name of the test to be run"
     )
     parser.add_argument("--decode-iter", default="final")
+    parser.add_argument("--stage", default=0, type=int)
     parser.add_argument("--config", default="configs/default")
     parser.add_argument("--skip-train-diagnositc", default="no")
     args = parser.parse_args()
@@ -238,8 +230,8 @@ def train():
     train_set = exp_cfg["train_set"]
     multi_egs_loading = exp_cfg["multi_egs_loading"] != "False" if "multi_egs_loading" in exp_cfg else bool("True")
 
-    l2_regularize = args.l2_regularize
-    xent_regularize = args.xent_regularize
+    l2_regularize = exp_cfg["l2_regularize_factor"]
+    xent_regularize = exp_cfg["xent_regularize"]
     if "xent_regularize" in exp_cfg:
         xent_regularize = exp_cfg["xent_regularize"]
 
@@ -257,7 +249,7 @@ def train():
         else:
             cp_list = list(map(lambda x: int(x), cp_list))
             trainer_opts.train_stage = str(sorted(cp_list)[-1])
-            logging.info(f"Resuming from stage: {trainer_opts.train_stage}")
+            logging.info(f"Resuming from training_stage: {trainer_opts.train_stage}")
 
     trainer_opts.train_stage = int(trainer_opts.train_stage)
 
@@ -359,7 +351,7 @@ def train():
         train_stage = trainer_opts.train_stage
         logging.info(f"Starting training from stage={train_stage}")
         logging.info(
-            f"Watch logs with:\n  tail -F {dirname}/log/train.{{0..{num_iters}}}.{{1..{trainer_opts.num_jobs_final}}}.log {dirname}/log/init.log {dirname}/log/compute_prob_valid.{{1..{num_iters}}}.log | sed '/LOG.*Numerator/d' | ./local/grcat conf.log"
+            f"Watch logs with:\n  tail -F {dirname}/log/train.{{0..{num_iters}}}.{{1..{trainer_opts.num_jobs_final}}}.log {dirname}/log/init.log {dirname}/log/compute_prob_valid.{{1..{num_iters}}}.log | ./shutil/grcat conf.log"
         )
         logging.info(f"  Open tensorbord with 'tensorboard --logdir {dirname}/runs'")
         assert train_stage >= 0
@@ -683,7 +675,7 @@ def train():
         satools.script_utils.run(
             " ".join(
                 [
-                    "./local/wer_detail.sh",
+                    "./shutil/decode/wer_detail.sh",
                     "--dataDir",
                     "./data/{}".format(data_name),
                     "--decodeDir",

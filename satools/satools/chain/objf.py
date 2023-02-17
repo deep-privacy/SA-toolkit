@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 from torch.nn.utils import clip_grad_value_
 
-from .egs_wav2vec2 import (
+from .egs import (
     Wav2vec2BatchSampler,
     Wav2vec2EgsCollectFn,
     GetSupervisionFromWav2Vec2Egs,
@@ -267,7 +267,7 @@ def train_lfmmi_one_iter(
         minibatch_size:
         lr: learning rate
         print_interval: the interval (a positive integer) to print the loss value
-        sampler: BucketBatch or Random
+        sampler: BucketBatch, BucketBatchSuffle, BucketBatchSuffleAllowSomePadding or Random
 
     Returns:
         updated model in CPU

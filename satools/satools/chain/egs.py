@@ -61,15 +61,15 @@ class EgsInfo(WavInfo):
         kaldi.chain.AddWeightToSupervisionFst(normalize_fst, self.supervision)
 
 
-def prepare_e2e(egs):
+def wav_from_scp(egs):
     """Reads a wav.scp entry like kaldi with embeded unix command
      and returns a pytorch tensor like it was open with torchaudio.load()
      (within some tolerance due to numerical precision)
      And a merged supervision for LF-MMI training
 
      signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
-     signalv2 = prepare_e2e(['flac', '-c', '-d', '-s', 'XX/1272-128104-0000.flac', "|"])
-     signalv3 = prepare_e2e(['XX/1272-128104-0000.flac'])
+     signalv2 = wav_from_scp(['flac', '-c', '-d', '-s', 'XX/1272-128104-0000.flac', "|"])
+     signalv3 = wav_from_scp(['XX/1272-128104-0000.flac'])
      print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
      print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))
 
@@ -142,7 +142,7 @@ def Wav2vec2EgsCollectFn(batch):
             # If we're in a background process, concatenate directly into a
             # shared memory tensor to avoid an extra copy
             numel = sum(x.numel() for x in batch)
-            storage = elem.storage()._new_shared(numel)
+            storage = elem._typed_storage()._new_shared(numel, device=elem.device)
             out = elem.new(storage).resize_(len(batch), *list(elem.size()))
         return torch.stack(batch, 0, out=out)
     if isinstance(elem, EgsInfo):
@@ -209,7 +209,7 @@ class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
         return len(self.holder)
 
     def __getitem__(self, idx):
-        feats, info = prepare_e2e(self.holder[idx])
+        feats, info = wav_from_scp(self.holder[idx])
         return feats, info.name
 
     def __item__(self, i):
@@ -252,7 +252,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         return len(self.egs_holder)
 
     def __getitem__(self, idx):
-        return prepare_e2e(self.egs_holder[idx])
+        return wav_from_scp(self.egs_holder[idx])
 
     def __item__(self, i):
         return self.egs_holder[i]

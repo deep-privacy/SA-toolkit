@@ -7,7 +7,6 @@ from .fs import (
     cat,
     creation_date_file,
 )
-from .kaldi import read_kaldi_conf
 from .torch import *
 
 

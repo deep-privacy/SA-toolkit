@@ -16,17 +16,27 @@ from satools.nn import (
     TDNNFBatchNorm,
     TDNNFBatchNorm_LD,
 )
+from satools.utils.import_fairseq_model import wav2vec2_model
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("hydra").setLevel(logging.WARNING)
 import sys
 import os
 import configargparse
-import fairseq
+
 
 
 def build(args):
     class Net(nn.Module):
+        def init(self):
+            """
+            executed once before training (epoch 0 iter 0)
+            """
+            logging.info("Preprocesor initialization.")
+            model = "wav2vec2_large_west_germanic_v2.pt"
+            url = "https://dl.fbaipublicfiles.com/voxpopuli/models/"
+            self.preprocessor.load_convert_checkpoint(f"{url}{model}")
+
         def __init__(
             self,
             output_dim,
@@ -42,26 +52,24 @@ def build(args):
         ):
             super().__init__()
 
-            #  https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec_small.pt
-            #  https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_base_en_v2.pt
-            #  https://dl.fbaipublicfiles.com/voxpopuli/models/wav2vec2_large_west_germanic_v2.pt
-            model = "wav2vec2_large_west_germanic_v2.pt"
-            url = "https://dl.fbaipublicfiles.com/voxpopuli/models/"
-            model_cache_file = os.path.join(torch.hub.get_dir(), model)
-            if not os.path.exists(model_cache_file):
-                os.makedirs(torch.hub.get_dir(), exist_ok=True)
-                torch.hub.download_url_to_file(
-                    f"{url}{model}", model_cache_file, hash_prefix=""
-                )
-            (
-                feat_model,
-                cfg,
-                task,
-            ) = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-                [str(model_cache_file)]
-            )
-
-            self.preprocessor = feat_model[0]
+            self.preprocessor = wav2vec2_model(**{
+                "extractor_mode": "layer_norm",
+                "extractor_conv_layer_config": [[ 512, 10, 5 ], [ 512, 3, 2 ], [ 512, 3, 2 ], [ 512, 3, 2 ], [ 512, 3, 2 ], [ 512, 2, 2 ], [ 512, 2, 2 ]],
+                "extractor_conv_bias": True,
+                "encoder_embed_dim": 1024,
+                "encoder_projection_dropout": 0.0,
+                "encoder_pos_conv_kernel": 128,
+                "encoder_pos_conv_groups": 16,
+                "encoder_num_layers": 24,
+                "encoder_num_heads": 16,
+                "encoder_attention_dropout": 0.0,
+                "encoder_ff_interm_features": 4096,
+                "encoder_ff_interm_dropout": 0.0,
+                "encoder_dropout": 0.0,
+                "encoder_layer_norm_first": True,
+                "encoder_layer_drop": 0.0,
+                "aux_num_out": None
+            })
             input_dim = 1024  # self.preprocessor output dim
 
             # at present, we support only frame_subsampling_factor to be 3
@@ -163,7 +171,7 @@ def build(args):
                     param.requires_grad = yes
 
             self.preprocessor.train()
-            if iter < total_iter * 0.02 or iter > total_iter * 0.90:
+            if iter > total_iter * 0.90:
                 logging.info("Preprocesor in eval mode!")
                 set_parameter_requires_grad(self.preprocessor)
                 self.preprocessor.eval()
@@ -220,13 +228,12 @@ def build(args):
             # input x is of shape: [batch_size, wave] = [N, C]
 
             with torch.cuda.amp.autocast():
-                #  print(x.shape)
-                #  a = x.shape[1]
-                x = self.preprocessor(x, mask=False, features_only=True)["x"]
+                p_out = self.preprocessor.extract_features(x)
+                x = p_out[0][-1]
                 x = x.transpose(2, 1)
                 x = torch.nn.functional.pad(x, (0, 1), "replicate")
                 x = x.transpose(2, 1)
-                #  print(x.shape, a / x.shape[1])
+            x = x.to(torch.float32)
 
             assert x.ndim == 3
             #  print("help start:", x.shape)
@@ -264,6 +271,7 @@ if __name__ == "__main__":
     sys.argv = sys.argv[:1] + remaining_argv
     if os.environ.get("TESTING", "0") == "1":
         model = build(args)(output_dim=1233).cuda()
+        print("OK ready")
         for C in [8000, 16000, 32000, 48000, 64000]:
             N = 1
             #  C = 8000

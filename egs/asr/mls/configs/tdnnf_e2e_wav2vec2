@@ -29,7 +29,7 @@ train_stage = last
 # train_stage = 365
 
 xent_regularize = 0.02
-l2_regularize_factor = 0.2
+l2_regularize = 0.2
 
 final_combination_n_model = 1
 

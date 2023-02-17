@@ -41,14 +41,23 @@ def build(args):
             super().__init__()
 
             # Preprocessor
-            self.fbank = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_mels=80)
+
+            sample_rate = 16000  # Sampling rate of the audio file
+            window_size = 25  # Window size in milliseconds
+            window_stride = 10  # Window stride in milliseconds
+            n_mels = 80  # Number of Mel bands
+
+            n_fft = int(sample_rate * window_size / 1000)  # Number of FFT points
+            hop_length = int(sample_rate * window_stride / 1000)  # Hop length
+            self.fbank = torchaudio.transforms.MelSpectrogram(sample_rate=sample_rate, n_mels=n_mels,
+                                                              n_fft=n_fft, hop_length=hop_length)
 
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
 
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
-            input_dim = self.features_opts.mel_opts.num_bins
+            input_dim = self.fbank.n_mels
 
             self.cmvn = satools.cmvn.UttCMVN()
 
@@ -126,13 +135,13 @@ def build(args):
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
             assert (
-                nnet_output.shape[1] == 17
+                nnet_output.shape[1] == 18
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
             assert (
-                nnet_output.shape[1] == 17
+                nnet_output.shape[1] == 18
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
@@ -148,7 +157,7 @@ def build(args):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            x = self.fbank(waveform).permute(0, 2, 1)
+            x = self.fbank(x).permute(0, 2, 1)
             assert x.ndim == 3
             x = self.pad_input(x)
             x = self.cmvn(x)

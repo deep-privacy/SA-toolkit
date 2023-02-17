@@ -3,9 +3,8 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-train_set = data/train_clean_100_sp_fbank_hires
-tree_dir = exp/chain/e2e_biphone_tree
-graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
 egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
@@ -22,7 +21,6 @@ minibatch_size = 16
 
 xent_regularize = 0.02
 # xent_regularize = 0
-l2_regularize_factor = 0.1
 
 final_combination_n_model = 5
 
@@ -37,11 +35,12 @@ init_weight_model = "./exp/chain/e2e_tdnnf_wav2vec2/final.pt"
 
 
 [test]
-# test_set = data/test_clean_fbank_hires
-test_set = data/test_clean_fbank_hires
-# test_set = data/dev_other_fbank_hires
-# test_set = data/dev_clean_fbank_hires
-# test_set = data/dev_clean_fbank_hires
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+# test_set = data/test_clean
+test_set = data/test_clean
+# test_set = data/dev_other
+# test_set = data/dev_clean
+# test_set = data/dev_clean
 # suffix = baseline
 # decode on gpus
 num_jobs = 2
