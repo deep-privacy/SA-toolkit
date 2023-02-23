@@ -8,7 +8,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch import Tensor
+from typing import List, Union, Optional, Callable, TypeVar, Any
+
+T_co = TypeVar("T_co", covariant=True)
+
+
 from .objf import OnlineNaturalGradient
+
+log_kaldi_warning = False
+try:
+    from _satools import kaldi  # lazy import (kaldi-free decoding)
+except ImportError as error:
+    log_kaldi_warning = True
 
 
 @dataclass
@@ -20,21 +32,16 @@ class NGState:
     update_period: int = 4
 
 
-log_kaldi_warning = True
-
 
 # KALDI preconditioner
 def get_preconditioner_from_ngstate(ngstate):
     assert ngstate is not None
     global log_kaldi_warning
-    try:
-        from _satools import kaldi  # lazy import (kaldi-free decoding)
-    except ImportError as error:
-        if log_kaldi_warning:
-            logging.critical(
-                "satools: -- Failed to import kaldi you better not be in training mode (no backward possible) --"
-            )
-            log_kaldi_warning = False
+    if log_kaldi_warning:
+        logging.critical(
+            "satools: -- Failed to import kaldi you better not be in training mode (no backward possible) --"
+        )
+        log_kaldi_warning = False
         return None
     preconditioner = kaldi.nnet3.OnlineNaturalGradient()
     preconditioner.SetAlpha(ngstate.alpha)
@@ -59,6 +66,8 @@ class NaturalAffineTransform(nn.Module):
             num_samples_history: a floating point value (default is 2000.)
             update_period: an integer (default is 4)
     """
+    #  preconditioner_in: Optional[Callable[..., T_co]] = None
+    #  preconditioner_out: Optional[Callable[..., T_co]] = None
 
     def __init__(
         self,
@@ -83,7 +92,7 @@ class NaturalAffineTransform(nn.Module):
         Returns:
             NaturalAffineTransform object
         """
-        super(NaturalAffineTransform, self).__init__()
+        super().__init__()
         self.feat_dim = feat_dim
         self.out_dim = out_dim
         self.ngstate = NGState()
@@ -105,11 +114,10 @@ class NaturalAffineTransform(nn.Module):
         self.init_parameters()
 
     def __repr__(self):
-        s = ("{}(feat_dim={}, out_dim={}, scale={})").format(
+        s = ("{}(feat_dim={}, out_dim={})").format(
             self.__class__.__name__,
             self.feat_dim,
             self.out_dim,
-            self.scale if hasattr(self, "scale") else None,
         )
         return s
 
@@ -137,10 +145,11 @@ class NaturalAffineTransform(nn.Module):
         #  )
 
         # kaldi lazyinit (not used if OnlineNaturalGradient)
+
         if (
             self.training
             and self.weight.requires_grad
-            and self.preconditioner_in == None
+            and self.preconditioner_in  == None
             and self.preconditioner_out == None
         ):
             self.preconditioner_in = get_preconditioner_from_ngstate(self.ngstate)
@@ -156,7 +165,7 @@ class NaturalAffineTransform(nn.Module):
 
 
 @torch.no_grad()
-def constrain_orthonormal(M, scale, update_speed=0.125):
+def constrain_orthonormal(M: Tensor, scale:float, update_speed:float=0.125):
     rows, cols = M.shape
     d = rows
     if rows < cols:
@@ -176,11 +185,11 @@ def constrain_orthonormal(M, scale, update_speed=0.125):
         elif ratio > 1.02:
             update_speed *= 0.5
     scale2 = scale ** 2
-    P[range(d), range(d)] -= scale2
+    P[list(range(d)), list(range(d))] -= scale2
     M.data.add_(P.mm(M), alpha=-4 * update_speed / scale2)
 
 
-class OrthonormalLinear(NaturalAffineTransform):
+class OrthonormalLinear(nn.Module):
     def __init__(
         self,
         feat_dim,
@@ -189,18 +198,17 @@ class OrthonormalLinear(NaturalAffineTransform):
         scale=0.0,
         ngstate=NGState(),
     ):
-        super(OrthonormalLinear, self).__init__(
-            feat_dim, out_dim, bias=bias, ngstate=ngstate
-        )
+        super().__init__()
+        self.inner_nat = NaturalAffineTransform(feat_dim, out_dim, bias=bias, ngstate=ngstate)
         self.scale = torch.tensor(scale, requires_grad=False)
 
     def forward(self, input):
         """Forward pass"""
         # do it before forward pass
-        if self.training and self.weight.requires_grad:
+        if self.training and self.inner_nat.weight.requires_grad:
             with torch.no_grad():
-                constrain_orthonormal(self.weight, self.scale)
-        x = super().forward(input)
+                constrain_orthonormal(self.inner_nat.weight, self.scale)
+        x = self.inner_nat.forward(input)
         return x
 
 
@@ -217,7 +225,7 @@ class TDNNF_LD(nn.Module):
         bottleneck_ld=None,
         bottleneck_ld_outdim=None,
     ):
-        super(TDNNF_LD, self).__init__()
+        super().__init__()
         if bottleneck_ld_outdim == None:
             bottleneck_ld_outdim = bottleneck_dim
 
@@ -300,7 +308,7 @@ class TDNNFBatchNorm_LD(nn.Module):
         bottleneck_ld=None,
         bottleneck_ld_outdim=None,
     ):
-        super(TDNNFBatchNorm_LD, self).__init__()
+        super().__init__()
         self.in_dim = feat_dim
         self.out_dim = output_dim
         self.bottleneck_dim = bottleneck_dim
@@ -408,7 +416,7 @@ class VectorQuantizerEMA(nn.Module):
     def __init__(
         self, num_embeddings, embedding_dim, commitment_cost, decay, epsilon=1e-5
     ):
-        super(VectorQuantizerEMA, self).__init__()
+        super().__init__()
 
         self._num_embeddings = num_embeddings
         self._embedding_dim = embedding_dim

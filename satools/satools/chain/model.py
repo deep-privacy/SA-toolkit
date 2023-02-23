@@ -1,7 +1,11 @@
 import argparse
 import logging
 import os
-from dataclasses import dataclass
+import sys
+import io
+import json
+from dataclasses import dataclass, fields
+import pickle
 
 import kaldiio
 import torch
@@ -16,25 +20,31 @@ from .egs import (
 )
 from .objf import train_lfmmi_one_iter, compute_chain_objf
 from .. import script_utils
-from .. import tensorboard
-from .. import utils
+import satools
 
 
 @dataclass
 class TrainerOpts:
-    mode: str = ""
     dir: str = ""
-    lr: float = 0.001
-    num_iter: int = -1
+    egs: str = ""
     grad_acc_steps: int = 1
-    base_model: str = ""
-    sampler: str = "BucketBatch"
     init_weight_model: str = ""
+    lr: float = 0.001
+    mode: str = "init"
+    new_model: str = ""
+    num_iter: int = -1
+    sampler: str = "BucketBatch"
+    weight_decay_l2_regularize_factor: float = 1e-5
+    xent_regularize: float = 0.01 # LF-MMI
+    l2_regularize: float = 1e-4 # LF-MMI
+    leaky_hmm_coefficient: float = 0.1 # LF-MMI CONST
+    out_of_range_regularize: float = 0.01  # LF-MMI CONST
+    minibatch_size: int = 16
 
 
 @dataclass
 class DecodeOpts:
-    use_gpu: bool = False
+    use_gpu: bool = True
     gpu_id: int = 0
     decode_feats: str = "data/test/feats.scp"
     decode_output: str = "-"
@@ -42,24 +52,29 @@ class DecodeOpts:
 
 @dataclass
 class ChainModelOpts(TrainerOpts, DecodeOpts):
+    base_model: str = ""
+    base_model_args: str = "{}"
     dataset: str = ""
-    egs: str = ""
-    new_model: str = ""
-    l2_regularize: float = 1e-4
-    l2_regularize_factor: float = 1.0
-    out_of_range_regularize: float = 0.01
-    leaky_hmm_coefficient: float = 0.1
-    xent_regularize: float = 0.025
-    minibatch_size: int = 16
     output_dim: int = 1
+
+    def load_from_args(self):
+        parser = argparse.ArgumentParser(description="")
+        for field in fields(self):
+            if field.name == "base_model":
+                parser.add_argument("base_model") # $1
+                continue
+            parser.add_argument(f"--{field.name.replace('_', '-')}", default=field.default, type=field.type)
+        args = parser.parse_args()
+        return self.load_from_config(vars(args))
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
             if hasattr(self, key):
+                #  type_of_value = self.__annotations__[key]
                 type_of_value = type(getattr(self, key))
                 setattr(self, key, type_of_value(value))
+        logging.info(str(self))
         return self
-
 
 class ChainModel(nn.Module):
     def __init__(self, model_cls, cmd_line=False, **kwargs):
@@ -67,9 +82,8 @@ class ChainModel(nn.Module):
         super(ChainModel, self).__init__()
         assert model_cls is not None
         if cmd_line:
-            args = self.load_cmdline_args()
             self.chain_opts = ChainModelOpts()
-            self.chain_opts.load_from_config(vars(args))
+            self.chain_opts.load_from_args()
         else:
             self.chain_opts = ChainModelOpts()
             self.chain_opts.load_from_config(kwargs)
@@ -105,9 +119,9 @@ class ChainModel(nn.Module):
         """Initialize the model and save it in chain_opts.base_model"""
         model = self.Net(self.chain_opts.output_dim)
         if self.chain_opts.init_weight_model != "":
-            init_weight_provided = torch.load(self.chain_opts.init_weight_model)
+            init_weight_provided = self.load_state_model(self.chain_opts.init_weight_model)
 
-            init_weight_provided_matched, unmatch = utils.torch.match_state_dict(
+            init_weight_provided_matched, unmatch = satools.utils.torch.match_state_dict(
                 model.state_dict(), init_weight_provided
             )
             not_inited = model.load_state_dict(
@@ -123,7 +137,7 @@ class ChainModel(nn.Module):
 
         if hasattr(model, "init"):
             model.init()
-        torch.save(model.state_dict(), self.chain_opts.base_model)
+        self.save_model(model, self.chain_opts.base_model)
 
     def train(self):
         """Run one iteration of LF-MMI training
@@ -145,7 +159,7 @@ class ChainModel(nn.Module):
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
         model = self.Net(self.chain_opts.output_dim)
-        model.load_state_dict(torch.load(chain_opts.base_model))
+        model.load_state_dict(self.load_state_model(chain_opts.base_model))
         #  if torch.__version__.startswith("2."):
             #  model = torch.compile(model, dynamic=True)
         model.eval()
@@ -170,7 +184,7 @@ class ChainModel(nn.Module):
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
-            tensorboard=tensorboard.SATwensorBoard(self)
+            tensorboard=satools.tensorboard.SATwensorBoard(self)
             if "valid" in self.chain_opts.egs
             else None,
         )
@@ -181,11 +195,11 @@ class ChainModel(nn.Module):
         base_models = chain_opts.base_model.split(",")
         assert len(base_models) > 0
         model0 = self.Net(self.chain_opts.output_dim)
-        model0.load_state_dict(torch.load(base_models[0]))
+        model0.load_state_dict(self.load_state_model(base_models[0]))
         model_acc = dict(model0.named_parameters())
         for mdl_name in base_models[1:]:
             this_mdl = self.Net(self.chain_opts.output_dim)
-            this_mdl.load_state_dict(torch.load(mdl_name))
+            this_mdl.load_state_dict(self.load_state_model(mdl_name))
             for name, params in this_mdl.named_parameters():
                 # Only average layers that are trained otherwise we ran
                 # into chained numerical division imprecision
@@ -195,7 +209,7 @@ class ChainModel(nn.Module):
         for name in model_acc:
             if model_acc[name].requires_grad:
                 model_acc[name].data.mul_(weight)
-        torch.save(model0.state_dict(), chain_opts.new_model)
+        self.save_model(model0)
 
     @torch.no_grad()
     def get_forward(
@@ -212,12 +226,12 @@ class ChainModel(nn.Module):
         model = model.to(device)
         if load_model:
             try:
-                model.load_state_dict(torch.load(base_model))
+                model.load_state_dict(self.load_state_model(base_model))
             except Exception as e:
                 logging.warning("Warning cannot load model {}".format(base_model))
                 logging.warning("Retrying with strict=False")
                 #  logging.warning(e)
-                not_inited = model.load_state_dict(torch.load(base_model), strict=False)
+                not_inited = model.load_state_dict(self.load_state_model(base_model), strict=False)
                 logging.warning("Incompatible layers: {}".format(not_inited))
 
         model.eval()
@@ -296,35 +310,6 @@ class ChainModel(nn.Module):
             num_pdfs_filename
         )
 
-    def load_cmdline_args(self):
-        parser = argparse.ArgumentParser(description="")
-        parser.add_argument("--mode", default="init")
-        parser.add_argument("--dir", default="")
-        parser.add_argument("--lr", default=0.001, type=float)
-        parser.add_argument("--egs", default="")
-        parser.add_argument("--sampler", default="BucketBatch", type=str)
-        parser.add_argument("--dataset", default="")
-        parser.add_argument("--new-model", default="")
-        parser.add_argument("--l2-regularize", default=1e-4, type=float)
-        parser.add_argument(
-            "--l2-regularize-factor", default=1.0, type=float
-        )  # this is the weight_decay in pytorch
-        parser.add_argument("--out-of-range-regularize", default=0.01, type=float)
-        parser.add_argument("--xent-regularize", default=0.025, type=float)
-        parser.add_argument("--leaky-hmm-coefficient", default=0.1, type=float)
-        parser.add_argument("--minibatch-size", default=32, type=int)
-        parser.add_argument("--num-iter", default=-1, type=int)
-        parser.add_argument("--grad-acc-steps", default=1, type=int)
-        parser.add_argument("--decode-feats", default="data/test/feats.scp", type=str)
-        parser.add_argument("--decode-output", default="-", type=str)
-        parser.add_argument("--decode-iter", default="final", type=str)
-        parser.add_argument("--use-gpu", default=False, type=bool)
-        parser.add_argument("--gpu-id", default=0, type=int)
-        parser.add_argument("--init-weight-model", default="", type=str)
-        parser.add_argument("base_model")
-        args = parser.parse_args()
-        return args
-
     @torch.no_grad()
     def combine_final_model(self):
         """Implements Kaldi-style model ensembling"""
@@ -344,7 +329,7 @@ class ChainModel(nn.Module):
 
         moving_average = self.Net(self.chain_opts.output_dim)
         best_mdl = self.Net(self.chain_opts.output_dim)
-        moving_average.load_state_dict(torch.load(base_models[0]))
+        moving_average.load_state_dict(self.load_state_model(base_models[0]))
         moving_average.cuda()
         best_mdl = moving_average
         dataset = Wav2vec2EgsDataset(
@@ -377,7 +362,7 @@ class ChainModel(nn.Module):
             for mdl_name in base_models[1:]:
                 this_mdl = self.Net(self.chain_opts.output_dim)
                 logging.info("Combining model {}".format(mdl_name))
-                this_mdl.load_state_dict(torch.load(mdl_name))
+                this_mdl.load_state_dict(self.load_state_model(mdl_name))
                 this_mdl = this_mdl.cuda()
                 # TODO(srikanth): check why is this even necessary
                 moving_average.cuda()
@@ -411,8 +396,25 @@ class ChainModel(nn.Module):
         logging.info("Combined {} models".format(best_num_to_combine))
         logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
         best_mdl.cpu()
-        torch.save(best_mdl.state_dict(), chain_opts.new_model)
+        self.save_model(best_mdl)
         return self
+
+    def load_state_model(self, file):
+        m = torch.load(file)
+        if "base_model_args_state_dict" in m:
+            return m["base_model_args_state_dict"]
+        return m
+
+    def save_model(self, model, file=None):
+        file = self.chain_opts.new_model if file==None else file
+        install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
+        torch.save({"base_model_args_state_dict": model.state_dict(),
+                    "task_path": os.getcwd().replace(install_path, ""),
+                    "install_path": install_path,
+                    "base_model_path": sys.argv[0],
+                    "base_model_output_dim": self.chain_opts.output_dim,
+                    "base_model_args": json.loads(self.chain_opts.base_model_args),
+                    }, file)
 
 
 class ChainE2EModel(ChainModel):
@@ -431,15 +433,17 @@ class ChainE2EModel(ChainModel):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
-        from _satools import kaldi  # lazy import (kaldi-free decoding)
-
-        kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
         #           load model
         model = self.Net(self.chain_opts.output_dim)
+        #  model = torch.jit.script(model)
+
+        from _satools import kaldi  # lazy import (kaldi-free decoding)
+
+        kaldi.InstantiateKaldiCuda()
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
             chain_opts.l2_regularize,
@@ -454,7 +458,7 @@ class ChainE2EModel(ChainModel):
             optimizer = model.set_lr_layers_for_optim(
                 self.get_optimizer,
                 lr=chain_opts.lr,
-                weight_decay=chain_opts.l2_regularize_factor,
+                weight_decay=chain_opts.weight_decay_l2_regularize_factor,
                 iter=id_iter,
                 total_iter=chain_opts.num_iter,
             )
@@ -462,9 +466,9 @@ class ChainE2EModel(ChainModel):
             optimizer = self.get_optimizer(
                 model.parameters(),
                 lr=chain_opts.lr,
-                weight_decay=chain_opts.l2_regularize_factor,
+                weight_decay=chain_opts.weight_decay_l2_regularize_factor,
             )
-        model.load_state_dict(torch.load(chain_opts.base_model))
+        model.load_state_dict(self.load_state_model(chain_opts.base_model))
         #  if torch.__version__.startswith("2."):
             #  model = torch.compile(model, dynamic=True)
         dataset = Wav2vec2EgsDataset(
@@ -482,12 +486,12 @@ class ChainE2EModel(ChainModel):
             minibatch_size=chain_opts.minibatch_size,
             grad_acc_steps=chain_opts.grad_acc_steps,
             lr=chain_opts.lr,
-            weight_decay=chain_opts.l2_regularize_factor,
-            tensorboard=tensorboard.SATwensorBoard(self),
+            weight_decay=chain_opts.weight_decay_l2_regularize_factor,
+            tensorboard=satools.tensorboard.SATwensorBoard(self),
             optimizer=optimizer,
             sampler=chain_opts.sampler,
         )
-        torch.save(new_model.state_dict(), chain_opts.new_model)
+        self.save_model(new_model)
 
         if hasattr(model, "after_one_iter_hook"):
             model.after_one_iter_hook()

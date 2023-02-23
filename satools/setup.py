@@ -99,5 +99,5 @@ else:
                 library_dirs=LIBRARY_DIRS,
             )
         ],
-        cmdclass={"build_ext": cpp_extension.BuildExtension},
+        cmdclass={"build_ext": cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True)},
     )

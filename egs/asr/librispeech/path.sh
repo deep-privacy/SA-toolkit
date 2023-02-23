@@ -1,3 +1,6 @@
+# Environment variables for sa-toolkit
+[ -f `pwd`/../../../env.sh ] && . `pwd`/../../../env.sh
+
 # Environment variables for running Kaldi scripts
 export KALDI_ROOT=`pwd`/../../../kaldi
 if [ -z $KALDI_ROOT ]; then

@@ -128,20 +128,19 @@ class CMVN(object):
         return x
 
 
-EPSILON = 1e-6
-
 class UttCMVN(torch.nn.Module):
     def __init__(self, var_norm=False):
         super(UttCMVN, self).__init__()
         self.var_norm = var_norm
 
     def forward(self, x):
-        mean = x.mean(dim=1, keepdims=True)
+        mean = x.mean(dim=1).unsqueeze(1)
         if self.var_norm:
-            std = torch.sqrt(x.var(dim=1, keepdims=True) + EPSILON)
-        x = x - mean
-        if self.var_norm:
+            std = torch.sqrt(x.var(dim=1) + 1e-6).unsqueeze(1)
+            x = x - mean
             x /= std
+        else:
+            x = x - mean
         return x
 
 

@@ -6,6 +6,7 @@
 #  %WER 5.12 [ 2787 / 54402, 316 ins, 326 del, 2145 sub ]
 
 import logging
+import json
 
 import torch
 import torch.nn as nn
@@ -41,27 +42,16 @@ def build(args):
             super().__init__()
 
             # Preprocessor
-
-            sample_rate = 16000  # Sampling rate of the audio file
-            window_size = 25  # Window size in milliseconds
-            window_stride = 10  # Window stride in milliseconds
-            n_mels = 80  # Number of Mel bands
-
-            n_fft = int(sample_rate * window_size / 1000)  # Number of FFT points
-            hop_length = int(sample_rate * window_stride / 1000)  # Hop length
-            self.fbank = torchaudio.transforms.MelSpectrogram(sample_rate=sample_rate, n_mels=n_mels,
-                                                              n_fft=n_fft, hop_length=hop_length)
+            self.input_dim = 80
 
             # at present, we support only frame_subsampling_factor to be 3
             assert frame_subsampling_factor == 3
 
             assert len(kernel_size_list) == len(subsampling_factor_list)
             num_layers = len(kernel_size_list)
-            input_dim = self.fbank.n_mels
 
             self.cmvn = satools.cmvn.UttCMVN()
 
-            self.input_dim = input_dim
             self.output_dim = output_dim
             self.output_subsampling = frame_subsampling_factor
 
@@ -70,7 +60,7 @@ def build(args):
             self.frame_subsampling_factor = frame_subsampling_factor
 
             self.tdnn1 = TDNNFBatchNorm(
-                input_dim,
+                self.input_dim,
                 hidden_dim,
                 bottleneck_dim=bottleneck_dim,
                 context_len=kernel_size_list[0],
@@ -95,7 +85,7 @@ def build(args):
                 tdnnfs.append(dropout_layer)
 
             # tdnnfs requires [N, C, T]
-            self.tdnnfs = nn.ModuleList(tdnnfs)
+            self.tdnnfs = nn.Sequential(*tdnnfs)
 
             def bottleneck_ld(x):
                 self.bottleneck_out = x
@@ -135,13 +125,13 @@ def build(args):
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
             assert (
-                nnet_output.shape[1] == 18
+                nnet_output.shape[1] == 17
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
             assert (
-                nnet_output.shape[1] == 18
+                nnet_output.shape[1] == 17
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
@@ -154,11 +144,14 @@ def build(args):
             return x
 
         def forward(self, x, spec_augment=lambda x: x):
-            assert x.ndim == 2
+            #  assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            x = self.fbank(x).permute(0, 2, 1)
-            assert x.ndim == 3
+            # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
+            x *= 32768
+            x = satools.kaldifeat.fbank(x, num_mel_bins=self.input_dim)
+            #  assert x.ndim == 3
+
             x = self.pad_input(x)
             x = self.cmvn(x)
             x = spec_augment(x)
@@ -167,9 +160,7 @@ def build(args):
             x = self.tdnn1(x)
             x = self.dropout1(x)
 
-            # tdnnf requires input of shape [N, C, T]
-            for i in range(len(self.tdnnfs)):
-                x = self.tdnnfs[i](x)
+            x = self.tdnnfs(x)
 
             chain_prefinal_out = self.prefinal_chain_vq(x)
             xent_prefinal_out = self.prefinal_xent(x)
@@ -184,5 +175,5 @@ def build(args):
 if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
     args, remaining_argv = parser.parse_known_args()
-    sys.argv = sys.argv[:1] + remaining_argv
+    sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     ChainE2EModel(build(args), cmd_line=True)

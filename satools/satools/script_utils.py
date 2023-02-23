@@ -6,7 +6,7 @@
 try:
     from _satools import kaldi  # lazy import (kaldi-free decoding)
 except ImportError as error:
-    print("ERROR IMPORT KALDI")
+    #  print("ERROR IMPORT KALDI")
     pass
 
 import math

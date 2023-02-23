@@ -270,6 +270,24 @@ fi
   # touch $mark
 # fi
 
+
+# mark=.done-python-requirements-kaldi-feat
+# if [ ! -f $mark ]; then
+  # echo " == Building kaldifeat =="
+  # \rm -rf .kaldifeat || true
+  # git clone https://github.com/csukuangfj/kaldifeat .kaldifeat
+  # cd .kaldifeat
+  # git checkout cec876b
+  # export KALDIFEAT_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -Wno-dev"
+  # export KALDIFEAT_MAKE_ARGS="-j $nj"
+  # export _TORCHLIB=$(python3 -c "import torch; print(torch.__path__[0]+'/lib')")
+  # LDFLAGS="-L$venv_dir/lib -L$_TORCHLIB" python setup.py install || exit 1
+  # cd $home
+  # python3 -c "import kaldifeat; print('Kaldifeat version:', kaldifeat.__version__)" || exit 1
+  # touch $mark
+# fi
+
+
 echo "source $venv_dir/bin/activate ''; export CUDAROOT=$CUDAROOT; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;" >> env.sh
 echo "export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python;" >> env.sh # WORKING around https://github.com/protocolbuffers/protobuf/issues/10051
 

@@ -1,3 +1,100 @@
+diff --git a/egs/wsj/s5/utils/ssh.pl b/egs/wsj/s5/utils/ssh.pl
+index 5d3e3e44d..1aeb7d510 100755
+--- a/egs/wsj/s5/utils/ssh.pl
++++ b/egs/wsj/s5/utils/ssh.pl
+@@ -16,7 +16,7 @@ use File::Basename;
+ #
+ # Later we may extend this so that on each line of .queue/machines you
+ # can specify various resources that each machine has, such as how
+-# many slots and how much memory, and make it wait if machines are 
++# many slots and how much memory, and make it wait if machines are
+ # busy.  But for now it simply ssh's to a machine from those in the list.
+ 
+ # The command-line interface of this program is the same as run.pl;
+@@ -30,7 +30,7 @@ $jobend = 1;
+ $qsub_opts=""; # These will be ignored.
+ 
+ # First parse an option like JOB=1:4, and any
+-# options that would normally be given to 
++# options that would normally be given to
+ # ssh.pl, which we will just discard.
+ 
+ if (@ARGV > 0) {
+@@ -83,17 +83,13 @@ if ($qsub_opts ne "") {
+     exit(1);
+   }
+   @machines = ();
++  @envs = ();
+   while (<Q>) {
+     chop;
+     if ($_ ne "") {
+-      @A = split;
+-      if (@A != 1) {
+-        die "ssh.pl: bad line '$_' in .queue/machines.";
+-      }
+-      if ($A[0] !~ m/^[a-z0-9\.\-]+/) {
+-        die "ssh.pl: invalid machine name '$A[0]'";
+-      }
++      @A = split("@", $_);
+       push @machines, $A[0];
++      push @envs, $A[1];
+     }
+   }
+   if (@machines == 0) {   die "ssh.pl: no machines listed in .queue/machines";  }
+@@ -122,10 +118,10 @@ if (defined $jobname && $logfile !~ m/$jobname/ &&
+ 
+ $cmd = "";
+ 
+-foreach $x (@ARGV) { 
++foreach $x (@ARGV) {
+     if ($x =~ m/^\S+$/) { $cmd .=  $x . " "; }
+     elsif ($x =~ m:\":) { $cmd .= "'$x' "; }
+-    else { $cmd .= "\"$x\" "; } 
++    else { $cmd .= "\"$x\" "; }
+ }
+ 
+ 
+@@ -150,8 +146,9 @@ for ($jobid = $jobstart; $jobid <= $jobend; $jobid++) {
+       # in the C way where (negative number % positive number) is negative.
+       $machines_index = ($local_offset + $num_machines) % $num_machines;
+       $machine = $machines[$machines_index];
++      $env = $envs[$machines_index];
+     }
+-    if (!open(S, "|ssh $machine bash")) {
++    if (!open(S, "| $machine bash")) {
+       print STDERR "ssh.pl failed to ssh to $machine";
+       exit(1);  # exits from the forked process within ssh.pl.
+     }
+@@ -162,17 +159,19 @@ for ($jobid = $jobstart; $jobid <= $jobend; $jobid++) {
+     print S "set -e\n";  # if any of the later commands fails, we want it to exit.
+     print S "cd $cwd\n";
+     print S ". ./path.sh\n";
++    print S "export $env\n";
+     print S "mkdir -p $logdir\n";
+     print S "time1=\`date +\"%s\"\`\n";
+     print S "( echo '#' Running on \`hostname\`\n";
+     print S "  echo '#' Started at \`date\`\n";
++    print S "  echo '#' Env: $env\n";
+     print S "  echo -n '# '; cat <<EOF\n";
+     print S "$cmd\n";
+     print S "EOF\n";
+     print S ") >$logfile\n";
+     print S "set +e\n";  # we don't want bash to exit if the next line fails.
+     # in the next line, || true means allow this one to fail and not have bash exit immediately.
+-    print S " ( $cmd ) 2>>$logfile >>$logfile\n"; 
++    print S " ( $cmd ) 2>>$logfile >>$logfile\n";
+     print S "ret=\$?\n";
+     print S "set -e\n"; # back into mode where it will exit on error.
+     print S "time2=\`date +\"%s\"\`\n";
+@@ -199,7 +198,7 @@ for ($jobid = $jobstart; $jobid <= $jobend; $jobid++) {
+ 
+ if ($ret != 0) {
+   $njobs = $jobend - $jobstart + 1;
+-  if ($njobs == 1) { 
++  if ($njobs == 1) {
+     if (defined $jobname) {
+       $logfile =~ s/$jobname/$jobstart/; # only one numbered job, so replace name with
+                                          # that job.
 diff --git a/src/chain/chain-training.cc b/src/chain/chain-training.cc
 index 1161725ed..68cfc9675 100644
 --- a/src/chain/chain-training.cc
@@ -16,15 +113,15 @@ index d7d65da80..e684d20e4 100644
 +++ b/src/cudamatrix/cu-allocator.h
 @@ -65,7 +65,7 @@ struct CuAllocatorOptions {
    int32 num_subregions;
-
+ 
    CuAllocatorOptions():
 -      cache_memory(true), memory_proportion(0.5), num_subregions(20) { }
 +      cache_memory(true), memory_proportion(0.01), num_subregions(40) { }
-
+ 
    void Register(OptionsItf *po) {
      po->Register("cuda-cache-memory", &cache_memory, "True if you want "
 @@ -78,7 +78,7 @@ struct CuAllocatorOptions {
-
+ 
    void Check() {
      // don't let it get too close to 1;
 -    KALDI_ASSERT(memory_proportion >= 0.05 && memory_proportion < 0.99);

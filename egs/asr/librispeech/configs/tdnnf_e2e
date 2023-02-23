@@ -1,6 +1,15 @@
 [cmd]
 cpu_cmd = ./utils/run.pl
-cuda_cmd = ./utils/run.pl
+# cuda_cmd = ./utils/run.pl
+
+cuda_cmd = ./utils/ssh.pl
+# example of ssh.pl config file (in .queue/machines)
+# ssh localhost @ CUDA_VISIBLE_DEVICES=0
+# ssh gpu20 @ CUDA_VISIBLE_DEVICES=0
+# ssh gpu20 @ CUDA_VISIBLE_DEVICES=1
+# ssh gpu06 @ CUDA_VISIBLE_DEVICES=0
+# ssh gpu06 @ CUDA_VISIBLE_DEVICES=1
+# srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 @ CUDA_VISIBLE_DEVICES=1
 
 [exp]
 train_set = data/train_clean_100_sp
@@ -8,6 +17,7 @@ tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
 egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
+# max_concurrent_jobs = 2
 num_epochs = 5
 num_jobs_initial = 2
 num_jobs_final = 5
@@ -16,27 +26,26 @@ lr_final =   0.00001
 diagnostics_interval = 10
 checkpoint_interval =  20
 minibatch_size = 16
- # merge weight, 6 last epoch checkpoints
-final_combination_n_model = 6
-# train_stage = 31
+grad_acc_steps = 1
+ # merge weight, last x epoch checkpoints
+final_combination_n_model = 2
+train_stage = 30
 # train_stage = last
 
-# max_concurrent_jobs = 2
-
-
 model_file = local/chain/e2e/tuning/tdnnf.py
-dirname = e2e_tdnnf
+dirname = e2e_tdnnf_t100_kaldifeat_b
 
 [test]
 graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+
 test_set = data/test_clean
 # test_set = data/test_other
 # test_set = data/dev_other
 # test_set = data/dev_clean
-# test_set = data/dev_clean
-suffix = _final
+
+suffix = _final_2
 # decode on gpus
-num_jobs = 9
 gpu = True
+num_jobs = 9
 
 # vim:set et sw=2 ts=2 ft=toml:

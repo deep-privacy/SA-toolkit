@@ -1,10 +1,10 @@
 #!/bin/bash
 
 set -e
-KALDI_ROOT=`pwd`/../../../../kaldi
+KALDI_ROOT=`pwd`/../../../kaldi
 if [ ! -L ./utils ]; then
   echo "Kaldi root: ${KALDI_ROOT}"
-  ./make_links.sh $KALDI_ROOT || exit 1
+  ./local/make_links.sh $KALDI_ROOT || exit 1
   echo "Succesfuly created ln links"
 fi
 
@@ -60,7 +60,7 @@ for script_name in $required_scripts; do
 done
 
 if [ $stage -le -1 ]; then
-  echo "-- Stage $stage --"
+  echo "-- Stage -1 --"
   local/download_lm.sh $lm_url data/local/lm
 fi
 
@@ -75,16 +75,26 @@ done
 
 if [ $stage -le 0 ]; then
   echo "-- Stage 0 --"
+  parts="test-clean dev-clean test-other dev-other train-clean-100"
+  if [[ "$train_set" == "train_600" ]]; then
+    parts="$parts train-other-500"
+  fi
+  if [[ "$train_set" == "train_clean_360" ]]; then
+    parts="$parts train_clean_360"
+  fi
   # format the data as Kaldi data directories
-  for part in train-other-500  train-clean-360 train-clean-100 test-clean dev-clean test-other dev-other; do
+  for part in $parts ; do
     # use underscore-separated names in data directories.
+    echo "Data prep $part"
     data_name=$(echo $part | sed s/-/_/g)
     if [ ! -f data/${data_name}/wav.scp ]; then
         local/data_prep.sh $corpus/$part data/${data_name}
     fi
   done
 
-  utils/combine_data.sh data/train_600 data/train_clean_100 data/train_other_500
+  if [[ "$train_set" == "train_600" ]]; then
+    utils/combine_data.sh data/train_600 data/train_clean_100 data/train_other_500
+  fi
 fi
 
 if [[ $stage -le 1 &&  ! -f "data/local/lm_less_phones/lm_tglarge.arpa.gz" ]]; then

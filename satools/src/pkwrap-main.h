@@ -6,9 +6,32 @@
 #include "nnet3.h"
 #include "fst.h"
 #include "hmm.h"
+
+// #include <torch/script.h>
+
 // This is required to make sure kaldi CuMatrix and the likes are actually 
 // in the GPU. We don't handle the behavior of the function being called twice though.
 inline void InstantiateKaldiCuda();
+
+// TORCH_LIBRARY(sa, m) {
+
+    // py::class_<kaldi::nnet3::OnlineNaturalGradient>(sa, "OnlineNaturalGradient")
+        // .def(py::init<>())
+        // .def("SetRank", &kaldi::nnet3::OnlineNaturalGradient::SetRank)
+        // .def("SetUpdatePeriod", &kaldi::nnet3::OnlineNaturalGradient::SetUpdatePeriod)
+        // .def("SetNumSamplesHistory", &kaldi::nnet3::OnlineNaturalGradient::SetNumSamplesHistory)
+        // .def("SetNumMinibatchesHistory", &kaldi::nnet3::OnlineNaturalGradient::SetNumMinibatchesHistory)
+        // .def("SetAlpha", &kaldi::nnet3::OnlineNaturalGradient::SetAlpha)
+        // .def("TurnOnDebug", &kaldi::nnet3::OnlineNaturalGradient::TurnOnDebug)
+        // .def("GetNumSamplesHistory", &kaldi::nnet3::OnlineNaturalGradient::GetNumSamplesHistory)
+        // .def("GetNumMinibatchesHistory", &kaldi::nnet3::OnlineNaturalGradient::GetNumMinibatchesHistory)
+        // .def("GetAlpha", &kaldi::nnet3::OnlineNaturalGradient::GetAlpha)
+        // .def("GetRank", &kaldi::nnet3::OnlineNaturalGradient::GetRank)
+        // .def("GetUpdatePeriod", &kaldi::nnet3::OnlineNaturalGradient::GetUpdatePeriod)
+        // .def("Freeze", &kaldi::nnet3::OnlineNaturalGradient::Freeze)
+        // .def("PreconditionDirections", &kaldi::nnet3::OnlineNaturalGradient::PreconditionDirections);
+    // nnet3.def("precondition_directions", &precondition_directions);
+// }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
