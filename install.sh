@@ -171,7 +171,7 @@ if [ ! -f $mark ]; then
   echo resampy==0.2.2 >> requirements.txt
   echo ConfigArgParse==1.5.1 >> requirements.txt
   echo librosa==0.8.1 >> requirements.txt
-  echo scipy==1.7.1 >> requirements.txt
+  echo 'scipy>=1.7.1' >> requirements.txt
   echo amfm_decompy==1.0.11 >> requirements.txt
   echo ffmpeg==1.4 >> requirements.txt
   echo tqdm >> requirements.txt
