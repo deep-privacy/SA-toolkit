@@ -12,10 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from satools.chain import ChainE2EModel
-from satools.nn import (
-    TDNNFBatchNorm,
-    TDNNFBatchNorm_LD,
-)
+import satools.nn as sann
 
 import satools
 
@@ -51,6 +48,7 @@ def build(args):
             num_layers = len(kernel_size_list)
 
             self.cmvn = satools.cmvn.UttCMVN()
+            self.spec_augment = sann.PassThrough()
 
             self.output_dim = output_dim
             self.output_subsampling = frame_subsampling_factor
@@ -59,7 +57,7 @@ def build(args):
             self.padding = 27
             self.frame_subsampling_factor = frame_subsampling_factor
 
-            self.tdnn1 = TDNNFBatchNorm(
+            self.tdnn1 = sann.TDNNFBatchNorm(
                 self.input_dim,
                 hidden_dim,
                 bottleneck_dim=bottleneck_dim,
@@ -72,7 +70,7 @@ def build(args):
             for i in range(1, num_layers):
                 kernel_size = kernel_size_list[i]
                 subsampling_factor = subsampling_factor_list[i]
-                layer = TDNNFBatchNorm(
+                layer = sann.TDNNFBatchNorm(
                     hidden_dim,
                     hidden_dim,
                     bottleneck_dim=bottleneck_dim,
@@ -87,20 +85,15 @@ def build(args):
             # tdnnfs requires [N, C, T]
             self.tdnnfs = nn.Sequential(*tdnnfs)
 
-            def bottleneck_ld(x):
-                self.bottleneck_out = x
-                return x
-
             # prefinal_l affine requires [N, C, T]
-            self.prefinal_chain_vq = TDNNFBatchNorm_LD(
+            self.prefinal_chain_vq = sann.TDNNFBatchNorm(
                 hidden_dim,
                 hidden_dim,
                 bottleneck_dim=prefinal_bottleneck_dim,
                 context_len=1,
                 orthonormal_constraint=-1.0,
-                bottleneck_ld=bottleneck_ld,
             )
-            self.prefinal_xent = TDNNFBatchNorm(
+            self.prefinal_xent = sann.TDNNFBatchNorm(
                 hidden_dim,
                 hidden_dim,
                 bottleneck_dim=prefinal_bottleneck_dim,
@@ -108,11 +101,11 @@ def build(args):
                 orthonormal_constraint=-1.0,
             )
 
-            self.chain_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.chain_output = sann.NaturalAffineTransform(hidden_dim, output_dim)
             self.chain_output.weight.data.zero_()
             self.chain_output.bias.data.zero_()
 
-            self.xent_output = satools.nn.NaturalAffineTransform(hidden_dim, output_dim)
+            self.xent_output = sann.NaturalAffineTransform(hidden_dim, output_dim)
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 
@@ -120,6 +113,7 @@ def build(args):
 
         @torch.no_grad()
         def validate_model(self):
+            self.train()
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
@@ -140,10 +134,10 @@ def build(args):
                 N, T, C = x.shape
                 left_pad = x[:, 0:1, :].repeat(1, self.padding, 1).reshape(N, -1, C)
                 right_pad = x[:, -1, :].repeat(1, self.padding, 1).reshape(N, -1, C)
-                x = torch.cat([left_pad, x, right_pad], axis=1)
+                x = torch.cat([left_pad, x, right_pad], 1)
             return x
 
-        def forward(self, x, spec_augment=lambda x: x):
+        def forward(self, x, ):
             #  assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
@@ -154,7 +148,7 @@ def build(args):
 
             x = self.pad_input(x)
             x = self.cmvn(x)
-            x = spec_augment(x)
+            x = self.spec_augment(x)
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
             x = self.tdnn1(x)

@@ -28,12 +28,12 @@ checkpoint_interval =  20
 minibatch_size = 16
 grad_acc_steps = 1
  # merge weight, last x epoch checkpoints
-final_combination_n_model = 2
-train_stage = 30
+final_combination_n_model = 7
+# train_stage = 30
 # train_stage = last
 
 model_file = local/chain/e2e/tuning/tdnnf.py
-dirname = e2e_tdnnf_t100_kaldifeat_b
+dirname = e2e_tdnnf_t100
 
 [test]
 graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall

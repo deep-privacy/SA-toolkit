@@ -135,6 +135,16 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             return None, None, None, -nnet_deriv, None
 
 
+def OnlineNaturalGradient_apply(x, weight, bias):
+        if x.dim() == 2 and bias is not None:
+            return torch.addmm(bias, x, weight.t())
+        else:
+            output = x.matmul(weight.t())
+            if bias is not None:
+                output += bias
+            return output
+
+
 class OnlineNaturalGradient(torch.autograd.Function):
     """A wrapper to NG-SGD class in Kaldi
 
@@ -146,7 +156,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
 
     @staticmethod
     @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
-    def forward(ctx, input, weight, bias, in_state, out_state):
+    def forward(ctx, x, weight, bias, in_state, out_state):
         """Forward pass for NG-SGD layer
 
         Args:
@@ -161,16 +171,10 @@ class OnlineNaturalGradient(torch.autograd.Function):
             The other inputs are saved in the context to be used during the call
             to backward.
         """
-        ctx.save_for_backward(input, weight, bias)
+        ctx.save_for_backward(x, weight, bias)
         ctx.states = [in_state, out_state]
         # the code below is based on pytorch's F.linear
-        if input.dim() == 2 and bias is not None:
-            output = torch.addmm(bias, input, weight.t())
-        else:
-            output = input.matmul(weight.t())
-            if bias is not None:
-                output += bias
-        return output
+        return OnlineNaturalGradient_apply(x, weight, bias)
 
     @staticmethod
     @torch.no_grad()

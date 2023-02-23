@@ -13,11 +13,17 @@ from torch.utils import cpp_extension
 PYTORCH_VERSION = torch.__version__
 PYTORCH_MAJOR_VER, PYTORCH_MIN_VER = list(map(int, PYTORCH_VERSION.split(".")[:2]))
 
+PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT")
+
 KALDI_ROOT = os.getenv("KALDI_ROOT")
-if not KALDI_ROOT:
+if not KALDI_ROOT and PKWRAP_CPP_EXT != "no":
     sys.stderr.write("ERROR: KALDI_ROOT variable is not defined or empty")
     quit(1)
-KALDI_LIB_DIR = os.path.join(KALDI_ROOT, "src", "lib")
+
+if PKWRAP_CPP_EXT == "no":
+    KALDI_LIB_DIR = "/tmp/fake"
+else:
+    KALDI_LIB_DIR = os.path.join(KALDI_ROOT, "src", "lib")
 
 PACKAGE_NAME = "satools"
 EXTENSION_NAME = "_satools"
@@ -73,8 +79,6 @@ if MKL_ROOT:
 
 LICENSE = "Apache 2.0"
 VERSION = "0.2.31.6"
-
-PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT")
 
 if PKWRAP_CPP_EXT == "no":
     setup(

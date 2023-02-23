@@ -2,16 +2,12 @@ import os
 import random
 
 import librosa
-import matplotlib
 import numpy as np
 import torch
 import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 
 from . import f0
-
-matplotlib.use("Agg")
-import matplotlib.pylab as plt
 
 
 class WavList(torch.utils.data.Dataset):
@@ -198,26 +194,3 @@ def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
 def spectral_normalize_torch(magnitudes):
     output = dynamic_range_compression_torch(magnitudes)
     return output
-
-
-def plot_spectrogram(audio):
-    spectrogram = mel_spectrogram(
-        y=audio,
-        n_fft=1024,
-        num_mels=80,
-        sampling_rate=16000,
-        hop_size=256,
-        win_size=1024,
-        fmin=0,
-        fmax=8000,
-    )
-    spectrogram = spectrogram.squeeze(0).cpu().numpy()
-
-    fig, ax = plt.subplots(figsize=(10, 2))
-    im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")
-    plt.colorbar(im, ax=ax)
-
-    fig.canvas.draw()
-    plt.close()
-
-    return fig

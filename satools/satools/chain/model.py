@@ -18,7 +18,7 @@ from .egs import (
     Wav2vec2DecodeDataset,
     Wav2vec2EgsCollectFn,
 )
-from .objf import train_lfmmi_one_iter, compute_chain_objf
+from . import objf
 from .. import script_utils
 import satools
 
@@ -117,7 +117,9 @@ class ChainModel(nn.Module):
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
-        model = self.Net(self.chain_opts.output_dim)
+        model = torch.jit.script(self.Net(self.chain_opts.output_dim))
+        model = model.cuda()
+        model(torch.rand(1, 16000).cuda())
         if self.chain_opts.init_weight_model != "":
             init_weight_provided = self.load_state_model(self.chain_opts.init_weight_model)
 
@@ -137,6 +139,7 @@ class ChainModel(nn.Module):
 
         if hasattr(model, "init"):
             model.init()
+
         self.save_model(model, self.chain_opts.base_model)
 
     def train(self):
@@ -178,7 +181,7 @@ class ChainModel(nn.Module):
             "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
         )
-        compute_chain_objf(
+        objf.compute_chain_objf(
             model,
             dataset,
             den_fst_path,
@@ -238,9 +241,9 @@ class ChainModel(nn.Module):
         if share_memory:
             model.share_memory()
 
-        def _forward(waveform, spec_augment=lambda x: x):
+        def _forward(waveform):
             with torch.no_grad():
-                post, xent_output = model(waveform, spec_augment=spec_augment)
+                post, xent_output = model(waveform)
                 return post, model
 
         if get_model_module:
@@ -339,7 +342,7 @@ class ChainModel(nn.Module):
             "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
         )
-        compute_objf = lambda mdl: compute_chain_objf(
+        compute_objf = lambda mdl: objf.compute_chain_objf(
             mdl,
             dataset,
             den_fst_path,
@@ -408,7 +411,18 @@ class ChainModel(nn.Module):
     def save_model(self, model, file=None):
         file = self.chain_opts.new_model if file==None else file
         install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
+
+        source_state_dict = model.state_dict()
+        model = self.Net(output_dim=self.chain_opts.output_dim)
+        model = torch.jit.script(model)
+        model.load_state_dict(source_state_dict)
+        buffer = io.BytesIO()
+        torch.jit.save(model, buffer)
+
+        #  import torch, io; m = torch.jit.load(io.BytesIO(torch.load("exp/chain/e2e_tdnnf_t100_kaldifeat_b/0.pt")['base_model_jit'])); m
+
         torch.save({"base_model_args_state_dict": model.state_dict(),
+                    "base_model_jit": buffer.getvalue(),
                     "task_path": os.getcwd().replace(install_path, ""),
                     "install_path": install_path,
                     "base_model_path": sys.argv[0],
@@ -437,9 +451,8 @@ class ChainE2EModel(ChainModel):
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
-        #           load model
-        model = self.Net(self.chain_opts.output_dim)
-        #  model = torch.jit.script(model)
+        # load model
+        model = torch.jit.script(self.Net(self.chain_opts.output_dim))
 
         from _satools import kaldi  # lazy import (kaldi-free decoding)
 
@@ -478,7 +491,7 @@ class ChainE2EModel(ChainModel):
             "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
         )
-        new_model = train_lfmmi_one_iter(
+        new_model = objf.train_lfmmi_one_iter(
             model,
             dataset,
             den_fst_path,

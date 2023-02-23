@@ -9,12 +9,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
-from typing import List, Union, Optional, Callable, TypeVar, Any
+from typing import List, Union, Dict, Optional, Callable, TypeVar, Any
 
-T_co = TypeVar("T_co", covariant=True)
+from .objf import OnlineNaturalGradient, OnlineNaturalGradient_apply
+from .. import nsg
 
-
-from .objf import OnlineNaturalGradient
 
 log_kaldi_warning = False
 try:
@@ -29,13 +28,16 @@ class NGState:
 
     alpha: float = 4.0
     num_samples_history: float = 2000.0
-    update_period: int = 4
+    update_period: float = 4.0
+
+    def asdict(self) -> Dict[str, float]:
+        return {"alpha":self.alpha,
+                "num_samples_history":self.num_samples_history,
+                "update_period":self.update_period}
 
 
-
-# KALDI preconditioner
-def get_preconditioner_from_ngstate(ngstate):
-    assert ngstate is not None
+def get_preconditioner_from_ngstate(ngstate: Dict[str, float]):
+    # KALDI preconditioner
     global log_kaldi_warning
     if log_kaldi_warning:
         logging.critical(
@@ -44,9 +46,9 @@ def get_preconditioner_from_ngstate(ngstate):
         log_kaldi_warning = False
         return None
     preconditioner = kaldi.nnet3.OnlineNaturalGradient()
-    preconditioner.SetAlpha(ngstate.alpha)
-    preconditioner.SetNumSamplesHistory(ngstate.num_samples_history)
-    preconditioner.SetUpdatePeriod(ngstate.update_period)
+    preconditioner.SetAlpha(ngstate['alpha'])
+    preconditioner.SetNumSamplesHistory(ngstate['num_samples_history'])
+    preconditioner.SetUpdatePeriod(int(ngstate['update_period']))
     return preconditioner
 
 
@@ -56,25 +58,14 @@ class NaturalAffineTransform(nn.Module):
     This is an implementation of NaturalGradientAffineTransform in Kaldi.
     It wraps the linear transformation with chain.OnlineNaturalGradient to
     achieve this.
-
-    Attributes:
-        feat_dim: (int, required) input dimension of the transformation
-        out_dim: (int, required) output dimension of the transformation
-        bias: (bool, optional) set False to not use bias. True by default.
-        ngstate: a dataclass of type NGState containing the following keys
-            alpha: a floating point value (default is 4.0)
-            num_samples_history: a floating point value (default is 2000.)
-            update_period: an integer (default is 4)
     """
-    #  preconditioner_in: Optional[Callable[..., T_co]] = None
-    #  preconditioner_out: Optional[Callable[..., T_co]] = None
 
     def __init__(
         self,
         feat_dim,
         out_dim,
-        bias=True,
         ngstate=None,
+        bias=True,
     ):
         """Initialize NaturalGradientAffineTransform layer
 
@@ -95,12 +86,13 @@ class NaturalAffineTransform(nn.Module):
         super().__init__()
         self.feat_dim = feat_dim
         self.out_dim = out_dim
-        self.ngstate = NGState()
-        if self.ngstate is None:
-            self.ngstate = NGState()
+        if ngstate is None:
+            ngstate = NGState()
+        self.ngstate = ngstate.asdict()
         # lazyinit (not required for decoding enables kaldi free execution)
-        self.preconditioner_in = None
-        self.preconditioner_out = None
+        self.preconditioner_in = torch.tensor(0)
+        self.preconditioner_out = torch.tensor(0)
+        self.preconditioner_init = False
 
         # For pytorch only
         self.all_preconditioner_in = {}
@@ -128,7 +120,21 @@ class NaturalAffineTransform(nn.Module):
         self.weight.data.mul_(1.0 / pow(self.feat_dim * self.out_dim, 0.5))
         self.bias.data.normal_()
 
-    def forward(self, input):
+    @JITmode().select
+    def _train_forward(self, input):
+        if not self.preconditioner_init:
+            self.preconditioner_init = True
+        preconditioner_in = get_preconditioner_from_ngstate(self.ngstate)
+        preconditioner_out = get_preconditioner_from_ngstate(self.ngstate)
+        return OnlineNaturalGradient.apply(
+            input,
+            self.weight,
+            self.bias,
+            preconditioner_in,
+            preconditioner_out,
+        )
+
+    def forward(self, x):
         """Forward pass"""
 
         # PyTorch only but slower
@@ -144,24 +150,11 @@ class NaturalAffineTransform(nn.Module):
         #  self.all_preconditioner_out[input.device],
         #  )
 
-        # kaldi lazyinit (not used if OnlineNaturalGradient)
-
-        if (
-            self.training
-            and self.weight.requires_grad
-            and self.preconditioner_in  == None
-            and self.preconditioner_out == None
-        ):
-            self.preconditioner_in = get_preconditioner_from_ngstate(self.ngstate)
-            self.preconditioner_out = get_preconditioner_from_ngstate(self.ngstate)
-
-        return OnlineNaturalGradient.apply(
-            input,
-            self.weight,
-            self.bias,
-            self.preconditioner_in,
-            self.preconditioner_out,
-        )
+        if self.training and self.weight.requires_grad:
+            # DOES NOT WORK WITH JIT MODEL, ONLY FOR EVAL MODE
+            return self._train_forward(x)
+        else:
+            return OnlineNaturalGradient_apply(x, self.weight, self.bias)
 
 
 @torch.no_grad()
@@ -212,7 +205,15 @@ class OrthonormalLinear(nn.Module):
         return x
 
 
-class TDNNF_LD(nn.Module):
+class PassThrough(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.output_dim="same"
+    def forward(self, x:Tensor) -> Tensor:
+        return x
+
+
+class TDNNF(nn.Module):
     def __init__(
         self,
         feat_dim,
@@ -222,21 +223,18 @@ class TDNNF_LD(nn.Module):
         subsampling_factor=1,
         orthonormal_constraint=0.0,
         bypass_scale=0.66,
-        bottleneck_ld=None,
-        bottleneck_ld_outdim=None,
+        bottleneck_func=PassThrough(),
     ):
         super().__init__()
-        if bottleneck_ld_outdim == None:
-            bottleneck_ld_outdim = bottleneck_dim
+        self.bottleneck_func = bottleneck_func
+        self.bottleneck_outdim = bottleneck_dim
+        if self.bottleneck_func.output_dim != "same":
+            self.bottleneck_outdim = self.bottleneck_func.output_dim
 
-        if bottleneck_ld == None:
-            self.bottleneck_ld = lambda x: x
-        else:
-            self.bottleneck_ld = bottleneck_ld
         self.linearB = OrthonormalLinear(
             feat_dim * context_len, bottleneck_dim, scale=orthonormal_constraint
         )
-        self.linearA = nn.Linear(bottleneck_ld_outdim, output_dim)
+        self.linearA = nn.Linear(self.bottleneck_outdim, output_dim)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
         self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
         self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
@@ -245,12 +243,11 @@ class TDNNF_LD(nn.Module):
         self.orthonormal_constraint = torch.tensor(
             orthonormal_constraint, requires_grad=False
         )
+
         self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
+        self.identity_lidx = torch.tensor(0, requires_grad=False)  # Start
+        self.identity_ridx = None  # End
         if bypass_scale > 0.0 and feat_dim == output_dim:
-            if bottleneck_ld != None:
-                logging.critical(
-                    "satools: -- Warning using bypass on the TDNNF_LD layer!"
-                )
             self.use_bypass = True
             if self.context_len > 1:
                 if self.context_len % 2 == 1:
@@ -264,11 +261,8 @@ class TDNNF_LD(nn.Module):
                     )
                     self.identity_ridx = -self.identity_lidx + 1
                 if self.context_len == 2:
-                    self.identity_lidx = 1  # Start
+                    self.identity_lidx = torch.tensor(1, requires_grad=False)  # Start
                     self.identity_ridx = None  # End
-            else:
-                self.identity_lidx = 0  # Start
-                self.identity_ridx = None  # End
         else:
             self.use_bypass = False
 
@@ -280,7 +274,7 @@ class TDNNF_LD(nn.Module):
             .contiguous()
         )
         x = self.linearB(padded_input)
-        x = self.bottleneck_ld(x)
+        x = self.bottleneck_func(x)
         x = self.linearA(x)
         if self.use_bypass:
             x = (
@@ -295,7 +289,7 @@ class TDNNF_LD(nn.Module):
         return x
 
 
-class TDNNFBatchNorm_LD(nn.Module):
+class TDNNFBatchNorm(nn.Module):
     def __init__(
         self,
         feat_dim,
@@ -305,15 +299,14 @@ class TDNNFBatchNorm_LD(nn.Module):
         subsampling_factor=1,
         orthonormal_constraint=0.0,
         bypass_scale=0.66,
-        bottleneck_ld=None,
-        bottleneck_ld_outdim=None,
+        bottleneck_func=PassThrough(),
     ):
         super().__init__()
         self.in_dim = feat_dim
         self.out_dim = output_dim
         self.bottleneck_dim = bottleneck_dim
-        self.bottleneck_ld = bottleneck_ld
-        self.tdnn = TDNNF_LD(
+        self.bottleneck_func = bottleneck_func
+        self.tdnn = TDNNF(
             feat_dim,
             output_dim,
             bottleneck_dim,
@@ -321,8 +314,7 @@ class TDNNFBatchNorm_LD(nn.Module):
             subsampling_factor=subsampling_factor,
             orthonormal_constraint=orthonormal_constraint,
             bypass_scale=bypass_scale,
-            bottleneck_ld=bottleneck_ld,
-            bottleneck_ld_outdim=bottleneck_ld_outdim,
+            bottleneck_func=bottleneck_func,
         )
         self.bn = nn.BatchNorm1d(output_dim, affine=False)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
@@ -335,50 +327,6 @@ class TDNNFBatchNorm_LD(nn.Module):
         x = x.permute(0, 2, 1)
         x = F.relu(x)
         return x
-
-
-class TDNNF(TDNNF_LD):
-    def __init__(
-        self,
-        feat_dim,
-        output_dim,
-        bottleneck_dim,
-        context_len=1,
-        subsampling_factor=1,
-        orthonormal_constraint=0.0,
-        bypass_scale=0.66,
-    ):
-        super().__init__(
-            feat_dim,
-            output_dim,
-            bottleneck_dim,
-            context_len=context_len,
-            subsampling_factor=subsampling_factor,
-            orthonormal_constraint=orthonormal_constraint,
-            bypass_scale=bypass_scale,
-        )
-
-
-class TDNNFBatchNorm(TDNNFBatchNorm_LD):
-    def __init__(
-        self,
-        feat_dim,
-        output_dim,
-        bottleneck_dim,
-        context_len=1,
-        subsampling_factor=1,
-        orthonormal_constraint=0.0,
-        bypass_scale=0.66,
-    ):
-        super().__init__(
-            feat_dim,
-            output_dim,
-            bottleneck_dim,
-            context_len=context_len,
-            subsampling_factor=subsampling_factor,
-            orthonormal_constraint=orthonormal_constraint,
-            bypass_scale=bypass_scale,
-        )
 
 
 #  https://github.com/swasun/VQ-VAE-Speech/blob/3c537c17465bf59855f0b81d9265354f65016563/src/models/vector_quantizer_ema.py

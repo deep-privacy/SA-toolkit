@@ -386,7 +386,7 @@ def train():
             str(cfg_exp.dir / f"{i}.pt")
             for i in range(num_iters, num_iters - cfg_exp.final_combination_n_model, -1)
         ]
-        logging.info("Final model combination...")
+        logging.info(f"Final model combination ... N last model: {cfg_exp.final_combination_n_model}")
         satools.script_utils.run([
                 cfg_cmd.cuda_cmd,
                 cfg_exp.dir / "log/combine.log",

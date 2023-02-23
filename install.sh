@@ -158,8 +158,6 @@ if [ ! -f $mark ]; then
   pip install Cython
 
   \rm requirements.txt || true
-  echo numpy==1.20.3 >> requirements.txt # force numpy version to 1.20.3 (required by Numba and pandas)
-
   echo scikit-learn==0.24.2 >> requirements.txt
   echo tensorboard >> requirements.txt
   echo carbontracker==1.1.6 >> requirements.txt
@@ -170,7 +168,7 @@ if [ ! -f $mark ]; then
   echo kaldiio==2.15.1 >> requirements.txt
   echo resampy==0.2.2 >> requirements.txt
   echo ConfigArgParse==1.5.1 >> requirements.txt
-  echo librosa==0.8.1 >> requirements.txt
+  echo 'librosa>=0.8.1' >> requirements.txt
   echo 'scipy>=1.7.1' >> requirements.txt
   echo amfm_decompy==1.0.11 >> requirements.txt
   echo ffmpeg==1.4 >> requirements.txt
@@ -181,7 +179,7 @@ if [ ! -f $mark ]; then
   echo matplotlib==3.4.3 >> requirements.txt
   echo SoundFile==0.10.3.post1 >> requirements.txt
   echo PyYAML==5.4.1 >> requirements.txt
-  echo h5py==3.2.1 >> requirements.txt
+  echo 'h5py>=3.2.1' >> requirements.txt
   echo ipython==7.27.0 >> requirements.txt
   echo 'git+https://github.com/feerci/feerci' >> requirements.txt
   echo 'pandas>=1.0.5' >> requirements.txt
@@ -191,6 +189,7 @@ if [ ! -f $mark ]; then
   echo ipywidgets==7.6.5 >> requirements.txt
   echo notebook==6.4.5 >> requirements.txt
   echo filelock >> requirements.txt
+
 
 
   pip3 install -r requirements.txt
