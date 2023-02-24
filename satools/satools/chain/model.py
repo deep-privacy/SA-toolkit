@@ -20,6 +20,7 @@ from .egs import (
 )
 from . import objf
 from .. import script_utils
+from ..jit import JITmode
 import satools
 
 
@@ -117,9 +118,7 @@ class ChainModel(nn.Module):
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
-        model = torch.jit.script(self.Net(self.chain_opts.output_dim))
-        model = model.cuda()
-        model(torch.rand(1, 16000).cuda())
+        model = self.Net(self.chain_opts.output_dim)
         if self.chain_opts.init_weight_model != "":
             init_weight_provided = self.load_state_model(self.chain_opts.init_weight_model)
 
@@ -412,14 +411,19 @@ class ChainModel(nn.Module):
         file = self.chain_opts.new_model if file==None else file
         install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
 
-        source_state_dict = model.state_dict()
-        model = self.Net(output_dim=self.chain_opts.output_dim)
-        model = torch.jit.script(model)
-        model.load_state_dict(source_state_dict)
         buffer = io.BytesIO()
-        torch.jit.save(model, buffer)
 
+        try:
+            source_state_dict = model.state_dict()
+            JITmode().forSave()
+            model = self.Net(output_dim=self.chain_opts.output_dim)
+            model = torch.jit.script(model)
+            model.load_state_dict(source_state_dict)
+            torch.jit.save(model, buffer)
         #  import torch, io; m = torch.jit.load(io.BytesIO(torch.load("exp/chain/e2e_tdnnf_t100_kaldifeat_b/0.pt")['base_model_jit'])); m
+        except Exception as e:
+            logging.critical("Model not compatible with torch.jit.script")
+
 
         torch.save({"base_model_args_state_dict": model.state_dict(),
                     "base_model_jit": buffer.getvalue(),
@@ -447,16 +451,16 @@ class ChainE2EModel(ChainModel):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
+        from _satools import kaldi  # lazy import (kaldi-free decoding)
+
+        kaldi.InstantiateKaldiCuda()
+
         chain_opts = self.chain_opts
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
         # load model
-        model = torch.jit.script(self.Net(self.chain_opts.output_dim))
-
-        from _satools import kaldi  # lazy import (kaldi-free decoding)
-
-        kaldi.InstantiateKaldiCuda()
+        model = self.Net(self.chain_opts.output_dim)
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
             chain_opts.l2_regularize,

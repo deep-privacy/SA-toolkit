@@ -12,7 +12,7 @@ from torch import Tensor
 from typing import List, Union, Dict, Optional, Callable, TypeVar, Any
 
 from .objf import OnlineNaturalGradient, OnlineNaturalGradient_apply
-from .. import nsg
+from ..jit import JITmode
 
 
 log_kaldi_warning = False
@@ -90,13 +90,10 @@ class NaturalAffineTransform(nn.Module):
             ngstate = NGState()
         self.ngstate = ngstate.asdict()
         # lazyinit (not required for decoding enables kaldi free execution)
-        self.preconditioner_in = torch.tensor(0)
-        self.preconditioner_out = torch.tensor(0)
+        self.preconditioner_in = None
+        self.preconditioner_out = None
         self.preconditioner_init = False
 
-        # For pytorch only
-        self.all_preconditioner_in = {}
-        self.all_preconditioner_out = {}
         self.weight = nn.Parameter(torch.Tensor(out_dim, feat_dim))
         self.bias = None
         if bias:
@@ -106,12 +103,11 @@ class NaturalAffineTransform(nn.Module):
         self.init_parameters()
 
     def __repr__(self):
-        s = ("{}(feat_dim={}, out_dim={})").format(
+        return ("{}(feat_dim={}, out_dim={})").format(
             self.__class__.__name__,
             self.feat_dim,
             self.out_dim,
         )
-        return s
 
     def init_parameters(self):
         """Initialize the parameters (weight and bias) of the layer"""
@@ -124,32 +120,17 @@ class NaturalAffineTransform(nn.Module):
     def _train_forward(self, input):
         if not self.preconditioner_init:
             self.preconditioner_init = True
-        preconditioner_in = get_preconditioner_from_ngstate(self.ngstate)
-        preconditioner_out = get_preconditioner_from_ngstate(self.ngstate)
+            self.preconditioner_in = get_preconditioner_from_ngstate(self.ngstate)
+            self.preconditioner_out = get_preconditioner_from_ngstate(self.ngstate)
         return OnlineNaturalGradient.apply(
             input,
             self.weight,
             self.bias,
-            preconditioner_in,
-            preconditioner_out,
+            self.preconditioner_in,
+            self.preconditioner_out,
         )
 
     def forward(self, x):
-        """Forward pass"""
-
-        # PyTorch only but slower
-        #  if torch.cuda.device_count() > 1:
-        #  if input.device not in self.all_preconditioner_in:
-        #  self.all_preconditioner_in[input.device] = nsg.OnlineNaturalGradient()
-        #  self.all_preconditioner_out[input.device] = nsg.OnlineNaturalGradient()
-        #  return chain.OnlineNaturalGradient.apply(
-        #  input,
-        #  self.weight,
-        #  self.bias,
-        #  self.all_preconditioner_in[input.device],
-        #  self.all_preconditioner_out[input.device],
-        #  )
-
         if self.training and self.weight.requires_grad:
             # DOES NOT WORK WITH JIT MODEL, ONLY FOR EVAL MODE
             return self._train_forward(x)

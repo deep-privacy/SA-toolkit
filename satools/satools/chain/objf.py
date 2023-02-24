@@ -9,7 +9,6 @@ from .egs import (
     Wav2vec2EgsCollectFn,
     GetSupervisionFromWav2Vec2Egs,
 )
-from .. import nsg
 
 try:
     from _satools import kaldi  # lazy import (kaldi-free decoding)
@@ -210,26 +209,14 @@ class OnlineNaturalGradient(torch.autograd.Function):
         else:
             grad_input = grad_output.mm(weight)
 
-        # Without kaldi
-        input_temp_copy = input_temp
-
-        if isinstance(in_state, nsg.OnlineNaturalGradient):
-            in_scale = in_state.precondition_directions(input_temp)
-        else:
-            in_scale = kaldi.nnet3.precondition_directions(
-                in_state, input_temp.clone().detach()
-            )
+        in_scale = kaldi.nnet3.precondition_directions(
+            in_state, input_temp.clone().detach())
 
         out_dim = grad_output.shape[-1]
         grad_output_temp = grad_output.view(-1, out_dim)
 
-        # Without kaldi
-        if isinstance(out_state, nsg.OnlineNaturalGradient):
-            out_scale = out_state.precondition_directions(grad_output_temp)
-        else:
-            out_scale = kaldi.nnet3.precondition_directions(
-                out_state, grad_output_temp
-            )  # hope grad_output is continguous!
+        out_scale = kaldi.nnet3.precondition_directions(
+            out_state, grad_output_temp)
 
         scale = torch.tensor(in_scale * out_scale, device=grad_output.device)
         grad_output.data.mul_(scale)
