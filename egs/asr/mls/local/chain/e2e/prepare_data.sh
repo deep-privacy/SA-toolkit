@@ -19,7 +19,6 @@ cmvn_opts=""
 left_context=0
 right_context=0
 frames_per_iter=3000000
-frame_subsampling_factor=3
 
 . ./utils/parse_options.sh
 . configs/local.conf

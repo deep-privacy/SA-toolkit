@@ -9,3 +9,4 @@ from . import tensorboard
 from . import cmvn
 from . import anonymization_metrics
 from . import kaldifeature as kaldifeat
+from . import augmentation

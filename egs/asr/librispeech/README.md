@@ -8,7 +8,7 @@ To run the recipe:
 # Activate your miniconda env and kaldi env
 . ./path.sh
 
-#  Change the path to librispeech database in ``conf/local.conf``
+#  Change the path to librispeech database in `conf/local.conf` and/or use `local/download_libri.sh`
 ./local/chain/e2e/prepare_data.sh --train_set train_clean_100
 ./local/chain/e2e/prepare_data.sh --train_set train_clean_360
 ./local/chain/e2e/prepare_data.sh --train_set train_600

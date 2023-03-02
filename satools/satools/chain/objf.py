@@ -427,7 +427,7 @@ def compute_chain_objf(
         dataset,
         batch_sampler=batch_sampler,
         collate_fn=Wav2vec2EgsCollectFn,
-        num_workers=4,
+        num_workers=9,
     )
 
     for mb_id, data in enumerate(dataloader):

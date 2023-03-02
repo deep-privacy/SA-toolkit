@@ -8,38 +8,54 @@ tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
 egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
-num_epochs = 4
+num_epochs = 2
 num_jobs_initial = 1
 num_jobs_final = 1
-lr_initial = 5e-05
+lr_initial = 1e-04
 lr_final =   1e-06
 diagnostics_interval = 20
 checkpoint_interval =  20
-# fits on a 47 GB card with wav2vec2 large
+# fits on ~35 GB VRAM
 minibatch_size = 8
 grad_acc_steps = 16
-train_stage = last
+# train_stage = 34
 # train_stage = 365
 
-xent_regularize = 0.02
+xent_regularize = 0.01
+weight_decay_l2_regularize_factor = 0.001
 
 final_combination_n_model = 1
 
 model_file = local/chain/e2e/tuning/tdnnf_wav2vec2.py
-dirname = e2e_tdnnf_wav2vec2
+dirname = e2e_tdnnf_wav2vec2_t100_aug
+
+augmentation = {
+  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
+  "aug_number": 1,
+  "add_noise": {
+      # "babble_noise": "true",
+      "noise_db_csv": "/lium/raid01_b/pchampi/lab/sidekit/egs/voxceleb/list/musan.csv",
+      "data_path": "/"
+    },
+  "add_reverb": {
+      "rir_db_csv": "/lium/raid01_b/pchampi/lab/sidekit/egs/voxceleb/list/reverb.csv",
+      "data_path": "/"
+    },
+    "sanity_check_path" : "/tmp/sanity_test",
+    "sanity_check_samples" : 2
+  }
 
 [test]
 graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+
 # test_set = data/test_clean
-test_set = data/test_other
+test_set = data/test_clean,data/test_other
+# test_set = data/test_other
 # test_set = data/dev_other
 # test_set = data/dev_clean
-# test_set = data/dev_clean
-# suffix = baseline
+
 # decode on gpus
 num_jobs = 2
 gpu = True
-# iter = 428
-
 
 # vim:set et sw=2 ts=2 ft=toml:

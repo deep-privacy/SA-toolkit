@@ -9,6 +9,9 @@ from collections import defaultdict
 
 import soundfile
 import torch
+import torchaudio
+
+from .. import augmentation
 
 try:
     from _satools import kaldi  # lazy import (kaldi-free decoding)
@@ -230,6 +233,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         utt2len_file,
         transition_model_filename,
         normalization_fst_rxfilename,
+        augmentation={},
     ):
         """instantiates a Pytorch Dataset for E2E training
 
@@ -248,11 +252,46 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         kaldi.fst.ReadFstKaldi(normalization_fst_rxfilename, self.normalization_fst)
         self.prepare_egs(wav, fst_file)
 
+        self.augmentation = augmentation
+        self.use_augmentation = False
+        if self.augmentation and len(self.augmentation["pipeline"]) > 0 and self.augmentation["aug_number"] > 0:
+            self.use_augmentation = True
+            self.noise_df = None
+            import pandas
+            if "add_noise" in self.augmentation:
+                noise_df = pandas.read_csv(self.augmentation["add_noise"]["noise_db_csv"])
+                #  noise_df = noise_df.loc[noise_df.duration > self.duration]
+                self.noise_df = noise_df.set_index(noise_df.type)
+
+            self.rir_df = None
+            if "add_reverb" in self.augmentation:
+                tmp_rir_df = pandas.read_csv(self.augmentation["add_reverb"]["rir_db_csv"])
+                tmp_rir_df = tmp_rir_df.loc[tmp_rir_df["type"] == "simulated_rirs"]
+                # load the RIR database
+                self.rir_df = tmp_rir_df.set_index(tmp_rir_df.type)
+
+            logging.info("Using data augmentation")
+
+
+
+
     def __len__(self):
         return len(self.egs_holder)
 
     def __getitem__(self, idx):
-        return wav_from_scp(self.egs_holder[idx])
+        audio, egs = wav_from_scp(self.egs_holder[idx])
+        if self.use_augmentation:
+            audio, selected_aug = augmentation.data_augmentation(audio,
+                           self.augmentation,
+                           noise_df=self.noise_df,
+                           rir_df=self.rir_df)
+            if "sanity_check_path" in self.augmentation and "sanity_check_samples" in self.augmentation and idx <= self.augmentation["sanity_check_samples"]:
+                os.makedirs(self.augmentation["sanity_check_path"], exist_ok=True)
+                torchaudio.save(self.augmentation["sanity_check_path"] + "/" + str(idx) + "-" + ','.join(selected_aug) + ".wav", audio, 16_000)
+
+
+            audio = audio.squeeze(0)
+        return audio, egs
 
     def __item__(self, i):
         return self.egs_holder[i]

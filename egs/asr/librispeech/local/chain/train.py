@@ -37,7 +37,7 @@ class Opts:
     cuda_cmd: str = "./utils/run.pl"
 
     # for training exp
-    frame_subsampling_factor: int = 3 # must be always 3
+    num_archives_multiplier_factor: int = 3 # as in kaldi 3x for frame_subsampling_factor
     checkpoint_interval: int = 100
     diagnostics_interval: int = 10
     dirname: str = "model_a"
@@ -64,6 +64,7 @@ class Opts:
     l2_regularize: float = 1e-4 # LF-MMI
      # for node that have less than num_jobs_final, wait for one job to finish before starting a new one
     max_concurrent_jobs: int = 99
+    augmentation: str = "" # allow empty
 
      # for decoding
     gpu: str = "True"
@@ -87,12 +88,12 @@ class Opts:
     def get_model_args(self):
         if self.model_args == "":
             return []
-        return [json.loads(self.model_args)]
+        return json.loads(self.model_args)
 
     def get_forcmd(self, key):
         if getattr(self, key) == "":
             return []
-        return [f"--{key.replace('_', '-')}", str(getattr(self, key))]
+        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace("\n", "")]
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -218,12 +219,12 @@ def train():
     num_archives = satools.script_utils.get_egs_info(cfg_exp.egs_dir)
     num_epochs = cfg_exp.num_epochs
     # we don't use num of jobs b/c it is 1 for now
-    num_archives_to_process = num_archives * num_epochs * cfg_exp.frame_subsampling_factor
+    num_archives_to_process = num_archives * num_epochs * cfg_exp.num_archives_multiplier_factor
     num_iters = (num_archives_to_process * 2) // (
         cfg_exp.num_jobs_initial + cfg_exp.num_jobs_final
     )
     num_iters_last_epoch = (
-        num_archives * (num_epochs - 1) * cfg_exp.frame_subsampling_factor * 2
+        num_archives * (num_epochs - 1) * cfg_exp.num_archives_multiplier_factor * 2
     ) // (cfg_exp.num_jobs_initial + cfg_exp.num_jobs_final)
 
     carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
@@ -256,7 +257,7 @@ def train():
             quit(1)
 
 
-        logging.info(f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, frame_subsampling_factor={cfg_exp.frame_subsampling_factor}, num_epochs={num_epochs}")
+        logging.info(f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, num_archives_multiplier_factor={cfg_exp.num_archives_multiplier_factor}, num_epochs={num_epochs}")
         logging.info(f"Starting training from iter={cfg_exp.train_stage}")
         logging.info(f"Watch logs with:\n  tail -F {cfg_exp.dir}/log/train.{{0..{num_iters}}}.{{1..{cfg_exp.num_jobs_final}}}.log {cfg_exp.dir}/log/init.log {cfg_exp.dir}/log/compute_prob_valid.{{1..{num_iters}}}.log | ./shutil/grcat conf.log")
         logging.info("Open tensorbord with:\n  tensorboard --logdir_spec $(find $(pwd) -name 'runs' | awk  '{split($NF,a,\"/exp/chain/\"); split(a[2],b,\"/\"); print b[1]\":\"$0}' | tr \"\\n\" \",\" |  sed 's/,$/ /g')")
@@ -320,12 +321,14 @@ def train():
                         "--lr", str(lr),
                         "--egs", f"{cfg_exp.egs_dir}/fst_train.{num_archives_processed % num_archives + 1}.scp",
                         *cfg_exp.get_forcmd("minibatch_size"),
+                        *cfg_exp.get_forcmd("augmentation"),
                         *cfg_exp.get_forcmd("weight_decay_l2_regularize_factor"),
                         *cfg_exp.get_forcmd("l2_regularize"),
                         *cfg_exp.get_forcmd("xent_regularize"),
                         *cfg_exp.get_forcmd("sampler"),
                         *cfg_exp.get_forcmd("grad_acc_steps"),
                         *cfg_exp.get_forcmd("data"),
+                        "--num-iter", str(num_iters),
                         "--new-model", cfg_exp.dir / f"{iter_no}.{job_id}.pt",
                         cfg_exp.dir / f"{iter_no}.pt"
                     ])
@@ -402,83 +405,96 @@ def train():
         ])
 
     if stage <= 5:
-        carbonTracker.epoch_end()
+        #  carbonTracker.epoch_end()
         carbonTracker.stop()
 
-    final_iter = num_iters - 1
-    data_name = os.path.basename(cfg_decode.test_set)
-    decode_iter = args.decode_iter.replace(".pt", "") if args.decode_iter != "_" else cfg_decode.decode_iter
-    decode_suff = "_iter{}{}".format(decode_iter, cfg_decode.suffix)
-    out_dir = cfg_exp.dir / f"decode_{data_name}{decode_suff}"
+    for test_set in str(cfg_decode.test_set).split(","):
+        test_set = Path(test_set)
+        final_iter = num_iters - 1
+        data_name = os.path.basename(test_set)
+        decode_iter = args.decode_iter.replace(".pt", "") if args.decode_iter != "_" else cfg_decode.decode_iter
+        decode_suff = "_iter{}{}".format(decode_iter, cfg_decode.suffix)
+        out_dir = cfg_exp.dir / f"decode_{data_name}{decode_suff}"
 
-    if stage <= 8:
-        num_jobs = satools.utils.split_data(cfg_decode.test_set, cfg_decode.num_jobs)
-        logging.info(f"Decoding with {cfg_decode.num_jobs} jobs...")
+        if stage <= 8:
+            num_jobs = satools.utils.split_data(test_set, cfg_decode.num_jobs)
+            logging.info(f"Decoding with {cfg_decode.num_jobs} jobs...")
 
-        gpu_opts = []
-        if bool(cfg_decode.gpu):
-            gpu_opts = ["--use-gpu", "True", "--gpu-id", "JOB"]
+            gpu_opts = []
+            if bool(cfg_decode.gpu):
+                gpu_opts = ["--use-gpu", "True", "--gpu-id", "JOB"]
 
-        feats_scp = f"{cfg_decode.test_set}/split{num_jobs}/JOB/wav.scp"
+            feats_scp = f"{test_set}/split{num_jobs}/JOB/wav.scp"
 
-        tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm 2> /dev/null", shell=True)
+            tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm 2> /dev/null", shell=True)
 
-        satools.script_utils.run([
-                cfg_cmd.cpu_cmd if bool(cfg_decode.gpu) else cfg_cmd.cpu_cmd,
-                f"JOB=1:{num_jobs}",
-                out_dir / "log" / "decode.JOB.log",
-                 cfg_exp.model_file,
-                 *cfg_exp.get_model_args,
-                "--mode", "decode",
-                 *cfg_exp.get_forcmd("dir"),
-                *gpu_opts,
-                "--decode-feats", feats_scp,
-                cfg_exp.dir / f"{decode_iter}.pt",
-                "|",
-                "shutil/decode/latgen-faster-mapped.sh",
-                cfg_decode.graph_dir / "words.txt",
-                cfg_exp.dir / "0.trans_mdl",
-                f"{cfg_decode.graph_dir}/HCLG.fst",
-                out_dir / "lat.JOB.gz",
-        ])
-        tqdm.terminate()
-        print("", file=sys.stderr)
-        satools.script_utils.write_single_param_file(num_jobs, out_dir / "num_jobs")
+            satools.script_utils.run([
+                    cfg_cmd.cpu_cmd if bool(cfg_decode.gpu) else cfg_cmd.cpu_cmd,
+                    f"JOB=1:{num_jobs}",
+                    out_dir / "log" / "decode.JOB.log",
+                     cfg_exp.model_file,
+                     *cfg_exp.get_model_args,
+                    "--mode", "decode",
+                     *cfg_exp.get_forcmd("dir"),
+                    *gpu_opts,
+                    "--decode-feats", feats_scp,
+                    cfg_exp.dir / f"{decode_iter}.pt",
+                    "|",
+                    "shutil/decode/latgen-faster-mapped.sh",
+                    cfg_decode.graph_dir / "words.txt",
+                    cfg_exp.dir / "0.trans_mdl",
+                    f"{cfg_decode.graph_dir}/HCLG.fst",
+                    out_dir / "lat.JOB.gz",
+            ])
+            tqdm.kill()
+            print("", file=sys.stderr)
+            satools.script_utils.write_single_param_file(num_jobs, out_dir / "num_jobs")
 
 
-    if stage <= 9:
-        logging.info(f"Scoring...")
-        if not os.path.isfile(out_dir / "../final.mdl") and os.path.isfile(out_dir / "../0.trans_mdl"):
-            satools.script_utils.run([ "ln", "-r", "-s", out_dir / "../0.trans_mdl", out_dir / "../final.mdl" ])
-        satools.script_utils.run(["local/score.sh", "--cmd", cfg_cmd.cpu_cmd, cfg_decode.test_set, cfg_decode.graph_dir, out_dir])
+        if stage <= 9:
+            logging.info(f"Scoring...")
+            if not os.path.isfile(out_dir / "../final.mdl") and os.path.isfile(out_dir / "../0.trans_mdl"):
+                satools.script_utils.run([ "ln", "-r", "-s", out_dir / "../0.trans_mdl", out_dir / "../final.mdl" ])
+            satools.script_utils.run(["local/score.sh", "--cmd", cfg_cmd.cpu_cmd, test_set, cfg_decode.graph_dir, out_dir])
 
-        logging.info(f"Printing best WER without rescoring {out_dir}...")
-        satools.script_utils.run([ "cat", "{}/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}/best_wer".format(out_dir) ], shell=True)
-        logging.info(" " + satools.script_utils.read_single_param_file("{}/best_wer".format(out_dir), typename=str))
+            logging.info(f"Printing best WER without rescoring {out_dir}...")
+            satools.script_utils.run([ "cat", "{}/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}/best_wer".format(out_dir) ], shell=True)
+            logging.info(" " + satools.script_utils.read_single_param_file("{}/best_wer".format(out_dir), typename=str))
 
-        logging.info(f"Rescore with a N gram LM...")
-        satools.script_utils.run([
-                "steps/lmrescore_const_arpa.sh",
-                "--cmd", cfg_cmd.cpu_cmd,
-                cfg_decode.lang_lp_tgsmall,
-                cfg_decode.lang_lp_fg_large,
-                cfg_decode.test_set,
-                out_dir,
-                f"{out_dir}_fg",
-        ])
-        logging.info(f"Printing best WER with rescoring {out_dir}_fg...")
-        satools.script_utils.run([ "cat", "{}_fg/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir)], shell=True)
-        logging.info(" " + satools.script_utils.read_single_param_file( f"{out_dir}_fg/best_wer", typename=str))
+            logging.info(f"Rescore with a N gram LM...")
+            satools.script_utils.run([
+                    "steps/lmrescore_const_arpa.sh",
+                    "--cmd", cfg_cmd.cpu_cmd,
+                    cfg_decode.lang_lp_tgsmall,
+                    cfg_decode.lang_lp_fg_large,
+                    test_set,
+                    out_dir,
+                    f"{out_dir}_fg",
+            ])
+            logging.info(f"Printing best WER with rescoring {out_dir}_fg...")
+            satools.script_utils.run([ "cat", "{}_fg/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir)], shell=True)
+            logging.info(" " + satools.script_utils.read_single_param_file( f"{out_dir}_fg/best_wer", typename=str))
 
-        logging.info(f"Computing WER details for {out_dir}_fg...")
-        satools.script_utils.run([
-                "./shutil/decode/wer_detail.sh",
-                "--cmd", cfg_cmd.cpu_cmd,
-                "--dataDir", cfg_decode.test_set,
-                "--decodeDir", f"{out_dir}_fg",
-                "--langDir", cfg_decode.lang_lp_fg_large,
-            ], shell=True,
-        )
+            logging.info(f"Computing WER details for {out_dir}_fg...")
+            satools.script_utils.run([
+                    "./shutil/decode/wer_detail.sh",
+                    "--cmd", cfg_cmd.cpu_cmd,
+                    "--dataDir", test_set,
+                    "--decodeDir", f"{out_dir}_fg",
+                    "--langDir", cfg_decode.lang_lp_fg_large,
+                ], shell=True,
+            )
+
+        if stage <= 10:
+            satools.script_utils.run([
+                     cfg_exp.model_file,
+                     *cfg_exp.get_model_args,
+                    "--mode", "jit_save",
+                     *cfg_exp.get_forcmd("dir"),
+                    "--new-model", cfg_exp.dir / f"{decode_iter}.jit",
+                    cfg_exp.dir / f"{decode_iter}.pt",
+                ], shell=True,
+            )
 
 
 if __name__ == "__main__":

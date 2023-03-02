@@ -20,7 +20,6 @@ from .egs import (
 )
 from . import objf
 from .. import script_utils
-from ..jit import JITmode
 import satools
 
 
@@ -41,6 +40,7 @@ class TrainerOpts:
     leaky_hmm_coefficient: float = 0.1 # LF-MMI CONST
     out_of_range_regularize: float = 0.01  # LF-MMI CONST
     minibatch_size: int = 16
+    augmentation: str = "{}"
 
 
 @dataclass
@@ -62,7 +62,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
         parser = argparse.ArgumentParser(description="")
         for field in fields(self):
             if field.name == "base_model":
-                parser.add_argument("base_model") # $1
+                parser.add_argument("base_model", nargs='?') # $1 / nargs=? reutrns ChainE2EModel for testing
                 continue
             parser.add_argument(f"--{field.name.replace('_', '-')}", default=field.default, type=field.type)
         args = parser.parse_args()
@@ -78,7 +78,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
         return self
 
 class ChainModel(nn.Module):
-    def __init__(self, model_cls, cmd_line=False, **kwargs):
+    def __init__(self, model_cls, cmd_line=False, testfn=None, **kwargs):
         """initialize a ChainModel"""
         super(ChainModel, self).__init__()
         assert model_cls is not None
@@ -90,6 +90,13 @@ class ChainModel(nn.Module):
             self.chain_opts.load_from_config(kwargs)
 
         self.Net = model_cls
+        if self.chain_opts.mode.startswith("test"):
+            if testfn != None:
+                testfn(model_cls)
+                sys.exit(0)
+            logging.critical("Add testfn=$yourfn to the ChainE2EModel obj init call")
+            sys.exit(1)
+
         self.call_by_mode()
 
     def call_by_mode(self):
@@ -115,6 +122,10 @@ class ChainModel(nn.Module):
             self.infer()
         elif self.chain_opts.mode == "final_combination":
             self.combine_final_model()
+        elif self.chain_opts.mode == "jit_save":
+            self.jit_save()
+        else:
+            logging.critical(f"Mode '{self.chain_opts.mode}' not defined")
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
@@ -151,6 +162,18 @@ class ChainModel(nn.Module):
         the standard way other libraries call the training function.
         """
         raise NotImplementedError("Only implementing e2e LF-MMI")
+
+    def jit_save(self):
+        try:
+            file = self.chain_opts.new_model
+            model = self.Net(self.chain_opts.output_dim)
+            model.load_state_dict(self.load_state_model(self.chain_opts.base_model))
+            model = torch.jit.script(model)
+            torch.jit.save(model, file)
+            logging.info("Saved to: " + str(file))
+        except Exception as e:
+            logging.critical("Model not compatible with torch.jit.script")
+            print(e, file=sys.stderr, flush=True)
 
     @torch.no_grad()
     def validate(self):
@@ -217,7 +240,6 @@ class ChainModel(nn.Module):
     def get_forward(
         self,
         device=torch.device("cpu"),
-        share_memory=False,
         get_model_module=False,
         load_model=True,
     ):
@@ -237,9 +259,6 @@ class ChainModel(nn.Module):
                 logging.warning("Incompatible layers: {}".format(not_inited))
 
         model.eval()
-        if share_memory:
-            model.share_memory()
-
         def _forward(waveform):
             with torch.no_grad():
                 post, xent_output = model(waveform)
@@ -302,8 +321,9 @@ class ChainModel(nn.Module):
             writer(key[0], tensor_to_writer(post))
             logging.info("Wrote {}".format(key[0]))
         close()
-        tqdm_file.seek(0)
-        tqdm_file.truncate()
+        if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
+            tqdm_file.seek(0)
+            tqdm_file.truncate()
 
     def reset_dims(self):
         # what if the user wants to pass it? Just override this function
@@ -403,30 +423,27 @@ class ChainModel(nn.Module):
 
     def load_state_model(self, file):
         m = torch.load(file)
-        if "base_model_args_state_dict" in m:
-            return m["base_model_args_state_dict"]
+        if "base_model_state_dict" in m:
+            return m["base_model_state_dict"]
         return m
 
     def save_model(self, model, file=None):
         file = self.chain_opts.new_model if file==None else file
         install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
 
-        buffer = io.BytesIO()
-
-        try:
-            source_state_dict = model.state_dict()
-            JITmode().forSave()
-            model = self.Net(output_dim=self.chain_opts.output_dim)
-            model = torch.jit.script(model)
-            model.load_state_dict(source_state_dict)
-            torch.jit.save(model, buffer)
-        #  import torch, io; m = torch.jit.load(io.BytesIO(torch.load("exp/chain/e2e_tdnnf_t100_kaldifeat_b/0.pt")['base_model_jit'])); m
-        except Exception as e:
-            logging.critical("Model not compatible with torch.jit.script")
+        #  if jit:
+            #  try:
+                #  source_state_dict = model.state_dict()
+                #  model = self.Net(output_dim=self.chain_opts.output_dim)
+                #  model = torch.jit.script(model)
+                #  model.load_state_dict(source_state_dict)
+                #  torch.jit.save(model, file + ".jit")
+            #  except Exception as e:
+                #  logging.critical("Model not compatible with torch.jit.script")
+                #  print(e, file=sys.stderr, flush=True)
 
 
-        torch.save({"base_model_args_state_dict": model.state_dict(),
-                    "base_model_jit": buffer.getvalue(),
+        torch.save({"base_model_state_dict": model.state_dict(),
                     "task_path": os.getcwd().replace(install_path, ""),
                     "install_path": install_path,
                     "base_model_path": sys.argv[0],
@@ -437,6 +454,15 @@ class ChainModel(nn.Module):
 
 class ChainE2EModel(ChainModel):
     """Extension of ChainModel to handle Chain E2E training"""
+
+    @staticmethod
+    def get_padding(kernel_sizes, subsampling_factors):
+        pad = 0
+        global_subsampling = 1
+        for k, s in zip(kernel_sizes, subsampling_factors):
+            pad += (k - 1) * global_subsampling
+            global_subsampling *= s
+        return int(pad)
 
     def get_optimizer(self, model, lr=0.01, weight_decay=0.001, **kwargs):
         optimizer = optim.Adam(model, lr=lr, weight_decay=weight_decay)
@@ -494,6 +520,7 @@ class ChainE2EModel(ChainModel):
             "{}/utt2len".format(chain_opts.dataset),
             "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
+            augmentation=json.loads(self.chain_opts.augmentation),
         )
         new_model = objf.train_lfmmi_one_iter(
             model,

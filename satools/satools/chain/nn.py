@@ -12,7 +12,6 @@ from torch import Tensor
 from typing import List, Union, Dict, Optional, Callable, TypeVar, Any
 
 from .objf import OnlineNaturalGradient, OnlineNaturalGradient_apply
-from ..jit import JITmode
 
 
 log_kaldi_warning = False
@@ -116,7 +115,7 @@ class NaturalAffineTransform(nn.Module):
         self.weight.data.mul_(1.0 / pow(self.feat_dim * self.out_dim, 0.5))
         self.bias.data.normal_()
 
-    @JITmode().select
+    @torch.jit.unused
     def _train_forward(self, input):
         if not self.preconditioner_init:
             self.preconditioner_init = True
@@ -194,6 +193,7 @@ class PassThrough(nn.Module):
         return x
 
 
+
 class TDNNF(nn.Module):
     def __init__(
         self,
@@ -228,6 +228,8 @@ class TDNNF(nn.Module):
         self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
         self.identity_lidx = torch.tensor(0, requires_grad=False)  # Start
         self.identity_ridx = None  # End
+        self.use_bypass = False
+        self.indices = torch.tensor(0, requires_grad=False)
         if bypass_scale > 0.0 and feat_dim == output_dim:
             self.use_bypass = True
             if self.context_len > 1:
@@ -244,30 +246,63 @@ class TDNNF(nn.Module):
                 if self.context_len == 2:
                     self.identity_lidx = torch.tensor(1, requires_grad=False)  # Start
                     self.identity_ridx = None  # End
-        else:
-            self.use_bypass = False
 
-    def forward(self, input):
+            #                               / at the subsampled rate, not in seconds
+            self.indices = torch.arange(0, 16000*100, 1.5, requires_grad=False).long()
+
+    def __repr__(self):
+        return ("{}(feat_dim={}, out_dim={}, bypass_scale={}, orthonormal_constraint={}, subsampling_factor={}, context_len={}\n\t linearB={}, bottleneck_func={}, linearA={})").format(
+            self.__class__.__name__,
+            self.feat_dim,
+            self.output_dim,
+            self.bypass_scale,
+            self.orthonormal_constraint,
+            self.subsampling_factor,
+            self.context_len,
+            self.linearB,
+            self.bottleneck_func,
+            self.linearA,
+        )
+
+    def forward(self, input, return_bottleneck:bool=False):
         mb, T, D = input.shape
         padded_input = (
             input.reshape(mb, -1)
-            .unfold(1, D * self.context_len, D * self.subsampling_factor)
+            .unfold(1, D * self.context_len, int(D * self.subsampling_factor))
             .contiguous()
         )
         x = self.linearB(padded_input)
         x = self.bottleneck_func(x)
+        if return_bottleneck:
+            return x
         x = self.linearA(x)
         if self.use_bypass:
-            x = (
-                x
-                + input[
-                    :,
-                    self.identity_lidx : self.identity_ridx : self.subsampling_factor,
-                    :,
-                ]
-                * self.bypass_scale
-            )
+            if self.subsampling_factor == 1.5:
+                x = self.add_padd(x, input, self.indices.to(device=x.device), self.bypass_scale)
+            else:
+                x = (
+                    x
+                    + input[
+                        :,
+                        self.identity_lidx : self.identity_ridx : self.subsampling_factor,
+                        :,
+                    ]
+                    * self.bypass_scale
+                )
         return x
+
+    def add_padd(self, x:torch.Tensor, input:torch.Tensor, indices:torch.Tensor, bypass_scale:torch.Tensor) -> torch.Tensor:
+        y = torch.index_select(input, 1, indices[:int(input.shape[1]/1.5)]) * bypass_scale
+        # pad the smaller tensor with zeros along the first dimension to match the size of the larger tensor
+        if x.size(1) < y.size(1):
+            x = torch.nn.functional.pad(x, [0, 0, 0, y.size(1)-x.size(1), 0, 0])
+        else:
+            y = torch.nn.functional.pad(y, [0, 0, 0, x.size(1)-y.size(1), 0, 0])
+
+        # broadcast the smaller tensor to the shape of the larger tensor and add them together
+        x = torch.broadcast_tensors(x, y)[0] + y
+        return x
+
 
 
 class TDNNFBatchNorm(nn.Module):
@@ -300,9 +335,11 @@ class TDNNFBatchNorm(nn.Module):
         self.bn = nn.BatchNorm1d(output_dim, affine=False)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
 
-    def forward(self, input):
+    def forward(self, input, return_bottleneck:bool=False):
         mb, T, D = input.shape
         x = self.tdnn(input)
+        if return_bottleneck:
+            return x
         x = x.permute(0, 2, 1)
         x = self.bn(x)
         x = x.permute(0, 2, 1)

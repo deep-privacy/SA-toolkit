@@ -103,6 +103,7 @@ if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   mark=.done-cuda
   if [ ! -f $mark ]; then
     yes | conda install -c "nvidia/label/cuda-11.7.0" cuda-toolkit
+    #yes | conda install -c conda-forge cudnn=8.4.1.50 --no-deps
     touch $mark
   fi
 
@@ -162,6 +163,7 @@ if [ ! -f $mark ]; then
   echo tensorboard >> requirements.txt
   echo carbontracker==1.1.6 >> requirements.txt
   echo python-dateutil >> requirements.txt
+  echo graftr >> requirements.txt # an interactive shell to view and edit PyTorch checkpoints
 
   # asr additional req
   echo pytorch-memlab==0.2.3 >> requirements.txt
