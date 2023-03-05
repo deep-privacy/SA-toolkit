@@ -166,6 +166,7 @@ def train():
     logging.info("Reading config")
     cfg_parse = configparser.ConfigParser()
     cfg_parse.read(args.config)
+    cfg_parse = satools.script_utils.vartoml(cfg_parse)
 
     cfg_cmd = Opts().load_from_config(cfg_parse["cmd"])
     cfg_exp = Opts().load_from_config(cfg_parse["exp"])
@@ -485,16 +486,19 @@ def train():
                 ], shell=True,
             )
 
-        if stage <= 10:
-            satools.script_utils.run([
-                     cfg_exp.model_file,
-                     *cfg_exp.get_model_args,
-                    "--mode", "jit_save",
-                     *cfg_exp.get_forcmd("dir"),
-                    "--new-model", cfg_exp.dir / f"{decode_iter}.jit",
-                    cfg_exp.dir / f"{decode_iter}.pt",
-                ], shell=True,
-            )
+    if stage <= 10:
+        logging.info(f"Creating JIT model")
+        satools.script_utils.run([
+                cfg_cmd.cpu_cmd,
+                cfg_exp.dir / "log" / "jit.log",
+                 cfg_exp.model_file,
+                 *cfg_exp.get_model_args,
+                "--mode", "jit_save",
+                 *cfg_exp.get_forcmd("dir"),
+                "--new-model", cfg_exp.dir / f"{decode_iter}.jit",
+                cfg_exp.dir / f"{decode_iter}.pt",
+            ]
+        )
 
 
 if __name__ == "__main__":

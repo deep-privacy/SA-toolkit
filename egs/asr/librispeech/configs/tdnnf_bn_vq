@@ -2,6 +2,9 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
+[var]
+vq = 48
+
 [exp]
 train_set = data/train_clean_100_sp
 tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
@@ -11,8 +14,8 @@ egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 num_epochs = 2
 num_jobs_initial = 2
 num_jobs_final = 5
-lr_initial = 0.0005
-lr_final = 0.00001
+lr_initial = 0.0001
+lr_final =   0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
 minibatch_size = 16
@@ -21,13 +24,12 @@ final_combination_n_model = 1
 # train_stage = 15
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf_vq.py
-dirname = e2e_tdnnf_t100_vq_256
-model_args = ["--freeze-encoder", "True", "--codebook-size", "256"]
-init_weight_model = "./exp/chain/e2e_tdnnf_t100_aug/final.pt"
+model_file = local/chain/tuning/tdnnf_vq.py
+dirname = bn_tdnnf_t100_vq_${:vq}
+model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
+init_weight_model = "./exp/chain/bn_tdnnf_t100_aug/final.pt"
 
-# sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
-# tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
+# a=bn_tdnnf_t100_vq_; tail ${a}*/decode_test_clean*final_fg/scoringDetails/best_wer | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
 
 [test]
 graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall

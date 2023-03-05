@@ -73,6 +73,7 @@ def build(args):
             self.padding = ChainE2EModel.get_padding(kernel_size_list[0], subsampling_factor_list[0]) // 2
             self.padding_after = ChainE2EModel.get_padding(kernel_size_list[1], subsampling_factor_list[1]) // 2
 
+            # input layer
             self.tdnn1 = sann.TDNNFBatchNorm(
                 self.input_dim,
                 hidden_dim,
@@ -99,7 +100,6 @@ def build(args):
                 tdnnfs.append(nn.Dropout(p_dropout))
 
             # BN layer
-            self.train()
             kernel_size = kernel_size_list[0][i+1]
             subsampling_factor = subsampling_factor_list[0][i+1]
             layer = sann.TDNNFBatchNorm(
@@ -186,8 +186,8 @@ def build(args):
             )
 
             opti.param_groups[0]["lr"] = lr / 20
-            #  if iter > total_iter * 0.20 and iter < total_iter * 0.70:
-                #  opti.param_groups[0]["lr"] = lr / 5
+            if iter > total_iter * 0.10 and iter < total_iter * 0.90:
+                opti.param_groups[0]["lr"] = lr / 5
             opti.param_groups[1]["lr"] = lr
             logging.info("LR: " + str(opti.param_groups[1]["lr"]))
             logging.info("Preprocesor LR: " + str(opti.param_groups[0]["lr"]))
@@ -212,12 +212,12 @@ def build(args):
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
-        def pad_input(self, x, pad_amount=0):
+        def pad_input(self, x, pad_amount:int=0):
             if pad_amount > 0:
                 N, T, C = x.shape
                 left_pad = x[:, 0:1, :].repeat(1, pad_amount, 1).reshape(N, -1, C)
                 right_pad = x[:, -1, :].repeat(1, pad_amount, 1).reshape(N, -1, C)
-                x = torch.cat([left_pad, x, right_pad], axis=1)
+                x = torch.cat([left_pad, x, right_pad], 1)
             return x
 
         @torch.jit.export
@@ -241,10 +241,10 @@ def build(args):
             x = self.tdnn1(x)
             #  x = self.dropout1(x)
 
-            x = self.tdnnfs[:-2](x)
+            for i, t in enumerate(self.tdnnfs[:-2]):
+                x = t.forward(x)
             x = self.tdnnfs[-2].forward(x, return_bottleneck=True)
             #  x = self.tdnnfs[-1].forward(x) # dropout layer
-
             return x
 
         def forward(self, x):

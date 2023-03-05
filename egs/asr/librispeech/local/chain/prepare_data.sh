@@ -80,7 +80,7 @@ if [ $stage -le 0 ]; then
     parts="$parts train-other-500"
   fi
   if [[ "$train_set" == "train_clean_360" ]]; then
-    parts="$parts train_clean_360"
+    parts="$parts train-clean-360"
   fi
   # format the data as Kaldi data directories
   for part in $parts ; do

@@ -25,10 +25,10 @@ def build(args):
             hidden_dim=1024,
             bottleneck_dim=128,
             prefinal_bottleneck_dim=256,
-            #                                             \ /== Extract BN here
-            kernel_size_list=       [[3, 3, 3, 1, 3, 3, 3, 3], [1,   3, 3, 3]],
-            subsampling_factor_list=[[1, 1, 1, 2, 1, 1, 1, 1], [1.5, 1, 1, 1]],
-            #                                 / \              /   \== Padding to for sub sampling = 3 necessary for decoding
+            #                                                         \ /== Extract BN here
+            kernel_size_list=       [[3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3], [1,   3, 3, 3]],
+            subsampling_factor_list=[[1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1], [1.5, 1, 1, 1]],
+            #                                 / \                          /   \== Padding to for sub sampling = 3 necessary for decoding
             #                  Fbank -> 160 -> /2 -> 320 (BN) -> /1.5 -> ~480 ASR
             p_dropout=0.1,
         ):
@@ -221,8 +221,8 @@ if __name__ == "__main__":
     # bash $ tdnnf.py --mode test
     def _test(model):
         model = model(output_dim=1233)
-        model = torch.jit.script(model)
-        torch.jit.save(model, "a.jit")
+        #  model = torch.jit.script(model)
+        #  torch.jit.save(model, "a.jit")
 
         for C in [8000, 16000, 32000, 48000, 64000, 8192, 16640, 8192*2]:
             N = 1

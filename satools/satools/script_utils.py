@@ -232,3 +232,50 @@ def write_single_param_file(value, filename):
     with open(filename, "w") as opf:
         opf.write("{}".format(value))
         opf.close()
+
+
+def vartoml(item):
+    """
+    vartoml allows using variables in TOML config files.
+    [default]
+    basedir = "/myproject"
+    bindir = "${:basedir}/bin"
+    datadir = "${:basedir}/data"
+    """
+    import re
+    import toml
+    decoder = toml.TomlDecoder()
+
+    RE_VAR = re.compile(r"""
+             [$][{]
+             (
+                [:]([a-zA-Z0-9_-]+)+     # variable name
+             )
+             [}]
+    """, re.VERBOSE)
+    var = {}
+    if "var" in dict(item.items()):
+        var = dict(item.items())["var"]
+    var = dict(var)
+
+    def _var_replace(x):
+        if x.groups()[1] in os.environ:
+            print(f"Replacing '{x.groups()[0]}' with var from the env: {os.environ[x.groups()[1]]}", file=sys.stderr)
+            return os.environ[x.groups()[1]]
+        if x.groups()[1] not in var:
+            print(f"No {x.groups()[1]} in variable section of config file\nplease add to your config:\n[var]\n{x.groups()[1]} = Something", file=sys.stderr)
+            sys.exit(1)
+        return var[x.groups()[1]]
+
+    out = {}
+    data = dict(item.items())
+    for key, val in data.items():
+        out[key] = {}
+
+    for key, val in data.items():
+        for _k, _v in dict(val.items()).items():
+            out[key][_k] = _v
+            if re.search(RE_VAR, _v):
+                r = re.sub(RE_VAR, _var_replace, _v)
+                out[key][_k] = r
+    return out

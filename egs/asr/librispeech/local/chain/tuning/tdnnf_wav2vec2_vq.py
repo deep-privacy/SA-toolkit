@@ -10,8 +10,10 @@ import torch.nn.functional as F
 import satools
 import satools.nn as sann
 from satools.chain import ChainE2EModel
+from satools.utils.import_fairseq_model import wav2vec2_model
 
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("hydra").setLevel(logging.WARNING)
 import sys
 import configargparse
 
@@ -25,18 +27,36 @@ def build(args):
             hidden_dim=1024,
             bottleneck_dim=128,
             prefinal_bottleneck_dim=256,
-            #                                                         \ /== Extract BN here
-            kernel_size_list=       [[3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3], [1, 3, 3, 3]],
-            subsampling_factor_list=[[1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1], [2, 1, 1, 1]],
+            #                              \ /== Extract BN here
+            kernel_size_list=       [[3, 3, 3], [1,   3, 3, 3]],
+            subsampling_factor_list=[[1, 1, 1], [1.5, 1, 1, 1]],
+            #                                   /   \== Padding for sub sampling = 3 necessary for decoding
+            #              Wav2vec2 -> 320 (BN) -> /1.5 -> ~480 ASR
             p_dropout=0.1,
         ):
             super().__init__()
 
             # Preprocessor
-            self.input_dim = 80
+            self.input_dim = 1024  # self.preprocessor output dim
+            self.preprocessor = wav2vec2_model(**{
+                "extractor_mode": "layer_norm",
+                "extractor_conv_layer_config": [[ 512, 10, 5 ], [ 512, 3, 2 ], [ 512, 3, 2 ], [ 512, 3, 2 ], [ 512, 3, 2 ], [ 512, 2, 2 ], [ 512, 2, 2 ]],
+                "extractor_conv_bias": True,
+                "encoder_embed_dim": 1024,
+                "encoder_projection_dropout": 0.0,
+                "encoder_pos_conv_kernel": 128,
+                "encoder_pos_conv_groups": 16,
+                "encoder_num_layers": 24,
+                "encoder_num_heads": 16,
+                "encoder_attention_dropout": 0.0,
+                "encoder_ff_interm_features": 4096,
+                "encoder_ff_interm_dropout": 0.0,
+                "encoder_dropout": 0.0,
+                "encoder_layer_norm_first": True,
+                "encoder_layer_drop": 0.0,
+                "aux_num_out": None
+            })
 
-
-            self.cmvn = satools.cmvn.UttCMVN()
 
             self.output_dim = output_dim
 
@@ -73,8 +93,8 @@ def build(args):
             # BN layer
             self.acc_sum_vq = torch.tensor(0.0, requires_grad=False)
             self.acc_sum_perplexity = torch.tensor(0.0, requires_grad=False)
-            self.vq_loss = None
-            self.perplexity = None
+            self.vq_loss = torch.tensor(0.0)
+            self.perplexity = torch.tensor(0.0, requires_grad=False)
             class VQLayer(nn.Module):
                 def __init__(this):
                     super().__init__()
@@ -82,10 +102,16 @@ def build(args):
                         args.codebook_size, prefinal_bottleneck_dim, 0.25, 0.99
                     )
                     this.output_dim="same"
-                def forward(this, x:torch.Tensor) -> torch.Tensor:
-                    (vq_loss, x, perplexity, _, _, encoding_indices, losses, _, _, _, concatenated_quantized) = this.quant(x)
+
+                @torch.jit.unused
+                def for_train(this, vq_loss, perplexity):
                     self.vq_loss = vq_loss
                     self.perplexity = perplexity
+
+                def forward(this, x:torch.Tensor) -> torch.Tensor:
+                    (vq_loss, x, perplexity, _, _, encoding_indices) = this.quant(x)
+                    if this.training:
+                        this.for_train(vq_loss, perplexity)
                     return x
 
             kernel_size = kernel_size_list[0][i+1]
@@ -148,17 +174,52 @@ def build(args):
             self.xent_output.weight.data.zero_()
             self.xent_output.bias.data.zero_()
 
+
             if args.freeze_encoder == "True":
                 logging.info("Freezing encoder!")
+                self.preprocessor.eval()
 
                 switch_require_grad = False
                 for name, param in self.named_parameters():
-                    if name.startswith("tdnnfs.18.tdnn"):
+                    if name.startswith("tdnn1"):
                         switch_require_grad = True
                     param.requires_grad = switch_require_grad
                     logging.info(name + f" - requires_grad={param.requires_grad}")
 
             self.validate_model()
+
+        def set_lr_layers_for_optim(
+            self, get_optimizer, lr, weight_decay, iter=0, total_iter=-1
+        ):
+            def set_parameter_requires_grad(model, yes=False):
+                for param in model.parameters():
+                    param.requires_grad = yes
+
+            self.preprocessor.train()
+            if iter > total_iter * 0.90:
+                logging.info("Preprocesor in eval mode!")
+                set_parameter_requires_grad(self.preprocessor)
+                self.preprocessor.eval()
+
+            wav2vec = []
+            tdnnf = []
+            for name, param in self.named_parameters():
+                if "preprocessor" in name:
+                    wav2vec.append(param)
+                else:
+                    tdnnf.append(param)
+            opti = get_optimizer(
+                [{"params": wav2vec}, {"params": tdnnf}], lr, weight_decay
+            )
+
+            opti.param_groups[0]["lr"] = lr / 20
+            if iter > total_iter * 0.10 and iter < total_iter * 0.90:
+                opti.param_groups[0]["lr"] = lr / 5
+            opti.param_groups[1]["lr"] = lr
+            logging.info("LR: " + str(opti.param_groups[1]["lr"]))
+            logging.info("Preprocesor LR: " + str(opti.param_groups[0]["lr"]))
+
+            return opti
 
         def additional_obj(
             self,
@@ -214,17 +275,17 @@ def build(args):
             x = torch.arange(N * C).reshape(N, C).float()
             nnet_output, xent_output = self.forward(x)
             assert (
-                nnet_output.shape[1] == 50
+                nnet_output.shape[1] == 66
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
 
             self.eval()
             nnet_output, xent_output = self.forward(x)
             assert (
-                nnet_output.shape[1] == 50
+                nnet_output.shape[1] == 66
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
-        def pad_input(self, x, pad_amount=0):
+        def pad_input(self, x, pad_amount:int=0):
             if pad_amount > 0:
                 N, T, C = x.shape
                 left_pad = x[:, 0:1, :].repeat(1, pad_amount, 1).reshape(N, -1, C)
@@ -238,11 +299,15 @@ def build(args):
             inputs: a 2-dimensional tensor [N, C]
             return: an 3-dimensional tensor [N, T, C]
             """
-            x *= 32768
-            a = x
-            x = satools.kaldifeat.fbank(x, num_mel_bins=self.input_dim, snip_edges=False)
+            with torch.cuda.amp.autocast():
+                p_out = self.preprocessor.extract_features(x)
+                x = p_out[0][-1]
+                x = x.transpose(2, 1)
+                x = torch.nn.functional.pad(x, (0, 1), "replicate") # missing one dimension for downsampling to 320
+                x = x.transpose(2, 1)
+            x = x.to(torch.float32)
 
-            x = self.cmvn(x)
+            #  assert x.ndim == 3
             x = self.pad_input(x, pad_amount=self.padding)
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]
@@ -259,12 +324,14 @@ def build(args):
             #  assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            # To compute features that are compatible with Kaldi, wave samples have to be scaled to the range [-32768, 32768]
-            x *= 32768
-            x = satools.kaldifeat.fbank(x, num_mel_bins=self.input_dim, snip_edges=False)
-            #  assert x.ndim == 3
+            with torch.cuda.amp.autocast():
+                p_out = self.preprocessor.extract_features(x)
+                x = p_out[0][-1]
+                x = x.transpose(2, 1)
+                x = torch.nn.functional.pad(x, (0, 1), "replicate") # missing one dimension for downsampling to 320
+                x = x.transpose(2, 1)
+            x = x.to(torch.float32)
 
-            x = self.cmvn(x)
             x = self.pad_input(x, pad_amount=self.padding)
             # x is of shape: [batch_size, seq_len, feat_dim] = [N, T, C]
             # at this point, x is [N, T, C]

@@ -12,9 +12,9 @@ cuda_cmd = ./utils/run.pl
 # srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 @ CUDA_VISIBLE_DEVICES=1
 
 [exp]
-train_set = data/train_clean_100_sp
-tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
-egs_dir = exp/chain/e2e_train_clean_100/fst_egs
+train_set = data/train_600_sp
+tree_dir = exp/chain/e2e_train_600/e2e_biphone_tree
+egs_dir = exp/chain/e2e_train_600/fst_egs
 
 # train params
 # max_concurrent_jobs = 2
@@ -29,22 +29,23 @@ minibatch_size = 16
 grad_acc_steps = 1
  # merge weight, last x epoch checkpoints
 final_combination_n_model = 5
-# train_stage = 5
+# train_stage = 41
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf.py
-dirname = e2e_tdnnf_t100_aug
+model_file = local/chain/tuning/tdnnf.py
+dirname = bn_tdnnf_t600_aug
 
+# see ../../../share/dataprep_aug.py
 augmentation = {
   "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
   "aug_number": 1,
   "add_noise": {
       # "babble_noise": "true",
-      "noise_db_csv": "/lium/raid01_b/pchampi/lab/sidekit/egs/voxceleb/list/musan.csv",
+      "noise_db_csv": "../../data/musan.csv",
       "data_path": "/"
     },
   "add_reverb": {
-      "rir_db_csv": "/lium/raid01_b/pchampi/lab/sidekit/egs/voxceleb/list/reverb.csv",
+      "rir_db_csv": "../../data/reverb.csv",
       "data_path": "/"
     },
     "sanity_check_path" : "/tmp/sanity_test",
@@ -52,7 +53,7 @@ augmentation = {
   }
 
 [test]
-graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+graph_dir = exp/chain/e2e_train_600/e2e_biphone_tree/graph_tgsmall
 
 # test_set = data/test_clean
 test_set = data/test_clean,data/test_other

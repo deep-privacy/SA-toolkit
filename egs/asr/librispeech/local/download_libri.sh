@@ -1,7 +1,6 @@
 #!/bin/bash
 
 data_url_librispeech=www.openslr.org/resources/12  # Link to download LibriSpeech corpus
-data_url_libritts=www.openslr.org/resources/60     # Link to download LibriTTS corpus
 
 corpora=corpora
 

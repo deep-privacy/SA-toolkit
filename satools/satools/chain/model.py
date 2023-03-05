@@ -148,6 +148,8 @@ class ChainModel(nn.Module):
             )
 
         if hasattr(model, "init"):
+            if self.chain_opts.init_weight_model:
+                logging.warning("init_weight_model in config and mdoe.init() in pytorch model may cancel themself")
             model.init()
 
         self.save_model(model, self.chain_opts.base_model)
@@ -164,16 +166,13 @@ class ChainModel(nn.Module):
         raise NotImplementedError("Only implementing e2e LF-MMI")
 
     def jit_save(self):
-        try:
-            file = self.chain_opts.new_model
-            model = self.Net(self.chain_opts.output_dim)
-            model.load_state_dict(self.load_state_model(self.chain_opts.base_model))
-            model = torch.jit.script(model)
-            torch.jit.save(model, file)
-            logging.info("Saved to: " + str(file))
-        except Exception as e:
-            logging.critical("Model not compatible with torch.jit.script")
-            print(e, file=sys.stderr, flush=True)
+        file = self.chain_opts.new_model
+        model = self.Net(self.chain_opts.output_dim)
+        model.load_state_dict(self.load_state_model(self.chain_opts.base_model))
+        model = torch.jit.script(model)
+        torch.jit.save(model, file)
+        logging.info("Saved to: " + str(file))
+        self.save_model(model, self.chain_opts.base_model) # re-save old model (update dirs/exp keys)
 
     @torch.no_grad()
     def validate(self):
@@ -430,18 +429,6 @@ class ChainModel(nn.Module):
     def save_model(self, model, file=None):
         file = self.chain_opts.new_model if file==None else file
         install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
-
-        #  if jit:
-            #  try:
-                #  source_state_dict = model.state_dict()
-                #  model = self.Net(output_dim=self.chain_opts.output_dim)
-                #  model = torch.jit.script(model)
-                #  model.load_state_dict(source_state_dict)
-                #  torch.jit.save(model, file + ".jit")
-            #  except Exception as e:
-                #  logging.critical("Model not compatible with torch.jit.script")
-                #  print(e, file=sys.stderr, flush=True)
-
 
         torch.save({"base_model_state_dict": model.state_dict(),
                     "task_path": os.getcwd().replace(install_path, ""),

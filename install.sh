@@ -8,9 +8,6 @@ home=$PWD
 \rm env.sh 2> /dev/null || true
 touch env.sh
 
-# CUDA version
-CUDAROOT=/usr/local/cuda
-
 # VENV install dir
 venv_dir=$PWD/venv
 
@@ -18,9 +15,9 @@ venv_dir=$PWD/venv
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py39_22.11.1-1-Linux-x86_64.sh
 
-
-torch_version=1.12.1
-nightly=
+CUDAROOT=/usr/local/cuda
+torch_version=2.0.0
+nightly='nightly/'
 
 # Cluster dependent installs #
 
@@ -96,10 +93,12 @@ source $venv_dir/bin/activate ''
 
 
 
-# Cluster dependent installs #
+# Cluster dependent installs suite #
 ## Lium ##
 if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   echo "Installing on Lium"
+
+  # Cuda setup
   mark=.done-cuda
   if [ ! -f $mark ]; then
     yes | conda install -c "nvidia/label/cuda-11.7.0" cuda-toolkit
@@ -107,9 +106,52 @@ if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
     touch $mark
   fi
 
+  # conf
   CUDAROOT=$venv_dir
   torch_version=2.0.0
   nightly='nightly/'
+
+## Grid5000 ##
+elif [ "$(id -n -g)" == "g5k-users" ]; then
+
+  # Cuda setup
+  module_load="source /etc/profile.d/lmod.sh ''; module load cuda/11.3.1_gcc-8.3.0; module load gcc/8.3.0_gcc-8.3.0;";  eval "$module_load";  echo "$module_load" >> env.sh
+  yes | sudo-g5k apt install python2.7
+
+  # conf
+  CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
+  torch_version=2.0.0
+  nightly='nightly/'
+
+## colab ##
+elif test -f .in_colab_kaggle; then
+
+  # CUDA version
+  CUDAROOT=/usr/local/cuda
+  torch_version=2.0.0
+  nightly='nightly/'
+
+
+## Add your config! ##
+# elif [ "$(id -n -g)" == "???" ]; then
+
+
+## Default ##
+else
+
+  # Cuda setup
+  mark=.done-cuda
+  if [ ! -f $mark ]; then
+    yes | conda install -c "nvidia/label/cuda-11.7.0" cuda-toolkit
+    #yes | conda install -c conda-forge cudnn=8.4.1.50 --no-deps
+    touch $mark
+  fi
+
+  # conf
+  CUDAROOT=$venv_dir
+  torch_version=2.0.0
+  nightly='nightly/'
+
 fi
 
 cuda_version=$($CUDAROOT/bin/nvcc --version | grep "Cuda compilation tools" | cut -d" " -f5 | sed s/,//)
@@ -172,7 +214,6 @@ if [ ! -f $mark ]; then
   echo ConfigArgParse==1.5.1 >> requirements.txt
   echo 'librosa>=0.8.1' >> requirements.txt
   echo 'scipy>=1.7.1' >> requirements.txt
-  echo amfm_decompy==1.0.11 >> requirements.txt
   echo ffmpeg==1.4 >> requirements.txt
   echo tqdm >> requirements.txt
   # echo 'git+https://github.com/pytorch/fairseq.git@313ff0581561c7725ea9430321d6af2901573dfb' >> requirements.txt
@@ -192,12 +233,7 @@ if [ ! -f $mark ]; then
   echo notebook==6.4.5 >> requirements.txt
   echo filelock >> requirements.txt
 
-
-
   pip3 install -r requirements.txt
-
-  # HACK PATCHING pYAAPT.py
-  cp .pYAAPT.py $(python3 -c "import amfm_decompy.pYAAPT; print(amfm_decompy.__path__[0])")/pYAAPT.py
 
   cd $home
   touch $mark
