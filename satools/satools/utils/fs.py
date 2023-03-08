@@ -9,7 +9,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import kaldiio
 import torch
 from tqdm import tqdm
 
@@ -112,37 +111,24 @@ def scans_directory_for_ext(root_data, extension):
 
     return _path
 
+def scp_cache(enabled=True, cache_filename="file.cache"):
+    def decorator(func):
+        def wrapper(path):
+            if not enabled:
+                return func(path)
 
-_cache = {}
+            if cache_filename:
+                cache_path = cache_filename
+            else:
+                cache_path = f"{path}.cache"
 
-
-def put_in_cache(feat, key, file, put_in_ram=False):
-    global _cache
-
-    if not os.path.exists(file):
-        os.makedirs(file, exist_ok=True)
-
-    cache_path = os.path.join(file, "%s.mat" % os.path.basename(key))
-    kaldiio.save_mat(cache_path, feat.cpu().numpy())
-    if file not in _cache:
-        _cache[file] = {}
-    if put_in_ram:
-        _cache[file][key] = feat.cpu()
-
-
-def get_from_cache(key, file, put_in_ram=False):
-    global _cache
-    if file in _cache and key in _cache[file]:
-        return _cache[file][key]
-    cache_path = os.path.join(file, "%s.mat" % os.path.basename(key))
-    if os.path.exists(cache_path):
-        try:
-            feat = torch.tensor(kaldiio.load_mat(cache_path))
-            if file not in _cache:
-                _cache[file] = {}
-            if put_in_ram and key not in _cache[file]:
-                _cache[file][key] = feat.cpu()
-            return feat
-        except Exception as e:
-            raise Exception(f"Failed to load: {cache_path}")
-    return None
+            if os.path.exists(cache_path):
+                with open(cache_path, 'rb') as cache_file:
+                    result = pickle.load(cache_file)
+            else:
+                result = func(path)
+                with open(cache_path, 'wb') as cache_file:
+                    pickle.dump(result, cache_file)
+            return result
+        return wrapper
+    return decorator

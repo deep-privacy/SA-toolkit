@@ -163,13 +163,15 @@ def feat_writer(feature_wspec):
     return writer
 
 
-def run(cmd, quit_on_error=True, shell=False):
+def run(cmd, quit_on_error=True, shell=False, on_error=lambda x:x):
     """Run a command using subprocess, quit if return code is non-zero"""
     if shell == True and isinstance(cmd, list):
         _str_cmd = [str(c) for c in cmd] # if cmd is pathlib
         cmd = " ".join(_str_cmd)
     p = subprocess.run(cmd, shell=shell, stdout=subprocess.PIPE)
     if quit_on_error and p.returncode != 0:
+        on_error(p.returncode)
+        on_error(p.returncode)
         sys.exit(p.returncode)
     return p
 

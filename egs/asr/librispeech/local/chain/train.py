@@ -2,7 +2,7 @@
 
 description = """
   This script trains and tests chain models.
-  It takes a config file, if none is provided the script will look at configs/default.
+  It takes a config file
 """
 
 import argparse
@@ -50,7 +50,7 @@ class Opts:
     lr_final: float = 0.001
     lr_initial: float = 0.01
     minibatch_size: int = 4
-    model_file: Path = "init.pt"
+    model_file: Path = "./local/chain/tuning/aaaa.py"
     model_args: str = ""  # allow empty
     num_epochs: int = 5
     num_jobs_final: int = 6
@@ -153,10 +153,6 @@ def submit_diagnostic_jobs(cfg_cmd, cfg_exp, iter_no, args):
 
 def train():
     parser = argparse.ArgumentParser(description="Acoustic model training script")
-    # the idea behind a test config is that one can run different configurations of test
-    parser.add_argument(
-        "--test-config", default="test", help="name of the test to be run"
-    )
     parser.add_argument("--decode-iter", default="_")
     parser.add_argument("--stage", default=0, type=int)
     parser.add_argument("--config", default="configs/default")
@@ -164,6 +160,9 @@ def train():
     args = parser.parse_args()
 
     logging.info("Reading config")
+    if not Path(args.config).is_file():
+        logging.error(f"Config '{args.config}' not found")
+        quit(1)
     cfg_parse = configparser.ConfigParser()
     cfg_parse.read(args.config)
     cfg_parse = satools.script_utils.vartoml(cfg_parse)
@@ -406,7 +405,7 @@ def train():
         ])
 
     if stage <= 5:
-        #  carbonTracker.epoch_end()
+        carbonTracker.epoch_end()
         carbonTracker.stop()
 
     for test_set in str(cfg_decode.test_set).split(","):
@@ -427,7 +426,7 @@ def train():
 
             feats_scp = f"{test_set}/split{num_jobs}/JOB/wav.scp"
 
-            tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm 2> /dev/null", shell=True)
+            tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
 
             satools.script_utils.run([
                     cfg_cmd.cpu_cmd if bool(cfg_decode.gpu) else cfg_cmd.cpu_cmd,

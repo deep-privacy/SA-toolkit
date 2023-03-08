@@ -11,11 +11,15 @@ from . import f0
 
 
 class WavList(torch.utils.data.Dataset):
-    def __init__(self, wavs_paths, load_func=None, filter_dir=""):
+    def __init__(self, wavs_paths, wavs_idx, load_func=None):
         if isinstance(wavs_paths, str):
             self.wavs_path = wavs_paths.split(",")
+            self.wavs_idx = wavs_idx.split(",")
         else:
             self.wavs_path = wavs_paths
+            self.wavs_idx = wavs_idx
+
+        assert len(self.wavs_path) == len(self.wavs_idx)
         if load_func == None:
 
             def _load(filename):
@@ -25,34 +29,16 @@ class WavList(torch.utils.data.Dataset):
         else:
             self.load = load_func
 
-        if filter_dir:
-            self.filter_wavs_path(filter_dir)
-
-    def filter_wavs_path(self, path_dir):
-        print("Filtering wavs list with directory : ", path_dir)
-        if not os.path.exists(path_dir):
-            raise ValueError(f"{path_dir} doesn't exists")
-        if not os.path.isdir(path_dir):
-            raise ValueError(f"{path_dir} is not a directory")
-        wav_list_to_remove = set(os.listdir(path_dir))
-        self.wavs_path = [wav for wav in self.wavs_path if self.format_path_voxceleb_gen(wav) not in wav_list_to_remove]
-
-
-    def format_path_voxceleb_gen(self, path):
-        split_path = path.split("/")
-        basename_split = os.path.splitext(split_path[-1])
-        return f"{split_path[-3]}_{split_path[-2]}_{basename_split[0]}_gen{basename_split[1]}"
-
     def __len__(self):
         return len(self.wavs_path)
 
     def __getitem__(self, idx):
         filename = self.wavs_path[idx]
         waveform, sr = self.load(filename)
-        return (waveform, filename)
+        return (waveform, self.wavs_idx[idx], filename)
 
 
-def collate_fn_padd(f0_stats, get_func=None, get_f0=True):
+def collate_fn_padd():
     def _func_pad(batch):
         filenames = [b[1] for b in batch]
         batch = [b[0] for b in batch]
@@ -71,19 +57,8 @@ def collate_fn_padd(f0_stats, get_func=None, get_f0=True):
         if len(feats.shape) == 1:
             feats = torch.unsqueeze(feats, 0)
 
-        f0s = []
         acc_y = []
         for i, b in enumerate(batch):
-            if get_f0:
-                f0s.append(
-                    f0.get_f0(
-                        b.permute(0, 1),
-                        f0_stats=f0_stats,
-                        cache_with_filename=filenames[i],
-                    )
-                    .squeeze(dim=1)
-                    .permute(1, 0),
-                )
             # normalize feats for hifigan grount truth
             _feats_norm = b.squeeze().numpy()
             _feats_norm = _feats_norm * 2 ** 15
@@ -92,23 +67,40 @@ def collate_fn_padd(f0_stats, get_func=None, get_f0=True):
             _feats_norm = torch.FloatTensor(_feats_norm).unsqueeze(0)
             acc_y.append(_feats_norm.permute(1, 0))
 
-        if get_f0:
-            f0spad = torch.nn.utils.rnn.pad_sequence(
-                f0s, batch_first=True, padding_value=0
-            )
-            f0s = f0spad.permute(0, 2, 1)
-
         ypad = torch.nn.utils.rnn.pad_sequence(acc_y, batch_first=True, padding_value=0)
         ys = ypad.permute(0, 2, 1)
 
-        if get_func != None:
-            return get_func(feats, lengths, filenames, f0s, ys)
-        return feats, lengths, filenames, f0s, ys
+        print("feat.shape:", feat.shape)
+        return feats, lengths, filenames, ys
 
     return _func_pad
 
 
 def sample_interval(seqs, seq_len, max_len=None):
+    """
+    Randomly samples an interval of length `seq_len` from a set of sequences `seqs`,
+    ensuring that the interval is of the same length for all sequences.
+    Takes into account list of sequences with different sampling rates.
+
+    The function first determines the maximum sequence length in the list seqs
+    and calculates the "hop size" (the number of time steps per sample) for
+    each sequence based on its length. It then finds the least common multiple
+    (LCM) of these hop sizes, which ensures that the sampled intervals will be
+    of the same length for all sequences, regardless of their original sampling
+    rates.
+
+    Args:
+        seqs (list of torch.Tensor): A list of sequences, each represented as a torch.Tensor.
+        seq_len (int): The length of the interval to sample from each sequence.
+        max_len (int): If not None, the maximum length of the sequence to sample from.
+                       Defaults to None.
+
+    Returns:
+        Tuple (new_seqs, new_iterval): A tuple containing two lists:
+            - new_seqs: A list of torch.Tensors, each containing a sampled interval of length `seq_len`.
+            - new_iterval: A list of tuples, each representing the start and end indices of the sampled interval.
+
+    """
     N = max([v.shape[-1] for v in seqs])
 
     hops = [N // v.shape[-1] for v in seqs]

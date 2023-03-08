@@ -82,11 +82,10 @@ class ChainModel(nn.Module):
         """initialize a ChainModel"""
         super(ChainModel, self).__init__()
         assert model_cls is not None
+        self.chain_opts = ChainModelOpts()
         if cmd_line:
-            self.chain_opts = ChainModelOpts()
             self.chain_opts.load_from_args()
         else:
-            self.chain_opts = ChainModelOpts()
             self.chain_opts.load_from_config(kwargs)
 
         self.Net = model_cls
@@ -149,7 +148,7 @@ class ChainModel(nn.Module):
 
         if hasattr(model, "init"):
             if self.chain_opts.init_weight_model:
-                logging.warning("init_weight_model in config and mdoe.init() in pytorch model may cancel themself")
+                logging.warning("'init_weight_model' in config and model.init() in pytorch model may cancel eachother")
             model.init()
 
         self.save_model(model, self.chain_opts.base_model)
@@ -434,7 +433,7 @@ class ChainModel(nn.Module):
                     "task_path": os.getcwd().replace(install_path, ""),
                     "install_path": install_path,
                     "base_model_path": sys.argv[0],
-                    "base_model_output_dim": self.chain_opts.output_dim,
+                    "base_model_params": {"output_dim": self.chain_opts.output_dim},
                     "base_model_args": json.loads(self.chain_opts.base_model_args),
                     }, file)
 

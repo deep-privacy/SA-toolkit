@@ -1,4 +1,3 @@
-# IMPORT BN
 import importlib.util
 import json
 import logging
@@ -12,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from satools.hifigan import HifiGanModel
-from torch.nn.utils import weight_norm, remove_weight_norm
 
 import satools
 
@@ -316,7 +314,7 @@ if __name__ == "__main__":
             "cold_restart": args.cold_restart,
             "num_workers": 4,
             "rank": args.local_rank,
-            "checkpoint_path": args.checkpoint_path,
+            "dirname": args.checkpoint_path,
             "init_weight_model": args.init_weight_model,
             "segment_size": 16640,
             "minibatch_size": args.batch_size,

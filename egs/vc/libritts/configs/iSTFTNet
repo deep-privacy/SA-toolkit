@@ -1,0 +1,24 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[exp]
+train_set = data/train_clean_100
+dev_set = data/dev_clean_reduced_2utt
+dev_num_uttr_per_spk = 10
+
+lr = 0.0002
+minibatch_size = 32
+init_weight_model = ""
+segment_size = 16640
+training_epochs = 1500
+checkpoint_interval = 1000
+cold_restart = False
+train_stage = 0
+
+model_file = local/tuning/iSTFTNet.py
+dirname = iSTFTNet
+
+final_model = g_0
+
+# vim:set et sw=2 ts=2 ft=toml:

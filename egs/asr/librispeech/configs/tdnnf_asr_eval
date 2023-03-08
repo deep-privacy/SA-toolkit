@@ -30,7 +30,7 @@ grad_acc_steps = 1
  # merge weight, last x epoch checkpoints
 final_combination_n_model = 5
 # train_stage = 41
-# train_stage = last
+train_stage = last
 
 model_file = local/chain/tuning/tdnnf.py
 dirname = asr_eval_tdnnf_t360_aug

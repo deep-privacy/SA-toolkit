@@ -11,46 +11,30 @@ cuda_cmd = ./utils/ssh.pl
 # ssh gpu06 @ CUDA_VISIBLE_DEVICES=1
 # srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 @ CUDA_VISIBLE_DEVICES=1
 
+[var]
+vq = 64
+
 [exp]
 train_set = data/train_600_sp
 tree_dir = exp/chain/e2e_train_600/e2e_biphone_tree
 egs_dir = exp/chain/e2e_train_600/fst_egs
 
 # train params
-# max_concurrent_jobs = 2
-num_epochs = 5
+num_epochs = 2
 num_jobs_initial = 2
 num_jobs_final = 5
 lr_initial = 0.0001
 lr_final =   0.00001
 diagnostics_interval = 10
-checkpoint_interval =  20
+checkpoint_interval = 20
 minibatch_size = 16
-grad_acc_steps = 1
- # merge weight, last x epoch checkpoints
-final_combination_n_model = 5
-# train_stage = 41
-train_stage = last
+ # merge weight, last epcho usualy best model -> also to not break the vq prototypes
+final_combination_n_model = 1
 
-model_file = local/chain/tuning/tdnnf.py
-dirname = bn_tdnnf_t600_aug
-
-# see ../../../share/dataprep_aug.py
-augmentation = {
-  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
-  "aug_number": 1,
-  "add_noise": {
-      # "babble_noise": "true",
-      "noise_db_csv": "../../data/musan.csv",
-      "data_path": "/"
-    },
-  "add_reverb": {
-      "rir_db_csv": "../../data/reverb.csv",
-      "data_path": "/"
-    },
-    "sanity_check_path" : "/tmp/sanity_test",
-    "sanity_check_samples" : 2
-  }
+model_file = local/chain/tuning/tdnnf_vq.py
+dirname = bn_tdnnf_t600_vq_${:vq}
+model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
+init_weight_model = "./exp/chain/bn_tdnnf_t600_aug/final.pt"
 
 [test]
 graph_dir = exp/chain/e2e_train_600/e2e_biphone_tree/graph_tgsmall

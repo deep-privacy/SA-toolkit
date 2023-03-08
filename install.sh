@@ -201,37 +201,30 @@ if [ ! -f $mark ]; then
   pip install Cython
 
   \rm requirements.txt || true
-  echo scikit-learn==0.24.2 >> requirements.txt
+  echo 'scikit-learn>=0.24.2' >> requirements.txt
   echo tensorboard >> requirements.txt
-  echo carbontracker==1.1.6 >> requirements.txt
+  echo 'carbontracker>=1.1.6' >> requirements.txt
   echo python-dateutil >> requirements.txt
   echo graftr >> requirements.txt # an interactive shell to view and edit PyTorch checkpoints
 
   # asr additional req
-  echo pytorch-memlab==0.2.3 >> requirements.txt
-  echo kaldiio==2.15.1 >> requirements.txt
-  echo resampy==0.2.2 >> requirements.txt
+  echo 'kaldiio>=2.15.1' >> requirements.txt
+  echo 'resampy>=0.2.2' >> requirements.txt
   echo ConfigArgParse==1.5.1 >> requirements.txt
   echo 'librosa>=0.8.1' >> requirements.txt
   echo 'scipy>=1.7.1' >> requirements.txt
-  echo ffmpeg==1.4 >> requirements.txt
+  echo 'ffmpeg>=1.4' >> requirements.txt
   echo tqdm >> requirements.txt
-  # echo 'git+https://github.com/pytorch/fairseq.git@313ff0581561c7725ea9430321d6af2901573dfb' >> requirements.txt
 
   # sidekit additional req
-  echo matplotlib==3.4.3 >> requirements.txt
-  echo SoundFile==0.10.3.post1 >> requirements.txt
-  echo PyYAML==5.4.1 >> requirements.txt
   echo 'h5py>=3.2.1' >> requirements.txt
-  echo ipython==7.27.0 >> requirements.txt
   echo 'git+https://github.com/feerci/feerci' >> requirements.txt
   echo 'pandas>=1.0.5' >> requirements.txt
 
   # demo req
-  echo ipywebrtc==0.6.0 >> requirements.txt
-  echo ipywidgets==7.6.5 >> requirements.txt
-  echo notebook==6.4.5 >> requirements.txt
-  echo filelock >> requirements.txt
+  echo 'ipywebrtc>=0.6.0' >> requirements.txt
+  echo 'ipywidgets>=7.6.5' >> requirements.txt
+  echo 'notebook>=6.4.5' >> requirements.txt
 
   pip3 install -r requirements.txt
 

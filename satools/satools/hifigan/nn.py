@@ -6,8 +6,6 @@ from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 
 from .. import utils
 
-LRELU_SLOPE = 0.1
-
 
 def init_weights(m, mean=0.0, std=0.01):
     classname = m.__class__.__name__
@@ -96,9 +94,9 @@ class ResBlock1(torch.nn.Module):
 
     def forward(self, x):
         for c1, c2 in zip(self.convs1, self.convs2):
-            xt = F.leaky_relu(x, LRELU_SLOPE)
+            xt = F.leaky_relu(x, 0.1)
             xt = c1(xt)
-            xt = F.leaky_relu(xt, LRELU_SLOPE)
+            xt = F.leaky_relu(xt, 0.1)
             xt = c2(xt)
             x = xt + x
         return x
@@ -147,7 +145,7 @@ class ResBlock2(torch.nn.Module):
 
     def forward(self, x):
         for c in self.convs:
-            xt = F.leaky_relu(x, LRELU_SLOPE)
+            xt = F.leaky_relu(x, 0.1)
             xt = c(xt)
             x = xt + x
         return x
@@ -222,7 +220,7 @@ class DiscriminatorP(torch.nn.Module):
 
         for l in self.convs:
             x = l(x)
-            x = F.leaky_relu(x, LRELU_SLOPE)
+            x = F.leaky_relu(x, 0.1)
             fmap.append(x)
         x = self.conv_post(x)
         fmap.append(x)
@@ -281,7 +279,7 @@ class DiscriminatorS(torch.nn.Module):
         fmap = []
         for l in self.convs:
             x = l(x)
-            x = F.leaky_relu(x, LRELU_SLOPE)
+            x = F.leaky_relu(x, 0.1)
             fmap.append(x)
         x = self.conv_post(x)
         fmap.append(x)
