@@ -25,7 +25,7 @@ def build(args):
             """
             executed once before training (epoch 0 iter 0)
             """
-            logging.info("Preprocesor initialization.")
+            logging.info("Init epoch 0: Preprocesor initialization.")
             model = "wav2vec2_large_west_germanic_v2.pt"
             url = "https://dl.fbaipublicfiles.com/voxpopuli/models/"
             self.preprocessor.load_convert_checkpoint(f"{url}{model}")

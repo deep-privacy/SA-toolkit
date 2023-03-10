@@ -23,7 +23,7 @@ def load_model(file, load_weight=True):
 
     install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
     if model_state["install_path"] != install_path:
-        logging.warning("Loading a model from someone else")
+        logging.debug("Loading a model from someone else")
 
     config_path = install_path + "/" + model_state["task_path"] + "/" + model_state["base_model_path"]
     logging.info(f"Loading {config_path} with args \"{str(model_state['base_model_args'])}\" and params \"{str(model_state['base_model_params'])}\"" )

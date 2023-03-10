@@ -3,22 +3,30 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [exp]
-train_set = data/train_clean_100
+# train_set = data/train_clean_100
+train_set = data/code
 dev_set = data/dev_clean_reduced_2utt
-dev_num_uttr_per_spk = 10
 
+n_gpu = 1
+num_worker_dataloader = 1
+logging_interval = 20
 lr = 0.0002
-minibatch_size = 32
-init_weight_model = ""
+minibatch_size = 2
 segment_size = 16640
-training_epochs = 1500
-checkpoint_interval = 1000
-cold_restart = False
-train_stage = 0
+training_epochs = 2
+checkpoint_interval = 10
+# resume training from:
+# train_iter = 0
+# train_iter = last
 
 model_file = local/tuning/iSTFTNet.py
 dirname = iSTFTNet
 
-final_model = g_0
+# init_weight_model = "exp/iSTFTNet/g_00000020.pt"
+cache_path = ./exp/iSTFTNet/cache/
+cache_functions = ["none"]
+
+# for jit
+final_model = g_best.pt
 
 # vim:set et sw=2 ts=2 ft=toml:

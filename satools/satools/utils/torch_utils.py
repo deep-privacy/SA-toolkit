@@ -2,6 +2,11 @@
 third party functions that complements pytorch
 """
 
+import copy
+
+import torch
+from torch.nn.utils.weight_norm import WeightNorm
+
 
 def match_state_dict(state_dict_a, state_dict_b):
     """Filters state_dict_b to contain only states that are present in state_dict_a.
@@ -32,10 +37,6 @@ def match_state_dict(state_dict_a, state_dict_b):
     return matched_state_dict, unmatched_state_dict
 
 
-import copy
-
-from torch.nn.utils.weight_norm import WeightNorm
-
 
 def fix_weight_norm_deepcopy(model):
     # Fix bug where deepcopy doesn't work with weightnorm.
@@ -65,3 +66,52 @@ def fix_weight_norm_deepcopy(model):
 
     # bind __deepcopy__ to the weightnorm'd layer
     model.__deepcopy__ = __deepcopy__.__get__(model, model.__class__)
+
+
+class WrappedTorchDDP(torch.nn.Module):
+    """
+    Wrap a DistributedDataParallel module and forward requests for missing
+    attributes to the module wrapped by DDP (the twice-wrapped module).
+    Also forward calls to :func:`state_dict` and :func:`load_state_dict`.
+    Usage::
+        module.xyz = "hello world"
+        wrapped_module = DistributedDataParallel(module, **ddp_args)
+        wrapped_module = WrappedTorchDDP(wrapped_module)
+        assert wrapped_module.xyz == "hello world"
+        assert wrapped_module.state_dict().keys() == module.state_dict().keys()
+    Args:
+        module (nn.Module): module to wrap
+
+    """
+
+    def __init__(self, module: torch.nn.Module):
+        super().__init__()
+        assert hasattr(
+            module, "module"
+        ), "WrappedTorchDDP expects input to wrap another module"
+        self.module = module
+
+    def __getattr__(self, name):
+        """Forward missing attributes to twice-wrapped module."""
+        try:
+            # defer to nn.Module's logic
+            return super().__getattr__(name)
+        except AttributeError:
+            try:
+                # forward to the once-wrapped module
+                return getattr(self.module, name)
+            except AttributeError:
+                # forward to the twice-wrapped module
+                return getattr(self.module.module, name)
+
+    def state_dict(self, *args, **kwargs):
+        """Forward to the twice-wrapped module."""
+        return self.module.module.state_dict(*args, **kwargs)
+
+    def load_state_dict(self, *args, **kwargs):
+        """Forward to the twice-wrapped module."""
+        return self.module.module.load_state_dict(*args, **kwargs)
+
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
+

@@ -170,6 +170,8 @@ def run(cmd, quit_on_error=True, shell=False, on_error=lambda x:x):
         cmd = " ".join(_str_cmd)
     p = subprocess.run(cmd, shell=shell, stdout=subprocess.PIPE)
     if quit_on_error and p.returncode != 0:
+        import time
+        time.sleep(1)
         on_error(p.returncode)
         on_error(p.returncode)
         sys.exit(p.returncode)

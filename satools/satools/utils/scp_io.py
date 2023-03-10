@@ -1,5 +1,6 @@
 # Taken from: https://github.com/espnet/espnet/blob/master/espnet/utils/cli_writers.py
 
+import signal
 from typing import Dict
 import io
 import logging
@@ -8,9 +9,13 @@ import sys
 import h5py
 import kaldiio
 
+"""
+Warning some function are only implemented for h5py
+"""
+
 def file_writer_helper(
     wspecifier: str,
-    filetype: str = "mat",
+    filetype: str = "hdf5",
     write_num_frames: str = None,
     compress: bool = False,
     compression_method: int = 2
@@ -26,7 +31,7 @@ def file_writer_helper(
 
     Write in kaldi-matrix-ark with "kaldi-scp" file:
 
-    >>> with file_writer_helper('ark,scp:out.ark,out.scp') as f:
+    >>> with file_writer_helper('ark,scp:out.ark,out.scp', 'mat') as f:
     >>>     f['uttid'] = array
 
     This "scp" has the following format:
@@ -177,9 +182,9 @@ class HDF5Writer(BaseWriter):
             self.kwargs = {"compression": "gzip"}
         else:
             self.kwargs = {}
-        self.writer = h5py.File(spec_dict["ark"], "w")
+        self.writer = None
         if "scp" in spec_dict:
-            self.writer_scp = open(spec_dict["scp"], "w", encoding="utf-8")
+            self.writer_scp = open(spec_dict["scp"], "a", encoding="utf-8")
         else:
             self.writer_scp = None
         if write_num_frames is not None:
@@ -187,19 +192,33 @@ class HDF5Writer(BaseWriter):
         else:
             self.writer_nframe = None
 
+    def file(self):
+        return self.filename
+
+    def reader(self):
+        return h5py.File(self.filename, "r", libver='latest', swmr=True)
+
     def __setitem__(self, key, value):
+        print(self.writer)
+        if self.writer == None: # load on demand (compatible with torch dataloader)
+            self.writer = h5py.File(self.filename, "a", libver='latest')
+            self.writer.swmr_mode = True
+        if key in self.writer:
+            del self.writer[key]
         self.writer.create_dataset(key, data=value, **self.kwargs)
+        self.writer.flush()
 
         if self.writer_scp is not None:
             self.writer_scp.write(f"{key} {self.filename}:{key}\n")
+            self.writer_scp.flush()
         if self.writer_nframe is not None:
             self.writer_nframe.write(f"{key} {len(value)}\n")
-
+            self.writer_nframe.flush()
 
 
 def file_reader_helper(
     rspecifier: str,
-    filetype: str = "mat",
+    filetype: str = "hdf5",
     return_shape: bool = False,
     segments: str = None,
 ):
@@ -258,66 +277,122 @@ class HDF5Reader:
             )
         self.rspecifier = rspecifier
         self.ark_or_scp, self.filepath = self.rspecifier.split(":", 1)
+        if self.ark_or_scp == "scp,ark": # load scp
+            self.ark_or_scp, self.filepath = self.rspecifier.split(":", 1)
+            self.ark_or_scp = self.ark_or_scp.split(",")[0]
+            self.filepath = self.filepath.split(",")[0]
+        if self.ark_or_scp == "ark,scp": # load scp
+            self.ark_or_scp, self.filepath = self.rspecifier.split(":", 1)
+            self.ark_or_scp = self.ark_or_scp.split(",")[1]
+            self.filepath = self.filepath.split(",")[1]
         if self.ark_or_scp not in ["ark", "scp"]:
             raise ValueError(f"Must be scp or ark: {self.ark_or_scp}")
 
         self.return_shape = return_shape
 
-    def __iter__(self):
+        self.load()
+
+    def parse_line(self, line):
+        key, value = line.rstrip().split(None, 1)
+
+        if ":" not in value:
+            raise RuntimeError(
+                "scp file for hdf5 should be like: "
+                '"uttid filepath.h5:key": {}({})'.format(
+                    line, self.filepath
+                )
+            )
+        split_list = value.split(":")
+        result = [":".join(split_list[:-1]), split_list[-1]]
+        path, h5_key = result[0], result[1]
+        return key, path, h5_key
+
+    def has(self, key):
+        """
+        Only for h5py
+        """
+        return key in self.key_to_item
+
+    def get(self, key):
+        hdf5_dict = self.hdf5_dict
+        try:
+            path, h5_key = self.key_to_item[key]
+            data = hdf5_dict[path][h5_key]
+        except Exception:
+            logging.error(
+                "Error when loading key={}".format(key)
+            )
+            raise
+        if self.return_shape:
+            return data.shape
+        else:
+            return data[()]
+
+    def add(self, key, path, h5_key, file):
+        """
+        Do not write to file, just udpate entry
+        """
+        self.key_to_item[key] = (path, h5_key)
+        self.hdf5_dict[path] = file
+
+
+    def __repr__(self):
+        return str(self.key_to_item)
+
+
+    def load(self):
+        """
+        Only for h5py
+        """
         if self.ark_or_scp == "scp":
+            key_to_item = {}
             hdf5_dict = {}
             with open(self.filepath, "r", encoding="utf-8") as f:
                 for line in f:
-                    key, value = line.rstrip().split(None, 1)
-
-                    if ":" not in value:
-                        raise RuntimeError(
-                            "scp file for hdf5 should be like: "
-                            '"uttid filepath.h5:key": {}({})'.format(
-                                line, self.filepath
-                            )
-                        )
-                    path, h5_key = value.split(":", 1)
+                    key, path, h5_key = self.parse_line(line)
+                    key_to_item[key] = (path, h5_key)
 
                     hdf5_file = hdf5_dict.get(path)
                     if hdf5_file is None:
                         try:
-                            hdf5_file = h5py.File(path, "r")
+                            hdf5_file = h5py.File(path, "r", libver='latest', swmr=True)
                         except Exception:
                             logging.error("Error when loading {}".format(path))
                             raise
                         hdf5_dict[path] = hdf5_file
-
-                    try:
-                        data = hdf5_file[h5_key]
-                    except Exception:
-                        logging.error(
-                            "Error when loading {} with key={}".format(path, h5_key)
-                        )
-                        raise
-
-                    if self.return_shape:
-                        yield key, data.shape
-                    else:
-                        yield key, data[()]
-
-            # Closing all files
-            for k in hdf5_dict:
-                try:
-                    hdf5_dict[k].close()
-                except Exception:
-                    pass
-
+            self.key_to_item = key_to_item
+            self.hdf5_dict = hdf5_dict
+            return self
         else:
             if self.filepath == "-":
                 # Required h5py>=2.9
                 filepath = io.BytesIO(sys.stdin.buffer.read())
             else:
                 filepath = self.filepath
-            with h5py.File(filepath, "r") as f:
-                for key in f:
-                    if self.return_shape:
-                        yield key, f[key].shape
-                    else:
-                        yield key, f[key][()]
+            file = h5py.File(filepath, "r", libver='latest', swmr=True)
+            self.key_to_item = {v:(filepath, v) for v in file.keys()}
+            self.hdf5_dict = {filepath:file}
+            return self
 
+    def __iter__(self):
+        hdf5_dict = self.hdf5_dict
+        for key, (path, h5_key) in self.key_to_item.items():
+            try:
+                data = hdf5_dict[path][h5_key]
+            except Exception:
+                logging.error(
+                    "Error when loading {} with key={}".format(path, h5_key)
+                )
+                raise
+
+            if self.return_shape:
+                yield key, data.shape
+            else:
+                yield key, data[()]
+
+        # Closing all files
+        for k in hdf5_dict:
+            try:
+                hdf5_dict[k].close()
+            except Exception:
+                pass

@@ -44,7 +44,7 @@ Test    Clean   Other    Exp                          Config
 Test    Clean   Other    Exp                         Config
 %WER     5.04   12.14    exp/bn_tdnnf_t600_aug       configs/tdnnf_bn_data_large
 # Fine-tune with vector quantization at the bottleneck extraction layer
-%WER     7.45   18.01    exp/bn_tdnnf_t600_vq_64     configs/tdnnf_bn_data_large_vq
+%WER     7.35   17.99    exp/bn_tdnnf_t100_vq_64     configs/tdnnf_bn_data_large_vq
 ```
 
 ### Results train-clean-360 (fbanks)

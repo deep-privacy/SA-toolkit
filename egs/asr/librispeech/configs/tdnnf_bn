@@ -29,6 +29,7 @@ minibatch_size = 16
 grad_acc_steps = 1
  # merge weight, last x epoch checkpoints
 final_combination_n_model = 5
+# resume training from:
 # train_stage = 41
 # train_stage = last
 

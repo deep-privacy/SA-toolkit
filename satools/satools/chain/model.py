@@ -165,6 +165,7 @@ class ChainModel(nn.Module):
         raise NotImplementedError("Only implementing e2e LF-MMI")
 
     def jit_save(self):
+        logging.info("Creating a JIT model for easy sharing")
         file = self.chain_opts.new_model
         model = self.Net(self.chain_opts.output_dim)
         model.load_state_dict(self.load_state_model(self.chain_opts.base_model))
@@ -272,7 +273,7 @@ class ChainModel(nn.Module):
 
         device = torch.device("cpu")
         if chain_opts.use_gpu:
-            run_on_gpu = (list(range(0, torch.cuda.device_count())) * 200)[
+            run_on_gpu = ([0]+(list(range(0, torch.cuda.device_count()))) * 200)[
                 chain_opts.gpu_id
             ]
             device = torch.device("cuda:{}".format(run_on_gpu))

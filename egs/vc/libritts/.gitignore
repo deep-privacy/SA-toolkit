@@ -6,3 +6,5 @@ generated_*
 *.cache*
 *stderr
 *stdout
+utils
+steps

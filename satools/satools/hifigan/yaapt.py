@@ -635,7 +635,8 @@ def cmp_rate(phi, fs:float, maxcands:int, lag_min:int, lag_max:int, parameters:D
         _peaks = (peaks.ravel().nonzero()[0]+lag_min+center)
         
         if torch.amax(phi) > merit_thresh2 and len(_peaks) > 0:
-            max_point = _peaks[torch.argmax(phi[_peaks])]
+            mask = phi[_peaks]
+            max_point = _peaks[torch.argmax(mask)]
             pitch[numpeaks] = fs/float(max_point+1)
             merit[numpeaks] = torch.amax(phi[_peaks])
             numpeaks += 1
@@ -645,25 +646,19 @@ def cmp_rate(phi, fs:float, maxcands:int, lag_min:int, lag_max:int, parameters:D
                     pitch[numpeaks] = fs/float(n+1)
                     merit[numpeaks] = phi[n]
     else:
-        if torch.amax(phi) > merit_thresh2 and len(peaks) > 0:
-            max_point = peaks[torch.argmax(phi[peaks])]
-            pitch[numpeaks] = fs/float(max_point+1)
-            merit[numpeaks] = torch.amax(phi[peaks])
-            numpeaks += 1
-        else:
-            for n in peaks:
-                if n == torch.tensor(False):
-                    continue
-                if torch.argmax(phi[n-center:n+center+1]) == center:
-                    pitch[numpeaks] = fs/float(n+1)
-                    merit[numpeaks] = phi[n]
-                    #  try:
-                        #  pitch[numpeaks] = fs/float(n+1)
-                        #  merit[numpeaks] = phi[n]
-                    #  except:
-                        #  pitch = torch.hstack((pitch, fs/float(n+1)))
-                        #  merit = torch.hstack((merit, phi[n]))
-                    numpeaks += 1
+        for n in peaks:
+            if n == torch.tensor(False):
+                continue
+            if torch.argmax(phi[n-center:n+center+1]) == center:
+                pitch[numpeaks] = fs/float(n+1)
+                merit[numpeaks] = phi[n]
+                #  try:
+                    #  pitch[numpeaks] = fs/float(n+1)
+                    #  merit[numpeaks] = phi[n]
+                #  except:
+                    #  pitch = torch.hstack((pitch, fs/float(n+1)))
+                    #  merit = torch.hstack((merit, phi[n]))
+                numpeaks += 1
 
     #---------------------------------------------------------------
     # Sort the results.
@@ -797,7 +792,7 @@ def refine(time_pitch1, time_merit1, time_pitch2, time_merit2, spec_pitch,
 """
 @torch.no_grad()
 @torch.jit.script
-def yaapt(signal:SignalObj, kwargs:Dict[str, float]):
+def yaapt(_in:torch.Tensor, kwargs:Dict[str, float]):
 
     # Rename the YAAPT v4.0 parameter "frame_lengtht" to "tda_frame_length"
     # (if provided).
@@ -814,6 +809,7 @@ def yaapt(signal:SignalObj, kwargs:Dict[str, float]):
     # Set the default values for the parameters.
     #---------------------------------------------------------------
     parameters:Dict[str, float] = {}
+    parameters['sr'] = kwargs.get('sr', 16000.0)   #sampling rate
     parameters['frame_length'] = kwargs.get('frame_length', 35.0)   #Length of each analysis frame (ms)
     # WARNING: In the original MATLAB YAAPT 4.0 code the next parameter is called
     # "frame_lengtht" which is quite similar to the previous one "frame_length".
@@ -865,7 +861,11 @@ def yaapt(signal:SignalObj, kwargs:Dict[str, float]):
     #---------------------------------------------------------------
     # Create the signal objects and filter them.
     #---------------------------------------------------------------
-    nonlinear_sign = SignalObj(signal.data**2, signal.fs)
+    to_pad = int(parameters["frame_length"] / 1000 * int(parameters["sr"])) // 2
+    _in = torch.nn.functional.pad(_in.squeeze(), (to_pad, to_pad))
+    signal = SignalObj(_in, parameters["sr"])
+
+    nonlinear_sign = SignalObj(signal.data**2, parameters["sr"])
 
     signal.filtered_version(parameters)
     nonlinear_sign.filtered_version(parameters)
@@ -951,24 +951,15 @@ if __name__ == "__main__":
         "tda_frame_length": 25.0,
     }
 
-    rate = 16000
-    to_pad = int(_yaapt_opts["frame_length"] / 1000 * rate) // 2
-
-    y = audio
-    print(y.shape)
-    
-    y_pad = torch.nn.functional.pad(y.squeeze(), (to_pad, to_pad), "constant", value=0)
-    signal = SignalObj(y_pad, rate)
     pitch = yaapt(
-        signal,
+        audio,
         _yaapt_opts,
     )
     print(pitch.samp_values)
 
     def eval():
-        signal = SignalObj(y_pad, rate)
         pitch = yaapt(
-            signal,
+            audio,
             _yaapt_opts,
         )
 

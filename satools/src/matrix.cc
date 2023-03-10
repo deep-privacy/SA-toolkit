@@ -58,12 +58,12 @@ kaldi::CuSubMatrix<kaldi::BaseFloat> TensorToKaldiCuSubMatrix(torch::Tensor &t) 
             return cumat;
         }
         else {
-            std::cout << "ERROR: Cannot convert to CuSubMatrix because tensor is not contiguous" << std::endl;
+            std::cout << "satools kaldi wrapper: ERROR: Cannot convert to CuSubMatrix because tensor is not contiguous" << std::endl;
             exit(1);
         }
     }
     else {
-        std::cout << "ERROR: Cannot convert to CuSubMatrix because GPU is not enabled" << std::endl;
+        std::cout << "satools kaldi wrapper: ERROR: Cannot convert to CuSubMatrix because GPU is not enabled (_satools.InstantiateKaldiCuda() not called but required for model in training mode)" << std::endl;
         exit(1);
     }
     // TODO: handle the else condition

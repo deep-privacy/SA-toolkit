@@ -36,13 +36,19 @@ class Opts:
     cpu_cmd: str = "./utils/run.pl"
     cuda_cmd: str = "./utils/run.pl"
 
+    n_gpu:int = 1
+
     model_file: Path = "./local/chain/tuning/aaaa.py"
     model_args: str = ""  # allow empty
     exp_dir: Path = "./exp/"
+    cache_path: str = "./exp/cache"
+    #cache_functions    []     = cache all function     with decorator 'register_feature_extractor' with 'scp_cache' param,
+    #                ["func1"] = only cache "func1" with  ^^^^^^
+    #                ["none" ] = disable cache
+    cache_functions: str = "[]"
     dirname: str = "model_a"
     init_weight_model: Path = ""
-    cold_restart: str = "False"
-    train_stage: int = 0
+    train_iter: str = "0"
     final_model: str = ""
 
     checkpoint_interval: int = 1000 # in step
@@ -51,10 +57,11 @@ class Opts:
     lr_decay: float = 0.999
     lr: float = 0.0002
     minibatch_size: int = 8
-    num_worker: int = 4
+    num_worker_dataloader: int = 4
     dev_set: Path = "./data/part"
     train_set: Path = "./data/part"
-    dev_num_uttr_per_spk: int = 10
+    logging_interval:int = 20
+
 
     @property
     def dir(self):
@@ -66,10 +73,13 @@ class Opts:
             return []
         return json.loads(self.model_args)
 
-    def get_forcmd(self, key):
+    def get_forcmd(self, key, add_quote=False):
         if getattr(self, key) == "":
             return []
-        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace("\n", "")]
+        if add_quote:
+            a = '\'' + str(getattr(self, key)).replace('\n', '').replace("\"", "\\\"") + '\''
+            return [f"--{key.replace('_', '-')}", a]
+        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace('\n', '')]
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -123,20 +133,21 @@ def train():
     os.makedirs(cfg_exp.dir, exist_ok=True)
 
 
-    if cfg_exp.train_stage == "last" or cfg_exp.train_stage == '"last"':
-        pattern = os.path.join(cfg_exp.dir, "g_" + "????????")
+    if cfg_exp.train_iter == "last" or cfg_exp.train_iter == '"last"':
+        pattern = os.path.join(cfg_exp.dir, "g_" + "????????" + ".pt")
         cp_list = glob.glob(pattern)
         if len(cp_list) != 0:
-            cfg_exp.train_stage = sorted(cp_list)[-1]
-            logging.info(f"Last training iter found: {cfg_exp.train_stage}")
+            cfg_exp.train_iter = sorted(cp_list)[-1].replace("g_", "").replace(".pt", "")
+            cfg_exp.train_iter = cfg_exp.train_iter.split("/")[-1]
+            logging.info(f"Last training iter found: {cfg_exp.train_iter}")
         else:
-            cfg_exp.train_stage = ""
+            cfg_exp.train_iter = "0"
 
     carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
     carbonTracker.epoch_start()
 
     #   start the training
-    if stage <= 5 and cfg_exp.train_stage == 0:
+    if stage <= 5 and cfg_exp.train_iter == "0":
         logging.info("Initializing model")
         process_out = subprocess.run([
                 cfg_cmd.cpu_cmd,
@@ -162,19 +173,39 @@ def train():
             quit(1)
 
 
-        logging.info(f"Starting training from iter={cfg_exp.train_stage}")
+        # resume from init stage (start) or a given train_iter
+        if cfg_exp.train_iter != "0" and not cfg_exp.train_iter.startswith("0"):
+            cfg_exp.train_iter = '{:0>8}'.format(str(cfg_exp.train_iter))
+
+        logging.info(f"Starting training from iter={cfg_exp.train_iter}")
+
+        python_cmd = ["python3"]
+        if cfg_exp.n_gpu != 1:
+            #  TODO add support for other cfg_cmd.cuda_cmd than run.pl (ssh.pl with multi nnodes)
+            python_cmd = ["OMP_NUM_THREADS=1", "torchrun", "--standalone", "--nnodes=1", "--nproc_per_node", f"{cfg_exp.n_gpu}"]
+
 
         a = open(f"{cfg_exp.dir}/log/train.log", "w");a.seek(0);a.truncate()
         tail = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
         satools.script_utils.run([
                 cfg_cmd.cuda_cmd,
                 f"{cfg_exp.dir}/log/train.log",
+                *python_cmd,
                  cfg_exp.model_file,
                  *cfg_exp.get_model_args,
                 "--mode", "train",
                 *cfg_exp.get_forcmd("train_set"),
                 *cfg_exp.get_forcmd("dev_set"),
-                cfg_exp.dir / f"g_{cfg_exp.train_stage}.pt",
+                *cfg_exp.get_forcmd("num_worker_dataloader"),
+                *cfg_exp.get_forcmd("dir"),
+                *cfg_exp.get_forcmd("minibatch_size"),
+                *cfg_exp.get_forcmd("logging_interval"),
+                *cfg_exp.get_forcmd("segment_size"),
+                *cfg_exp.get_forcmd("training_epochs"),
+                *cfg_exp.get_forcmd("checkpoint_interval"),
+                *cfg_exp.get_forcmd("cache_path"),
+                *cfg_exp.get_forcmd("cache_functions", add_quote=True),
+                cfg_exp.dir / f"g_{cfg_exp.train_iter}.pt",
             ], shell=True, on_error=lambda x: tail.kill()
         )
 
@@ -184,8 +215,8 @@ def train():
         carbonTracker.stop()
 
     if stage <= 10:
-        logging.info(f"Creating JIT model from '{cfg_exp.final_model}.pt'")
-        shutil.copy(cfg_exp.dir / f"{cfg_exp.final_model}.pt", cfg_exp.dir / "final.pt")
+        logging.info(f"Creating JIT model from '{cfg_exp.final_model}'")
+        shutil.copy(cfg_exp.dir / f"{cfg_exp.final_model}", cfg_exp.dir / "final.pt")
         satools.script_utils.run([
                 cfg_cmd.cpu_cmd,
                 cfg_exp.dir / "log" / "jit.log",

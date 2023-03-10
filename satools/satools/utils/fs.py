@@ -2,19 +2,19 @@
  wrap scripts in kaldi utils directory
 """
 
+import uuid
 import logging
+import copy
 import os
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-
 import torch
+
 from tqdm import tqdm
 
-from .. import script_utils
-
-run = script_utils.run
+import satools.utils.scp_io as scp_io
 
 
 def split_data(dirname, num_jobs=0):
@@ -24,6 +24,8 @@ def split_data(dirname, num_jobs=0):
         dirname: feature directory to be split
         num_jobs: number of splits
     """
+    from .. import script_utils
+    run = script_utils.run
     if num_jobs == 0:
         spk2utt_filename = os.path.join(dirname, "spk2utt")
         num_jobs = num_lines(spk2utt_filename)
@@ -32,64 +34,11 @@ def split_data(dirname, num_jobs=0):
 
 
 def num_lines(filename):
-    """Find out the number of lines in a file using wc
-
-    This function uses subprocess to run the wc command.
-    It quits if the return code from subprocess is non-zero.
-
-    Args:
-        filename: a string containing the path of the file
-
-    Returns:
-        An integer: the number of lines in the file.
-    """
     try:
         p = subprocess.check_output(["wc", "-l", filename])
         return int(p.decode().strip().split()[0])
     except subprocess.CalledProcessError as cpe:
         sys.exit(cpe.returncode)
-
-
-def make_soft_link(src, dst, relative=False, extra_opts=[]):
-    """Create soft link using ln -r -s command
-
-    The function calls sys.exit(1) if execution fails
-
-    Args:
-        src: source file
-        dst: destination file
-        relative: set to True if link is relative
-        extra_opts: other options to be passed to ln
-    """
-    try:
-        cmd = ["ln"]
-        if relative:
-            cmd.append("-r")
-        cmd.append("-s")
-        if extra_opts:
-            cmd += extra_opts
-        cmd += [src, dst]
-        p = subprocess.run(cmd)
-        if p.returncode != 0:
-            sys.exit(p.returncode)
-    except:
-        sys.exit(1)
-
-
-def touch_file(file_path):
-    """Touch a file
-
-    This function calls the touch command and quits if the call fails.
-    """
-    try:
-        subprocess.run(["touch", file_path])
-    except:
-        sys.exit(1)
-
-
-def cat(file_list, out_file):
-    with open(out_file, "w") as opf:
-        subprocess.run(["cat", *file_list], stdout=opf)
 
 
 def creation_date_file(file):
@@ -111,24 +60,199 @@ def scans_directory_for_ext(root_data, extension):
 
     return _path
 
-def scp_cache(enabled=True, cache_filename="file.cache"):
+def scp_cache(enabled=True, specifier="scp,ark:cache_213.scp,cache_213.h5", specifier_formatter=None, key=lambda x:x):
+    """
+    A decorator function for caching the output of a given function in a remote file system using scp_io module.
+
+    Args:
+        enabled (bool): A flag to enable/disable caching. Default is True.
+        specifier (str): A specifier string in the format 'proto,file'. Default is 'scp,ark:cache.scp,cache.h5'.
+        specifier_formatter (dict): A dictionary of formatting keys and values to format the specifier string.
+        key (callable): A function to generate a cache key for the input arguments of the decorated function.
+
+    Returns:
+        callable: A decorator function that takes a callable and returns a callable.
+
+    Example:
+        @scp_cache(key=lambda x:x.key)
+        def extract_stuff(a):
+            return torch.tensor([1,2,3,4])
+        
+        @scp_cache(key=lambda x:x.key, specifier="scp,ark:cache_{param}.scp,cache_{param}.h5",
+                   specifier_formatter=lambda:{"param":10})
+        def extract_stuff(a):
+            return torch.tensor([1,2,3,4])
+
+        print(extract_stuff(item("testing")))
+        print(extract_stuff(item("testing3")))
+        print(extract_stuff(item("testing3"))) # cached
+
+        reader = {key: value for key, value in scp_io.file_reader_helper("ark:cache_10.h5")}
+        load = scp_io.file_reader_helper("ark:cache.h5")
+        print("TEST reader:", reader, "load:", load)
+        print(load.get("testing"))
+        reader = {key: value for key, value in scp_io.file_reader_helper("scp:cache_10.scp")}
+        load = scp_io.file_reader_helper("scp:cache.scp")
+        print("TEST reader:", reader, "load:", load)
+        print(load.get("testing"))
+    """
+    if not enabled:
+        def decorator(func):
+            def wrapper(item):
+                return func(item)
+            return wrapper
+        return decorator
+
+    if specifier_formatter != None:
+        sp = {"rand": str(uuid.uuid4().fields[-1])[:5]}
+        sp.update(specifier_formatter())
+        specifier = specifier.format(**sp)
+
     def decorator(func):
-        def wrapper(path):
-            if not enabled:
-                return func(path)
+        fw = scp_io.file_writer_helper(specifier)
+        local_reader = scp_io.file_reader_helper(specifier)
+        def wrapper(item):
 
-            if cache_filename:
-                cache_path = cache_filename
+            _key = key(item)
+            if local_reader.has(_key):
+                return local_reader.get(_key)
             else:
-                cache_path = f"{path}.cache"
-
-            if os.path.exists(cache_path):
-                with open(cache_path, 'rb') as cache_file:
-                    result = pickle.load(cache_file)
-            else:
-                result = func(path)
-                with open(cache_path, 'wb') as cache_file:
-                    pickle.dump(result, cache_file)
+                result = func(item)
+                if isinstance(result, torch.Tensor):
+                    _result = result.detach().cpu()
+                fw[_key] = _result
+                local_reader.add(_key, fw.file(), _key, fw.reader())
             return result
+
         return wrapper
     return decorator
+
+
+
+
+class SCPCache:
+    """
+    A class for caching the output of a given function in a remote file system using scp_io module.
+
+    Args:
+        enabled (bool): A flag to enable/disable caching. Default is True.
+        specifier (str): A specifier string in the format 'proto,file'. Default is 'scp,ark:cache.scp,cache.h5'.
+        specifier_formatter (dict): A dictionary of formatting keys and values to format the specifier string.
+        key (callable): A function to generate a cache key for the input arguments of the decorated function.
+
+    Example:
+        @SCPCache(key=lambda x:x.key).decorate()
+        def extract_stuff(a):
+            return torch.tensor([1,2,3,4])
+        
+        @SCPCache(key=lambda x:x.key, specifier="scp,ark:cache_{param}.scp,cache_{param}.h5",
+                   specifier_formatter={"param":10}).decorate()
+        def extract_stuff(a):
+            return torch.tensor([1,2,3,4])
+
+        print(extract_stuff(item("testing")))
+        print(extract_stuff(item("testing3")))
+        print(extract_stuff(item("testing3"))) # cached
+
+        reader = {key: value for key, value in scp_io.file_reader_helper("ark:cache.h5")}
+        load = scp_io.file_reader_helper("ark:cache.h5")
+        print("TEST reader:", reader, "load:", load)
+        print(load.get("testing"))
+        reader = {key: value for key, value in scp_io.file_reader_helper("scp:cache.scp")}
+        load = scp_io.file_reader_helper("scp:cache.scp")
+        print("TEST reader:", reader, "load:", load)
+        print(load.get("testing"))
+    """
+
+    def __init__(self, enabled=True, specifier="scp,ark:cache.scp,cache.h5", specifier_formatter=None, key=lambda x:x):
+        self.enabled = enabled
+        self.specifier = specifier
+        self.specifier_formatter = specifier_formatter
+        self.key = key
+        self.local_reader = None
+        self.fw = None
+
+    def update_formatter(self, formatter):
+        if self.specifier == None: # mostly self.enabled == False
+            return
+        reload = False
+        if self.specifier_formatter == None:
+            self.specifier_formatter = formatter
+            retload = True
+        else:
+            old = copy.deepcopy(self.specifier_formatter)
+            self.specifier_formatter.update(formatter)
+            reload = self.specifier_formatter.values() != old.values()
+        if reload:
+            self.load_reader_writer()
+
+    def load_reader_writer(self):
+        if self.fw != None:
+            self.fw.close()
+        if self.specifier_formatter is not None:
+            specifier_formatter = copy.deepcopy(self.specifier_formatter)
+            specifier_formatter.update({"rand": str(uuid.uuid4().fields[-1])[:5]})
+            specifier = self.specifier.format(**specifier_formatter)
+        else:
+            specifier = self.specifier
+
+        self.fw = scp_io.file_writer_helper(specifier)
+        self.local_reader = scp_io.file_reader_helper(specifier)
+
+    def decorate(self):
+        def decorator(func):
+            def scp_cache_wrapper(*args, **kwargs):
+
+                print("Enabled:", self.enabled, flush=True)
+                if not self.enabled:
+                    print("Direct return!")
+                    return func(*args, **kwargs)
+
+                print("Store!: enabled:", self.enabled)
+                if self.fw == None:
+                    self.load_reader_writer()
+
+                _key = self.key(*args, **kwargs)
+                if self.local_reader.has(_key):
+                    return torch.tensor(self.local_reader.get(_key))
+                else:
+                    result = func(*args, **kwargs)
+                    if isinstance(result, torch.Tensor):
+                        _result = result.detach().cpu()
+                    self.fw[_key] = _result
+                    self.local_reader.add(_key, self.fw.file(), _key, self.fw.reader())
+                    return result
+
+            return scp_cache_wrapper
+        return decorator
+
+if __name__ == "__main__":
+    import numpy as np
+    import sys
+    class item():
+        def __init__(self, a):
+            self.key = a
+            self.other = "_"
+
+    scp_cache = SCPCache(key=lambda x:x.key, specifier="scp,ark:cache_{param}.scp,cache_{param}.h5",
+                   specifier_formatter={"param":10})
+    @scp_cache.decorate()
+    def extract_stuff(a):
+        return torch.tensor([1,2,3,4])
+
+    scp_cache.update_formatter({"param": 10})
+    print(extract_stuff(item("testing")))
+    print(extract_stuff(item("testing3")))
+    print(extract_stuff(item("testing3"))) # cached
+    scp_cache.update_formatter({"param": 20})
+    print(extract_stuff(item("testing3"))) # not, new file cached
+    print(extract_stuff(item("testing2"))) # not, new file cached
+
+    reader = {key: value for key, value in scp_io.file_reader_helper("ark:cache_10.h5")}
+    load = scp_io.file_reader_helper("ark:cache_10.h5")
+    print("TEST reader:", reader, "load:", load)
+    print(load.get("testing"))
+    reader = {key: value for key, value in scp_io.file_reader_helper("scp:cache_10.scp")}
+    load = scp_io.file_reader_helper("scp:cache_10.scp")
+    print("TEST reader:", reader, "load:", load)
+    print(load.get("testing"))

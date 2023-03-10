@@ -337,7 +337,7 @@ class TDNNFBatchNorm(nn.Module):
 
     def forward(self, input, return_bottleneck:bool=False):
         mb, T, D = input.shape
-        x = self.tdnn(input)
+        x = self.tdnn(input, return_bottleneck=return_bottleneck)
         if return_bottleneck:
             return x
         x = x.permute(0, 2, 1)

@@ -1,12 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils import weight_norm, remove_weight_norm
 from . import nn as sann
 
 from typing import Tuple, Union, Dict, Optional
 
+import warnings
+warnings.filterwarnings(
+    "ignore", message=r'.*ComplexHalf support is experimental and many operators.*'
+)
 
-from torch.nn.utils import weight_norm, remove_weight_norm
+
 
 class CoreHifiGan(torch.nn.Module):
     def __init__(
@@ -118,10 +123,11 @@ class iSTFTNet(torch.nn.Module):
 
         return torch.abs(forward_transform), torch.angle(forward_transform)
 
+    @torch.cuda.amp.autocast(enabled=False)
     def inverse(self, magnitude, phase):
         inverse_transform = torch.istft(
             magnitude * torch.exp(phase * 1j),
-            self.filter_length, self.hop_length, self.win_length, window=self.window)
+            self.filter_length, self.hop_length, self.win_length, window=self.window.to(magnitude.device))
 
         return inverse_transform.unsqueeze(-2)  # unsqueeze to stay consistent with conv_transpose1d implementation
 
