@@ -84,7 +84,7 @@ if [ ! -f $mark ]; then
 
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge \
-    sox libflac inotify-tools git-lfs ffmpeg wget mkl mkl-include cmake ncurses
+    sshpass sox libflac inotify-tools git-lfs ffmpeg wget mkl mkl-include cmake ncurses
 
   touch $mark
 fi
@@ -203,7 +203,8 @@ if [ ! -f $mark ]; then
   \rm requirements.txt || true
   echo 'scikit-learn>=0.24.2' >> requirements.txt
   echo tensorboard >> requirements.txt
-  echo 'carbontracker>=1.1.6' >> requirements.txt
+  echo 'carbontracker' >> requirements.txt
+  echo 'matplotlib' >> requirements.txt
   echo python-dateutil >> requirements.txt
   echo graftr >> requirements.txt # an interactive shell to view and edit PyTorch checkpoints
 
@@ -211,13 +212,12 @@ if [ ! -f $mark ]; then
   echo 'kaldiio>=2.15.1' >> requirements.txt
   echo 'resampy>=0.2.2' >> requirements.txt
   echo ConfigArgParse==1.5.1 >> requirements.txt
-  echo 'librosa>=0.8.1' >> requirements.txt
-  echo 'scipy>=1.7.1' >> requirements.txt
+  echo 'librosa' >> requirements.txt
+  echo 'scipy>=1.8' >> requirements.txt
   echo 'ffmpeg>=1.4' >> requirements.txt
   echo tqdm >> requirements.txt
 
   # sidekit additional req
-  echo 'h5py>=3.2.1' >> requirements.txt
   echo 'git+https://github.com/feerci/feerci' >> requirements.txt
   echo 'pandas>=1.0.5' >> requirements.txt
 

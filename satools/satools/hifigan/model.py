@@ -24,11 +24,17 @@ logging.basicConfig(level=logging.INFO, format="satools %(levelname)s: %(message
 logging.getLogger("geocoder").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+import warnings
+warnings.filterwarnings(
+    "ignore", message=r'.*but did not find any unused parameters.*'
+)
+
 
 @dataclass
 class DataloadingOpts:
     cache_path: str = "./data/cache"
     cache_functions: str = "[]"
+    cache_worker_name: str = ""
     minibatch_size: int = 32
     num_worker_dataloader: int = 4
     rank: int = 0
@@ -105,6 +111,7 @@ class HifiGanModel():
         self.call_by_mode()
 
     def call_by_mode(self):
+        self.reset_utt2spk()
         if self.opts.mode in ["init"]:
             self.init()
         elif self.opts.mode == "jit_save":
@@ -113,6 +120,11 @@ class HifiGanModel():
             self.train()
         else:
             logging.critical(f"Mode '{self.opts.mode}' not defined")
+
+    def reset_utt2spk(self):
+        # what if the user wants to pass it? Just override this function
+        utt2spk_scp = utils.kaldi.read_wav_scp(self.opts.train_set + "/utt2spk")
+        self.utt2spk = utt2spk_scp
 
     def load_state_model(self, file):
         m = torch.load(file)
@@ -135,7 +147,7 @@ class HifiGanModel():
     def jit_save(self):
         logging.info("Creating a JIT model for easy sharing")
         file = self.opts.new_model
-        model = self.Net()
+        model = self.Net(utt2spk=self.utt2spk)
         model.load_state_dict(self.load_state_model(self.opts.base_model))
         model.remove_weight_norm()
         model = torch.jit.script(model)
@@ -144,7 +156,7 @@ class HifiGanModel():
         self.save_model(model, self.opts.base_model) # re-save old model (update install_path/base_model_args/.. keys)
 
     def init(self):
-        model = self.Net()
+        model = self.Net(utt2spk=self.utt2spk)
         logging.info(str(model))
         if self.opts.init_weight_model != "":
             init_weight_provided = self.load_state_model(self.opts.init_weight_model)
@@ -175,49 +187,6 @@ class HifiGanModel():
         file = self.opts.base_model.replace("g_", "d_")
         torch.save({ "mpd":  mpd.state_dict(), "msd": msd.state_dict() }, file)
 
-    def sample_interval(self, feats, lengths, filenames, f0s, ys):
-        """
-        Sample from a batch given a opts.segment_size
-        return:
-            feats: torchaudio.load() features
-            lengths: lengths of each source audio file (not equal to feats since it has some padding)
-            filenames: filename of the audios
-            f0s: the F0 features
-            ys: the torchaudio.load()+librosa normalized audio files ready for voice conversion training
-            tuple: tuple of above features that where not sample at the interval
-        """
-        ori_feats, ori_lengths, ori_f0s, ori_ys = (
-            feats.clone(),
-            lengths.clone(),
-            f0s.clone(),
-            ys.clone(),
-        )
-        acc_feats, acc_f0s, acc_ys, intervals = [], [], [], []
-        for batch_idx in range(feats.shape[0]):
-            new_seqs, iterval_idx = dataset.sample_interval(
-                [feats[batch_idx], ys[batch_idx], f0s[batch_idx]],
-                seq_len=self.opts.segment_size,
-                max_len=lengths[batch_idx].item(),
-            )
-            _feats, _ys, _f0s = new_seqs
-            acc_feats.append(_feats)
-            acc_f0s.append(_f0s)
-            acc_ys.append(_ys)
-            intervals.append((iterval_idx[0], iterval_idx[2]))
-        feats = torch.stack(acc_feats)
-        f0s = torch.stack(acc_f0s)
-        ys = torch.stack(acc_ys)
-        lengths = torch.zeros_like(lengths) + self.opts.segment_size
-        return (
-            feats,
-            lengths,
-            filenames,
-            f0s,
-            ys,
-            (ori_feats, ori_lengths, ori_f0s, ori_ys),
-            intervals,
-        )
-
     def init_cuda_model_distributed(self):
         device = torch.device("cuda")
         if self.opts.num_gpus > 1:
@@ -231,7 +200,7 @@ class HifiGanModel():
                 rank=self.opts.rank,
             )
 
-        generator = self.Net()
+        generator = self.Net(utt2spk=self.utt2spk)
         generator.load_state_dict(self.load_state_model(self.opts.base_model))
         generator = generator.to(device)
 
@@ -277,13 +246,12 @@ class HifiGanModel():
 
         # Trucate vocoder output
         if y_gen.shape[-1] > ys.shape[-1]:
-            y_gen = y_gen[:, :, : feats.shape[-1]]
+            y_gen = y_gen[:, :, : ys.shape[-1]]
         if y_gen.shape[-1] < ys.shape[-1]:
             ys = ys[:, :, : y_gen.shape[-1]]
         return ys, y_gen
 
     def train(self):
-        os.makedirs(self.opts.cache_path, exist_ok=True)
         (generator, mpd, msd), device = self.init_cuda_model_distributed()
 
         optim_g = torch.optim.AdamW(
@@ -304,26 +272,30 @@ class HifiGanModel():
         wavs_scp = utils.kaldi.read_wav_scp(self.opts.train_set + "/wav.scp")
         trainset = dataset.WavList(list(wavs_scp.values()), list(wavs_scp.keys()), load_func=utils.kaldi.load_wav_from_scp)
 
-        train_sampler = (torch.utils.data.DistributedSampler(trainset) if self.opts.num_gpus > 1 else None)
+        train_sampler = (torch.utils.data.DistributedSampler(trainset, shuffle=True) if self.opts.num_gpus > 1 else None)
 
+        self.opts.cache_worker_name = "train_set"
         dataloader = torch.utils.data.DataLoader(
             trainset,
             batch_size=self.opts.minibatch_size,
-            shuffle=False,
+            shuffle=train_sampler==None,
             num_workers=self.opts.num_worker_dataloader,
-            collate_fn=dataset.collate_fn_padd(generator, self.opts),
+            collate_fn=dataset.model_collate(generator, self.opts),
+            persistent_workers=True,
             sampler=train_sampler,
         )
 
         if self.opts.rank == 0:
             wavs_scp = utils.kaldi.read_wav_scp(self.opts.dev_set + "/wav.scp")
             dataset_test = dataset.WavList(list(wavs_scp.values()), list(wavs_scp.keys()), load_func=utils.kaldi.load_wav_from_scp)
+            self.opts.cache_worker_name = "dev_set"
             dataloader_test = torch.utils.data.DataLoader(
                 dataset_test,
                 batch_size=4,
                 shuffle=False,
                 num_workers=self.opts.num_worker_dataloader,
-                collate_fn=dataset.collate_fn_padd(generator, self.opts),
+                collate_fn=dataset.model_collate(generator, self.opts),
+                persistent_workers=True,
             )
             sw = SummaryWriter(os.path.join(self.opts.dirname, "runs"))
 
@@ -336,6 +308,8 @@ class HifiGanModel():
                 f"Logging:\n\ttensorboard --logdir {self.opts.dirname} --samples_per_plugin=images=100000,audio=100000"
             )
 
+        dataset.setup_extractor(generator, self.opts)
+
         for epoch in range(max(0, last_epoch), self.opts.training_epochs):
             if self.opts.num_gpus > 1:
                 train_sampler.set_epoch(epoch)
@@ -345,12 +319,14 @@ class HifiGanModel():
                 if self.opts.rank == 0:
                     start_b = time.time()
 
-                audio, ys = batch.wav.to(device), batch.ys.to(device)
-                y_gen = generator(audio)
+                batch.compute_cuda_extract_feat(generator, self.opts, "train_set", device)
+                batch.to(device)
+                batch.sample(self.opts.segment_size)
+                y_gen = generator(batch)
 
-                ys, y_gen = self.truncate(ys, y_gen)
+                ys, y_gen = self.truncate(batch.yss, y_gen)
 
-                y_g_hat_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
+                y_g_gen_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
 
                 y_mel = dataset.mel_spectrogram(y=ys.squeeze(1), **self.opts.dataset_conf())
 
@@ -359,20 +335,20 @@ class HifiGanModel():
                 def loss_discriminators(ys, y_gen):
 
                     # MPD
-                    y_df_hat_r, y_df_hat_g, _, _ = mpd(ys, y_gen.detach())
+                    y_df_gen_r, y_df_gen_g, _, _ = mpd(ys, y_gen.detach())
                     (
                         loss_disc_f,
                         losses_disc_f_r,
                         losses_disc_f_g,
-                    ) = nn.discriminator_loss(y_df_hat_r, y_df_hat_g)
+                    ) = nn.discriminator_loss(y_df_gen_r, y_df_gen_g)
 
                     # MSD
-                    y_ds_hat_r, y_ds_hat_g, _, _ = msd(ys, y_gen.detach())
+                    y_ds_gen_r, y_ds_gen_g, _, _ = msd(ys, y_gen.detach())
                     (
                         loss_disc_s,
                         losses_disc_s_r,
                         losses_disc_s_g,
-                    ) = nn.discriminator_loss(y_ds_hat_r, y_ds_hat_g)
+                    ) = nn.discriminator_loss(y_ds_gen_r, y_ds_gen_g)
 
                     loss_disc_all = loss_disc_s + loss_disc_f
                     return loss_disc_all
@@ -385,14 +361,14 @@ class HifiGanModel():
                 optim_g.zero_grad()
 
                 # L1 Mel-Spectrogram Loss
-                loss_mel = F.l1_loss(y_mel, y_g_hat_mel) * 45
+                loss_mel = F.l1_loss(y_mel, y_g_gen_mel) * 45
 
-                y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mpd(ys, y_gen)
-                y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = msd(ys, y_gen)
+                y_df_gen_r, y_df_gen_g, fmap_f_r, fmap_f_g = mpd(ys, y_gen)
+                y_ds_gen_r, y_ds_gen_g, fmap_s_r, fmap_s_g = msd(ys, y_gen)
                 loss_fm_f = nn.feature_loss(fmap_f_r, fmap_f_g)
                 loss_fm_s = nn.feature_loss(fmap_s_r, fmap_s_g)
-                loss_gen_f, losses_gen_f = nn.generator_loss(y_df_hat_g)
-                loss_gen_s, losses_gen_s = nn.generator_loss(y_ds_hat_g)
+                loss_gen_f, losses_gen_f = nn.generator_loss(y_df_gen_g)
+                loss_gen_s, losses_gen_s = nn.generator_loss(y_ds_gen_g)
                 loss_gen_all = (
                     loss_gen_s + loss_gen_f + loss_fm_s + loss_fm_f + loss_mel
                 )
@@ -404,7 +380,7 @@ class HifiGanModel():
                     if steps % self.opts.logging_interval == 0:
                         torch.cuda.empty_cache()
                         logging.info(
-                            "{} Epoch: {:d}, Steps: {:d}, Gen Loss Total: {:4.3f}, Mel-Spec. Error: {:4.3f}, s/b: {:4.3f}".format(
+                            "{} Epoch: {:>3d}, Steps: {:>5d}, Gen Loss Total: {:4.3f}, Mel-Spec. Error: {:4.3f}, s/b: {:4.3f}".format(
                                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                 epoch+1,
                                 steps,
@@ -425,38 +401,44 @@ class HifiGanModel():
                         val_err_tot = 0
                         gen_loss_tot = 0
                         with torch.no_grad():
-                            for j, batch in enumerate(dataloader_test):
-                                y_gen = generator(batch.wav.to(device))
+                            torch.cuda.empty_cache()
+                            for j, batch_test in enumerate(dataloader_test):
 
-                                ys, y_gen = self.truncate(batch.ys.to(device), y_gen, mult=batch.lengths[0]//self.opts.segment_size)
+                                batch_test.compute_cuda_extract_feat(generator, self.opts, "dev_set", device)
+                                batch_test.to(device)
+                                y_gen = generator(batch_test)
 
-                                y_g_hat_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
+                                ys, y_gen = self.truncate(batch_test.yss, y_gen, mult=batch_test.yss.shape[-1]//self.opts.segment_size) # truncate high because of batch padding on full audio
+
+                                y_g_gen_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
                                 y_mel = dataset.mel_spectrogram(y=ys.squeeze(1), **self.opts.dataset_conf())
 
-                                val_err_tot += F.l1_loss(y_mel, y_g_hat_mel).item()
+                                val_err_tot += F.l1_loss(y_mel, y_g_gen_mel).item()
                                 gen_loss_tot += (
                                     loss_discriminators(ys, y_gen).sum().item()
                                 ) + val_err_tot
 
                                 if j <= 4:
-                                    batch_example = dataset.collate_fn_padd(generator, self.opts)([dataset_test[j]])
-                                    y_gen = generator(batch_example.wav.to(device))
+                                    batch_example = dataset.model_collate(generator, self.opts, auto_sample=False)([dataset_test[j]])
+                                    batch_example.compute_cuda_extract_feat(generator, self.opts, "tensorboard", device)
+                                    batch_example.to(device)
+                                    y_gen = generator(batch_example)
 
                                     if steps == 0:
-                                        logging.info("Len generated audio: " + str(y_gen.shape) + " - Len ground truth audio: " + str(batch_example.ys.shape))
-                                        sw.add_audio("gt/y_{}".format(j), batch_example.ys.squeeze(1), steps, self.opts.sampling_rate)
+                                        logging.info("Len generated audio: " + str(y_gen.shape) + " - Len ground truth audio: " + str(batch_example.yss.shape))
+                                        sw.add_audio("gt/y_{}".format(j), batch_example.yss, steps, self.opts.sampling_rate)
                                         sw.add_figure(
                                             "gt/y_spec_{}".format(j),
-                                            dataset.plot_spectrogram(batch_example.ys.squeeze(1)),
+                                            dataset.plot_spectrogram(batch_example.yss.squeeze(1)),
                                             steps,
                                         )
 
-                                    sw.add_audio("generated/y_hat_{}".format(j), y_gen[0], steps, self.opts.sampling_rate)
-                                    sw.add_figure("generated/y_hat_spec_{}".format(j), dataset.plot_spectrogram(y_gen.squeeze(1)), steps)
+                                    sw.add_audio("generated/y_gen_{}".format(j), y_gen[0], steps, self.opts.sampling_rate)
+                                    sw.add_figure("generated/y_gen_spec_{}".format(j), dataset.plot_spectrogram(y_gen.squeeze(1)), steps)
 
                             val_err = val_err_tot / (j + 1)
                             gen_err = gen_loss_tot / (j + 1)
-                            logging.info("Validation: {:d}, Gen Loss Total: {:4.3f}, Mel-Spec. Error: {:4.3f}".format( steps, gen_err, val_err, ))
+                            logging.info("Validation: {:d}, Gen Loss Total: {:4.3f}".format( steps, gen_err ))
                             sw.add_scalar("validation/mel_spec_error", val_err, steps)
                             sw.add_scalar("validation/gen_loss_total", gen_err, steps)
 
@@ -490,6 +472,8 @@ class HifiGanModel():
             if optimizer_was_run:
                 scheduler_g.step()
                 scheduler_d.step()
+            if self.opts.rank == 0:
+                utils.feature_extractor_decorator.merge_cache(generator, self.opts.cache_path)
 
         if self.opts.rank == 0:
             logging.info("Finished training")

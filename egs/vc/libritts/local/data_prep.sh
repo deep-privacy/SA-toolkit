@@ -41,6 +41,10 @@ for reader_dir in $(find -L $src -mindepth 1 -maxdepth 1 -type d | sed -e "s/$/_
     exit 1
   fi
 
+  spk="${reader}"
+  # reader -> gender map (again not using per-chapter granularity)
+  echo "$spk $reader_gender" >>$spk2gender
+
   for chapter_dir in $(find -L $reader_dir/ -mindepth 1 -maxdepth 1 -type d | sort); do
     chapter=$(basename $chapter_dir)
     if ! [ "$chapter" -eq "$chapter" ]; then
@@ -48,10 +52,10 @@ for reader_dir in $(find -L $src -mindepth 1 -maxdepth 1 -type d | sed -e "s/$/_
       exit 1
     fi
 
-    spk="${reader}_${chapter}"
+    spk="${reader}"
 
     find -L $chapter_dir/ -iname "*.wav" | sort | while read -r wav_file; do
-       id=$(basename $wav_file .wav)
+       id="$reader"-$(basename $wav_file .wav)
        echo "$id $wav_file" >>$wav_scp
 
        txt=$(cat $(echo $wav_file | sed -e "s/\.wav$/.normalized.txt/"))
@@ -63,8 +67,6 @@ for reader_dir in $(find -L $src -mindepth 1 -maxdepth 1 -type d | sed -e "s/$/_
        echo "$id $spk" >>$utt2spk
     done
 
-    # reader -> gender map (again using per-chapter granularity)
-    echo "$spk $reader_gender" >>$spk2gender
   done
 done
 
@@ -76,6 +78,7 @@ nutt2spk=$(wc -l <$utt2spk)
 ! [ "$ntrans" -eq "$nutt2spk" ] && \
   echo "Inconsistent #transcripts($ntrans) and #utt2spk($nutt2spk)" && exit 1
 
+utils/fix_data_dir.sh $dst || exit 1
 utils/validate_data_dir.sh --no-feats $dst || exit 1
 
 echo "$0: successfully prepared data in $dst"

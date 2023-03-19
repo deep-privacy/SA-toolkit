@@ -26,7 +26,7 @@ algorithms were similar.
 import torch
 torch.set_num_threads(1)
 import torchaudio
-from math import floor, ceil
+from math import floor, ceil, isnan
 from typing import Dict, List, Tuple, Any
 
 class SignalObj(object):
@@ -711,14 +711,15 @@ def time_track(signal:SignalObj, spec_pitch, pitch_std, pitch:PitchObj, paramete
     signal_frames = stride_matrix(data, tda_nframes,tda_frame_length,
                                   pitch.frame_jump)
     for frame in range(tda_nframes):
-        lag_min0 = int(floor(signal.new_fs/spec_range[1, frame]) -
-                                    floor(parameters['nccf_pwidth']/2.0))
-        lag_max0 = int(floor(signal.new_fs/spec_range[0, frame]) +
-                                    floor(parameters['nccf_pwidth']/2.0))
+        a = floor(signal.new_fs/spec_range[1, frame])
+        b = floor(signal.new_fs/spec_range[0, frame])
+        if not isnan(a) and not isnan(b):
+            lag_min0 = int(a - floor(parameters['nccf_pwidth']/2.0))
+            lag_max0 = int(b + floor(parameters['nccf_pwidth']/2.0))
 
-        phi = crs_corr(signal_frames[frame, :], lag_min0, lag_max0)
-        time_pitch[:, frame], time_merit[:, frame] = \
-            cmp_rate(phi, signal.new_fs, maxcands, lag_min0, lag_max0, parameters)
+            phi = crs_corr(signal_frames[frame, :], lag_min0, lag_max0)
+            time_pitch[:, frame], time_merit[:, frame] = \
+                cmp_rate(phi, signal.new_fs, maxcands, lag_min0, lag_max0, parameters)
 
     diff = torch.abs(time_pitch - spec_pitch)
     match1 = (diff < freq_thresh)

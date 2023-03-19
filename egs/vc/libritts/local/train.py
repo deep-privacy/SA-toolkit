@@ -73,13 +73,13 @@ class Opts:
             return []
         return json.loads(self.model_args)
 
-    def get_forcmd(self, key, add_quote=False):
+    def get_forcmd(self, key, add_quote=False, append=""):
         if getattr(self, key) == "":
             return []
         if add_quote:
-            a = '\'' + str(getattr(self, key)).replace('\n', '').replace("\"", "\\\"") + '\''
-            return [f"--{key.replace('_', '-')}", a]
-        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace('\n', '')]
+            a = '\'' + str(getattr(self, key)).replace('\n', '').replace("\"", "\\\"").replace(" ", "") + '\''
+            return [f"--{key.replace('_', '-')}", a+append]
+        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace('\n', '')+append]
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -132,8 +132,8 @@ def train():
 
     os.makedirs(cfg_exp.dir, exist_ok=True)
 
-
-    if cfg_exp.train_iter == "last" or cfg_exp.train_iter == '"last"':
+    cfg_exp.train_iter = cfg_exp.train_iter.replace("\"", "").replace("'", "")
+    if cfg_exp.train_iter == "last":
         pattern = os.path.join(cfg_exp.dir, "g_" + "????????" + ".pt")
         cp_list = glob.glob(pattern)
         if len(cp_list) != 0:
@@ -155,6 +155,7 @@ def train():
                 cfg_exp.model_file,
                 *cfg_exp.get_model_args,
                 "--mode", "init",
+                *cfg_exp.get_forcmd("train_set"), # spk2id
                 *cfg_exp.get_forcmd("dir"),
                 *cfg_exp.get_forcmd("init_weight_model"),
                 cfg_exp.dir / "g_0.pt",
@@ -172,9 +173,19 @@ def train():
             logging.error(f"Or connect yourself to a node before running this file (run.pl)")
             quit(1)
 
+        # reduce dataset to only segment_size utts
+        satools.script_utils.run([
+                cfg_cmd.cpu_cmd,
+                cfg_exp.dir / "log" / "reduce_train.log",
+                "local/filterlen_data_dir.sh",
+                "--min-length", f"{cfg_exp.segment_size}",
+                f"{cfg_exp.train_set}", f"{cfg_exp.train_set}_reduced"
+            ]
+        )
+
 
         # resume from init stage (start) or a given train_iter
-        if cfg_exp.train_iter != "0" and not cfg_exp.train_iter.startswith("0"):
+        if not cfg_exp.train_iter.startswith("0"):
             cfg_exp.train_iter = '{:0>8}'.format(str(cfg_exp.train_iter))
 
         logging.info(f"Starting training from iter={cfg_exp.train_iter}")
@@ -183,7 +194,6 @@ def train():
         if cfg_exp.n_gpu != 1:
             #  TODO add support for other cfg_cmd.cuda_cmd than run.pl (ssh.pl with multi nnodes)
             python_cmd = ["OMP_NUM_THREADS=1", "torchrun", "--standalone", "--nnodes=1", "--nproc_per_node", f"{cfg_exp.n_gpu}"]
-
 
         a = open(f"{cfg_exp.dir}/log/train.log", "w");a.seek(0);a.truncate()
         tail = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
@@ -194,7 +204,7 @@ def train():
                  cfg_exp.model_file,
                  *cfg_exp.get_model_args,
                 "--mode", "train",
-                *cfg_exp.get_forcmd("train_set"),
+                *cfg_exp.get_forcmd("train_set", append=""),
                 *cfg_exp.get_forcmd("dev_set"),
                 *cfg_exp.get_forcmd("num_worker_dataloader"),
                 *cfg_exp.get_forcmd("dir"),

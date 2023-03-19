@@ -247,8 +247,6 @@ def vartoml(item):
     datadir = "${:basedir}/data"
     """
     import re
-    import toml
-    decoder = toml.TomlDecoder()
 
     RE_VAR = re.compile(r"""
              [$][{]

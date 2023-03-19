@@ -1,37 +1,89 @@
-# Taken from: https://github.com/espnet/espnet/blob/master/espnet/utils/cli_writers.py
-
-import signal
 from typing import Dict
+import numpy as np
 import io
+import os
 import logging
 import sys
 
-import h5py
 import kaldiio
 
 """
-Warning some function are only implemented for h5py
+Example:
+    python3 -c 'import satools.utils; print(satools.utils.scp_io.file_reader_helper("scp:get_f0_dev_set_split2.scp").get("8842_302203_000010_000001"))'
+    python3 -c 'import satools.utils; print(dict(satools.utils.scp_io.file_reader_helper("scp:get_f0_dev_set_split2.scp")))'
+
 """
+
+def seekable(f):
+    if hasattr(f, "seekable"):
+        return f.seekable()
+
+    # For Py2
+    else:
+        if hasattr(f, "tell"):
+            try:
+                f.tell()
+            except (IOError, OSError):
+                return False
+            else:
+                return True
+        else:
+            return False
+
+def File(file, mode='r'):
+    specifier = parse_wspecifier(file)
+    if mode == 'a':
+        class writer():
+            def __init__(self):
+                self.file = specifier["ark"]
+            def __setitem__(self, id, array):
+                self.last_write = save_ark(specifier["ark"], {id: array},
+                 scp=specifier["scp"], append=True)
+
+        return writer()
+    if mode == "r":
+        class reader():
+            def __init__(self):
+                self.file = file
+
+            def keys(self):
+                with kaldiio.matio.open_or_fd(specifier["ark"], "rb") as fd:
+                    while True:
+                        token = kaldiio.matio.read_token(fd)
+                        key = fd.tell()
+                        if token is None:
+                            break
+                        max_flag_length = len(b"AUDIO")
+                        binary_flag = fd.read(max_flag_length)
+                        if seekable(fd):
+                            fd.seek(-max_flag_length, 1)
+                        if binary_flag[:3] == b"NPY":
+                            fd.read(3)
+                            length_ = kaldiio.matio._read_length_header(fd)
+                            fd.seek(length_, 1)
+                        else:
+                            kaldiio.matio.read_matrix_or_vector(fd, return_size=True)
+                        yield token, key
+
+            def __getitem__(self, id):
+                v = kaldiio.load_mat(f"{specifier['ark']}:{id}")
+                if isinstance(v, np.lib.npyio.NpzFile):
+                    v = v['arr_0']
+                return v
+
+        return reader()
 
 def file_writer_helper(
     wspecifier: str,
-    filetype: str = "hdf5",
-    write_num_frames: str = None,
-    compress: bool = False,
-    compression_method: int = 2
 ):
     """Write matrices in kaldi style
 
     Args:
         wspecifier: e.g. ark,scp:out.ark,out.scp
-        filetype: "mat" is kaldi-martix, "hdf5": HDF5
-        write_num_frames: e.g. 'ark,t:num_frames.txt'
-        compress: Compress or not
-        compression_method: Specify compression level
 
     Write in kaldi-matrix-ark with "kaldi-scp" file:
 
-    >>> with file_writer_helper('ark,scp:out.ark,out.scp', 'mat') as f:
+    >>> with file_writer_helper('ark,scp:out.ark,out.scp') as f:
     >>>     f['uttid'] = array
 
     This "scp" has the following format:
@@ -41,110 +93,13 @@ def file_writer_helper(
 
     where, 1234 and 2222 points the strating byte address of the matrix.
     (For detail, see official documentation of Kaldi)
-
-    Write in HDF5 with "scp" file:
-
-    >>> with file_writer_helper('ark,scp:out.h5,out.scp', 'hdf5') as f:
-    >>>     f['uttid'] = array
-
-    This "scp" file is created as:
-
-        uttidA out.h5:uttidA
-        uttidB out.h5:uttidB
-
-    HDF5 can be, unlike "kaldi-ark", accessed to any keys,
-    so originally "scp" is not required for random-reading.
-    Nevertheless we create "scp" for HDF5 because it is useful
-    for some use-case. e.g. Concatenation, Splitting.
-
     """
-    if filetype == "mat":
-        return KaldiWriter(
-            wspecifier,
-            write_num_frames=write_num_frames,
-            compress=compress,
-            compression_method=compression_method,
-        )
-    elif filetype == "hdf5":
-        return HDF5Writer(
-            wspecifier, write_num_frames=write_num_frames, compress=compress
-        )
-    else:
-        raise NotImplementedError(f"filetype={filetype}")
 
-
-class BaseWriter:
-    def __setitem__(self, key, value):
-        raise NotImplementedError
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def close(self):
-        try:
-            self.writer.close()
-        except Exception:
-            pass
-
-        if self.writer_scp is not None:
-            try:
-                self.writer_scp.close()
-            except Exception:
-                pass
-
-        if self.writer_nframe is not None:
-            try:
-                self.writer_nframe.close()
-            except Exception:
-                pass
-
-
-def get_num_frames_writer(write_num_frames: str):
-    """get_num_frames_writer
-
-    Examples:
-        >>> get_num_frames_writer('ark,t:num_frames.txt')
-    """
-    if write_num_frames is not None:
-        if ":" not in write_num_frames:
-            raise ValueError(
-                'Must include ":", write_num_frames={}'.format(write_num_frames)
-            )
-
-        nframes_type, nframes_file = write_num_frames.split(":", 1)
-        if nframes_type != "ark,t":
-            raise ValueError(
-                "Only supporting text mode. "
-                "e.g. --write-num-frames=ark,t:foo.txt :"
-                "{}".format(nframes_type)
-            )
-
-    return open(nframes_file, "w", encoding="utf-8")
-
-
-class KaldiWriter(BaseWriter):
-    def __init__(
-        self, wspecifier, write_num_frames=None, compress=False, compression_method=2
-    ):
-        if compress:
-            self.writer = kaldiio.WriteHelper(
-                wspecifier, compression_method=compression_method
-            )
-        else:
-            self.writer = kaldiio.WriteHelper(wspecifier)
-        self.writer_scp = None
-        if write_num_frames is not None:
-            self.writer_nframe = get_num_frames_writer(write_num_frames)
-        else:
-            self.writer_nframe = None
-
-    def __setitem__(self, key, value):
-        self.writer[key] = value
-        if self.writer_nframe is not None:
-            self.writer_nframe.write(f"{key} {len(value)}\n")
+    if wspecifier != None and wspecifier.startswith("scp:"):
+        wspecifier = wspecifier.replace("scp:", "scp,ark:") + "," + wspecifier.split(":")[1].replace("scp", "ark")
+    return Writer(
+        wspecifier
+    )
 
 
 def parse_wspecifier(wspecifier: str) -> Dict[str, str]:
@@ -165,115 +120,63 @@ def parse_wspecifier(wspecifier: str) -> Dict[str, str]:
     spec_dict = dict(zip(ark_scps, filepaths))
     return spec_dict
 
-
-class HDF5Writer(BaseWriter):
-    """HDF5Writer
+class Writer():
+    """Writer
 
     Examples:
-        >>> with HDF5Writer('ark:out.h5', compress=True) as f:
+        >>> with Writer('ark:out.ark') as f:
         ...     f['key'] = array
     """
 
-    def __init__(self, wspecifier, write_num_frames=None, compress=False):
+    def __init__(self, wspecifier):
+        self.writer = File(wspecifier, mode="a")
+        self.specifier = wspecifier
         spec_dict = parse_wspecifier(wspecifier)
         self.filename = spec_dict["ark"]
 
-        if compress:
-            self.kwargs = {"compression": "gzip"}
-        else:
-            self.kwargs = {}
-        self.writer = None
-        if "scp" in spec_dict:
-            self.writer_scp = open(spec_dict["scp"], "a", encoding="utf-8")
-        else:
-            self.writer_scp = None
-        if write_num_frames is not None:
-            self.writer_nframe = get_num_frames_writer(write_num_frames)
-        else:
-            self.writer_nframe = None
+    def id(self):
+        return self.writer.last_write
 
     def file(self):
         return self.filename
 
     def reader(self):
-        return h5py.File(self.filename, "r", libver='latest', swmr=True)
+        return File(self.specifier, mode="r")
 
     def __setitem__(self, key, value):
-        print(self.writer)
-        if self.writer == None: # load on demand (compatible with torch dataloader)
-            self.writer = h5py.File(self.filename, "a", libver='latest')
-            self.writer.swmr_mode = True
-        if key in self.writer:
-            del self.writer[key]
-        self.writer.create_dataset(key, data=value, **self.kwargs)
-        self.writer.flush()
-
-        if self.writer_scp is not None:
-            self.writer_scp.write(f"{key} {self.filename}:{key}\n")
-            self.writer_scp.flush()
-        if self.writer_nframe is not None:
-            self.writer_nframe.write(f"{key} {len(value)}\n")
-            self.writer_nframe.flush()
-
+        self.writer[key] = value
 
 def file_reader_helper(
     rspecifier: str,
-    filetype: str = "hdf5",
     return_shape: bool = False,
-    segments: str = None,
 ):
     """Read uttid and array in kaldi style
 
     This function might be a bit confusing as "ark" is used
-    for HDF5 to imitate "kaldi-rspecifier".
+    for ark to imitate "kaldi-rspecifier".
 
     Args:
         rspecifier: Give as "ark:feats.ark" or "scp:feats.scp"
-        filetype: "mat" is kaldi-martix, "hdf5": HDF5
         return_shape: Return the shape of the matrix,
-            instead of the matrix. This can reduce IO cost for HDF5.
+            instead of the matrix. This can reduce IO cost for ark.
     Returns:
         Generator[Tuple[str, np.ndarray], None, None]:
 
     Examples:
         Read from kaldi-matrix ark file:
 
-        >>> for u, array in file_reader_helper('ark:feats.ark', 'mat'):
-        ...     array
-
-        Read from HDF5 file:
-
-        >>> for u, array in file_reader_helper('ark:feats.h5', 'hdf5'):
+        >>> for u, array in file_reader_helper('ark:feats.ark'):
         ...     array
 
     """
-    if filetype == "mat":
-        return KaldiReader(rspecifier, return_shape=return_shape, segments=segments)
-    elif filetype == "hdf5":
-        return HDF5Reader(rspecifier, return_shape=return_shape)
-    else:
-        raise NotImplementedError(f"filetype={filetype}")
+    return Reader(rspecifier, return_shape=return_shape)
 
 
-class KaldiReader:
-    def __init__(self, rspecifier, return_shape=False, segments=None):
-        self.rspecifier = rspecifier
-        self.return_shape = return_shape
-        self.segments = segments
-
-    def __iter__(self):
-        with kaldiio.ReadHelper(self.rspecifier, segments=self.segments) as reader:
-            for key, array in reader:
-                if self.return_shape:
-                    array = array.shape
-                yield key, array
-
-
-class HDF5Reader:
+class Reader:
     def __init__(self, rspecifier, return_shape=False):
         if ":" not in rspecifier:
             raise ValueError(
-                'Give "rspecifier" such as "ark:some.ark: {}"'.format(self.rspecifier)
+                'Give "rspecifier" such as "ark:some.ark: {}"'.format(rspecifier)
             )
         self.rspecifier = rspecifier
         self.ark_or_scp, self.filepath = self.rspecifier.split(":", 1)
@@ -288,36 +191,37 @@ class HDF5Reader:
         if self.ark_or_scp not in ["ark", "scp"]:
             raise ValueError(f"Must be scp or ark: {self.ark_or_scp}")
 
+        self.key_to_item = None
+        self.container_dict = None
         self.return_shape = return_shape
-
-        self.load()
 
     def parse_line(self, line):
         key, value = line.rstrip().split(None, 1)
 
         if ":" not in value:
             raise RuntimeError(
-                "scp file for hdf5 should be like: "
-                '"uttid filepath.h5:key": {}({})'.format(
+                "scp file for ark should be like: "
+                '"uttid filepath.container:key": {}({})'.format(
                     line, self.filepath
                 )
             )
         split_list = value.split(":")
         result = [":".join(split_list[:-1]), split_list[-1]]
-        path, h5_key = result[0], result[1]
-        return key, path, h5_key
+        path, z_key = result[0], result[1]
+        return key, path, z_key
 
     def has(self, key):
-        """
-        Only for h5py
-        """
+        self.init()
+        if self.key_to_item == None:
+            return False
         return key in self.key_to_item
 
     def get(self, key):
-        hdf5_dict = self.hdf5_dict
+        self.init()
+        container_dict = self.container_dict
         try:
-            path, h5_key = self.key_to_item[key]
-            data = hdf5_dict[path][h5_key]
+            path, z_key = self.key_to_item[key]
+            data = container_dict[path][z_key]
         except Exception:
             logging.error(
                 "Error when loading key={}".format(key)
@@ -328,60 +232,75 @@ class HDF5Reader:
         else:
             return data[()]
 
-    def add(self, key, path, h5_key, file):
+    def add(self, key, path, z_key, file):
+        self.init()
         """
         Do not write to file, just udpate entry
         """
-        self.key_to_item[key] = (path, h5_key)
-        self.hdf5_dict[path] = file
+        self.key_to_item[key] = (path, z_key)
+        self.container_dict[path] = file
+
+    def merge(self, other):
+        self.init()
+        other.init()
+        if other.key_to_item != None:
+            self.key_to_item.update(other.key_to_item)
+            self.container_dict.update(other.container_dict)
 
 
     def __repr__(self):
         return str(self.key_to_item)
 
 
-    def load(self):
-        """
-        Only for h5py
-        """
+    def init(self):
+        if self.key_to_item != None:
+            return self
         if self.ark_or_scp == "scp":
             key_to_item = {}
-            hdf5_dict = {}
+            container_dict = {}
+            if not os.path.isfile(self.filepath):
+                return self
             with open(self.filepath, "r", encoding="utf-8") as f:
                 for line in f:
-                    key, path, h5_key = self.parse_line(line)
-                    key_to_item[key] = (path, h5_key)
+                    key, path, z_key = self.parse_line(line)
 
-                    hdf5_file = hdf5_dict.get(path)
-                    if hdf5_file is None:
+                    # try to guess the path to the z file from current path
+                    if not os.path.isfile(path):
+                        dir_path = os.path.dirname(path)
+                        path_to_check = os.path.realpath(dir_path)
+                        full_path = os.path.realpath(os.getcwd())
+                        common_path = os.path.commonpath([path_to_check, full_path])
+                        path = os.path.join(common_path, os.path.basename(path))
+
+                    key_to_item[key] = (path, z_key)
+
+                    container_file = container_dict.get(path)
+                    if container_file is None:
                         try:
-                            hdf5_file = h5py.File(path, "r", libver='latest', swmr=True)
+                            container_file = File(f"ark:{path}", mode="r")
                         except Exception:
                             logging.error("Error when loading {}".format(path))
                             raise
-                        hdf5_dict[path] = hdf5_file
+                        container_dict[path] = container_file
             self.key_to_item = key_to_item
-            self.hdf5_dict = hdf5_dict
+            self.container_dict = container_dict
             return self
         else:
-            if self.filepath == "-":
-                # Required h5py>=2.9
-                filepath = io.BytesIO(sys.stdin.buffer.read())
-            else:
-                filepath = self.filepath
-            file = h5py.File(filepath, "r", libver='latest', swmr=True)
-            self.key_to_item = {v:(filepath, v) for v in file.keys()}
-            self.hdf5_dict = {filepath:file}
+            filepath = self.filepath
+            file = File(f"ark:{filepath}", mode="r")
+            self.key_to_item = {v[0]:(filepath, v[1]) for v in file.keys()}
+            self.container_dict = {filepath:file}
             return self
 
     def __iter__(self):
-        hdf5_dict = self.hdf5_dict
-        for key, (path, h5_key) in self.key_to_item.items():
+        self.init()
+        container_dict = self.container_dict
+        for key, (path, z_key) in self.key_to_item.items():
             try:
-                data = hdf5_dict[path][h5_key]
+                data = container_dict[path][z_key]
             except Exception:
                 logging.error(
-                    "Error when loading {} with key={}".format(path, h5_key)
+                    "Error when loading {} with key={}".format(path, z_key)
                 )
                 raise
 
@@ -390,9 +309,101 @@ class HDF5Reader:
             else:
                 yield key, data[()]
 
-        # Closing all files
-        for k in hdf5_dict:
-            try:
-                hdf5_dict[k].close()
-            except Exception:
-                pass
+
+
+
+
+
+# Pattch of :https://github.com/nttcslab-sp/kaldiio/blob/60c3c928e4fb499d8adbf08fa7297c55551277d7/kaldiio/matio.py#L328
+def save_ark(
+    ark,
+    array_dict,
+    scp=None,
+    append=False,
+    text=False,
+    endian="<",
+    compression_method=None,
+    write_function="numpy",
+):
+    """Write ark
+    Args:
+        ark (str or fd):
+        array_dict (dict):
+        scp (str or fd):
+        append (bool): If True is specified, open the file
+            with appendable mode
+        text (bool): If True, saving in text ark format.
+        endian (str):
+        compression_method (int):
+        write_function: (str):
+    """
+    if isinstance(ark, kaldiio.matio.string_types):
+        seekable = True
+    # Maybe, never match with this
+    elif not hasattr(ark, "tell"):
+        seekable = False
+    else:
+        try:
+            ark.tell()
+            seekable = True
+        except Exception:
+            seekable = False
+
+    if scp is not None and not isinstance(ark, kaldiio.matio.string_types):
+        if not seekable:
+            raise TypeError(
+                "scp file can be created only "
+                "if the output ark file is a file or "
+                "a seekable file descriptor."
+            )
+
+    # Write ark
+    mode = "ab" if append else "wb"
+    pos_list = []
+    with kaldiio.matio.open_or_fd(ark, mode) as fd:
+        if seekable:
+            offset = fd.tell()
+        else:
+            offset = 0
+        size = 0
+        for key in array_dict:
+            encode_key = (key + " ").encode(encoding=kaldiio.matio.default_encoding)
+            fd.write(encode_key)
+            size += len(encode_key)
+            pos_list.append(size)
+            data = array_dict[key]
+
+            if write_function == "numpy":
+                def _write_function(fd, data):
+                    # Write numpy file in BytesIO
+                    _fd = io.BytesIO()
+                    np.savez_compressed(_fd, data)
+
+                    fd.write(b"NPY")
+                    buf = _fd.getvalue()
+
+                    # Write the information for the length
+                    bytes_length = kaldiio.matio._write_length_header(fd, len(buf))
+
+                    # Write numpy to real file object
+                    fd.write(buf)
+
+                    return len(buf) + len(b"NPY") + bytes_length
+                size += _write_function(fd, data)
+
+            elif isinstance(data, (list, tuple)):
+                rate, array = data
+                size += kaldiio.matio.write_wav(fd, rate, array)
+            elif text:
+                size += kaldiio.matio.write_array_ascii(fd, data, endian)
+            else:
+                size += kaldiio.matio.write_array(fd, data, endian, compression_method)
+
+    # Write scp
+    mode = "a" if append else "w"
+    if scp is not None:
+        name = ark if isinstance(ark, kaldiio.matio.string_types) else ark.name
+        with kaldiio.matio.open_or_fd(scp, mode) as fd:
+            for key, position in zip(array_dict, pos_list):
+                fd.write(key + " " + name + ":" + str(position + offset) + "\n")
+        return position + offset

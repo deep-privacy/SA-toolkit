@@ -6,3 +6,8 @@ from .fs import (
 )
 from . import torch_utils as torch
 from . import scp_io
+from .feature_extractor_decorator import (
+    extract_features_from_decorator,
+    register_feature_extractor,
+    extract_features_fnames,
+)

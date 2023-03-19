@@ -1,4 +1,7 @@
-# SA-toolkit
+ <div align="center">
+# MindAudio
+</div>
+
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-lightgray)](LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/deep-privacy/SA-toolkit/blob/master/SA-colab.ipynb)
 

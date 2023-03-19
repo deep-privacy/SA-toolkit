@@ -5,6 +5,7 @@ from torch.nn.utils import weight_norm, remove_weight_norm
 from . import nn as sann
 
 from typing import Tuple, Union, Dict, Optional
+import logging
 
 import warnings
 warnings.filterwarnings(
@@ -69,12 +70,7 @@ class CoreHifiGan(torch.nn.Module):
         self.conv_post.apply(sann.init_weights)
         self.reflection_pad = torch.nn.ReflectionPad1d((1, 0))
 
-    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        return Tuple[torch.Tensor]
-        Signal if not self.iSTFTNetout
-        Spec and Phase if self.iSTFTNetout
-        """
+    def forward_resnet(self, x):
         x = self.conv_pre(x)
         for up_idx, up in enumerate(self.ups):
             x = F.leaky_relu(x, 0.1)
@@ -88,6 +84,16 @@ class CoreHifiGan(torch.nn.Module):
         x = self.reflection_pad(x)
         x = self.conv_post(x)
         x = torch.tanh(x)
+        return x
+
+    def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        return Tuple[torch.Tensor]
+        Signal if not self.iSTFTNetout
+        Spec and Phase if self.iSTFTNetout
+        """
+
+        x = self.forward_resnet(x)
 
         if self.iSTFTNetout:
             spec = torch.exp(x[:,:self.post_n_fft // 2 + 1, :])
