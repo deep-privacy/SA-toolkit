@@ -14,12 +14,12 @@ from typing import List, Union, Dict, Optional, Callable, TypeVar, Any
 from .. import utils
 
 class Wavinfo(object):
-    def __init__(self, wav, name, filename):
+    def __init__(self, wav:torch.Tensor, name:str, filename:str):
         self.name = name
         self.filename = filename
         self.wav = wav
 
-    def to(self, device="cpu"):
+    def to(self, device:str="cpu"):
         self.wav = self.wav.to(device)
         return self
 
@@ -27,7 +27,7 @@ class Wavinfo(object):
         return f"(name={self.name}, wav={self.wav.shape}, filename={self.filename})"
 
 class Egs(object):
-    def __init__(self, wavs:torch.Tensor, names:List[str], filenames:List[str], yss:torch.Tensor=torch.tensor([0]), lengths:torch.Tensor=torch.tensor([0]), extractor:Optional[Dict[str, torch.Tensor]]=None):
+    def __init__(self, wavs:torch.Tensor, names:List[str], filenames:List[str], yss:torch.Tensor=torch.tensor([0]), lengths:torch.Tensor=torch.tensor([0])):
         self.names = names
         self.filenames = filenames
         self.wavs = wavs
@@ -37,9 +37,10 @@ class Egs(object):
         self.lengths = lengths
 
         # pre-precessed feature (f0 asrbn..)
-        self.extractor = extractor
+        self.extractor:Dict[str, torch.Tensor] = {}
         self.sample_done = False
 
+    @torch.jit.unused
     def compute_cuda_extract_feat(self, generator, opts, name, device):
         if not self.sample_done:
             self.extractor.update(
@@ -49,6 +50,7 @@ class Egs(object):
                 )
             )
 
+    @torch.jit.unused
     @torch.no_grad()
     def sample(self, segment_size):
         if self.sample_done:
@@ -80,15 +82,20 @@ class Egs(object):
 
         return self
 
-    def __getitem__(self, key):
-        if key in self.extractor:
+    def __getitem__(self, key:str) -> torch.Tensor:
+        if key in self.extractor.keys():
             return self.extractor[key]
         key2 = key + "_no_sample"
-        if key2 in self.extractor:
+        if key2 in self.extractor.keys():
             return self.extractor[key2]
+        return self.getattr(key)
+
+
+    @torch.jit.unused
+    def getattr(self, key) -> torch.Tensor:
         return getattr(self, key)
 
-    def to(self, device="cpu"):
+    def to(self, device:str="cpu"):
         self.wavs = self.wavs.to(device)
         self.yss = self.yss.to(device)
         self.lengths = self.lengths.to(device)
@@ -98,6 +105,7 @@ class Egs(object):
     def __repr__(self):
         return f"(Batch names={self.names}, wavs={self.wavs.shape}, filenames={self.filenames}, lengths={self.lengths}, extractor={self.extractor})"
 
+    @torch.jit.unused
     def __iter__(self):
         for i in range(len(self.names)):
             yield Wavinfo(name=self.names[i], filename=self.filenames[i], wav=self.wavs[i][:self.lengths[i]].unsqueeze(0))

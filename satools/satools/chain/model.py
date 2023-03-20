@@ -169,10 +169,9 @@ class ChainModel(nn.Module):
         file = self.chain_opts.new_model
         model = self.Net(self.chain_opts.output_dim)
         model.load_state_dict(self.load_state_model(self.chain_opts.base_model))
-        model = torch.jit.script(model)
-        torch.jit.save(model, file)
-        logging.info("Saved to: " + str(file))
         self.save_model(model, self.chain_opts.base_model) # re-save old model (update dirs/exp keys)
+        torch.jit.save(torch.jit.script(model), file)
+        logging.info("Saved to: " + str(file))
 
     @torch.no_grad()
     def validate(self):

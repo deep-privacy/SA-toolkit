@@ -1,0 +1,41 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[var]
+asrbn_path = ../../asr/librispeech/exp/chain/
+asrbn_model = bn_tdnnf_t100_aug
+
+[exp]
+train_set = data/train_clean_100
+# result reported on dev are on converted speech, Mel-Spec. Error is supposed to be high
+dev_set = data/dev_clean_reduced
+
+n_gpu = 2
+num_worker_dataloader = 20
+logging_interval = 20
+lr = 0.0002
+minibatch_size = 32
+segment_size = 16320
+training_epochs = 250
+checkpoint_interval = 1000
+# resume training from:
+# train_iter = 18000
+train_iter = last
+
+model_file = local/tuning/hifigan.py
+dirname = hifigan_${:asrbn_model}
+model_args = ["--asrbn-model", "${:asrbn_path}${:asrbn_model}/final.pt"]
+
+# init_weight_model = "exp/other/g_00090000.pt"
+cache_path = ./exp/hifigan_${:asrbn_model}/cache/
+ # default / [] -> On  ||  ["none"] -> Off  ||  ["get_f0"] -> only get_f0
+# cache_functions = ["none"]
+
+# for jit
+# final_model = g_best.pt
+# g_best.pt is not necessary the best, with the GAN loss it is complicated to automatically choose one
+final_model = g_00029000.pt
+
+
+# vim:set et sw=2 ts=2 ft=toml:

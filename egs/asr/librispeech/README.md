@@ -52,3 +52,17 @@ Test    Clean   Other    Exp                         Config
 Test    Clean   Other    Exp                             Config
 %WER     4.85   14.89    exp/asr_eval_tdnnf_t360_aug     configs/tdnnf_asr_eval
 ```
+
+
+### JIT model (extract_bn or posterior with forward)
+
+```python3
+import torch
+import torchaudio
+waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPEECH("/tmp", "dev-clean", download=True)[0]
+model = torch.jit.load("__Exp_Path__/final.jit")
+model = model.eval()
+
+model.extract_bn(waveform) # asrbn feature (BATCH, SEQ, FEAT)
+post,_ = model(waveform)   # asr posterior (BATCH, SEQ, NbClass) NbClass = 3280 for left-biphone
+```

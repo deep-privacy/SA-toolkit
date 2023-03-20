@@ -791,7 +791,6 @@ def refine(time_pitch1, time_merit1, time_pitch2, time_merit2, spec_pitch,
                 Main function.
 --------------------------------------------
 """
-@torch.no_grad()
 @torch.jit.script
 def yaapt(_in:torch.Tensor, kwargs:Dict[str, float]):
 

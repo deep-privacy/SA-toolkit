@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm, remove_weight_norm
 
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Callable, Any
 
 from satools import hifigan
 import satools
@@ -29,8 +29,7 @@ def build(args):
 
         def __init__(self, utt2spk):
             super().__init__()
-            self.bn_extractor_type = "bn_tdnnf_t100_aug"
-            self.bn_extractor_model = "../../asr/librispeech/exp/chain/" + self.bn_extractor_type + "/final.pt"
+            self.bn_extractor_model = args.asrbn_model
             self.bn_extractor = satools.infer_helper.load_model(self.bn_extractor_model, load_weight=False)
             self.bn_extractor.eval()
 
@@ -40,19 +39,18 @@ def build(args):
                 "nccf_thresh1": 0.25,
                 "tda_frame_length": 25.0,
             }
+            self.f0_norm = satools.cmvn.UttCMVN(var_norm=True, keep_zeros=True)
 
             self.utt2spk = utt2spk
             self.spk = sorted(set([v for v in utt2spk.values()]))
+            self.target = ""
 
-            iSTFTNet_n_fft = 16
-            self.hifigan = hifigan.archi.CoreHifiGan(
-                iSTFTNetout=True,
-                iSTFTNet_n_fft = iSTFTNet_n_fft,
+
+            self.hifigan = (hifigan.archi.CoreHifiGan(
                 imput_dim=256+1+len(self.spk),  # BN asr = 256 dim + F0 dim + One hot spk....
-                upsample_rates=[5,4,4],
-                upsample_kernel_sizes=[11,8,8],
-            )
-            self.iSTFTNet = hifigan.archi.iSTFTNet(n_fft=iSTFTNet_n_fft, hop_length=4, win_length=iSTFTNet_n_fft)
+                upsample_rates=[5,4,4,2,2],
+                upsample_kernel_sizes=[11,8,8,4,4],
+            ))
 
         def remove_weight_norm(self):
             self.hifigan.remove_weight_norm()
@@ -62,16 +60,22 @@ def build(args):
             self.bn_extractor.eval()
 
         @torch.jit.export
-        def convert(self, x, names:List[str]=["default_utts"], filenames:List[str]=["default_utt_filenames"]):
-            x = hifigan.dataset.Egs(wavs=x, names=names, filenames=filenames)
+        def extract_features(self, x, target:str="6081"):
+            x = hifigan.dataset.Wavinfo(wav=x, name="default_utts", filename="default_utt_filenames")
             bn = self.get_bn(x)
-            f0 = self.get_bn(x)
+            f0 = self.get_f0(x).unsqueeze(0)
+            self.target = target
+            spk_id = self.get_spk_id(x).unsqueeze(0)
+            return (f0, bn, spk_id)
 
-        def forward(self, egs_with_feat: hifigan.dataset.Egs):
-            bn = egs_with_feat["get_bn"]
-            f0 = egs_with_feat["get_f0"].unsqueeze(1)
-            spk_id = egs_with_feat["get_spk_id"].unsqueeze(2).to(torch.float32)
+        @torch.jit.export
+        def convert(self, x, target:str="6081"):
+            (f0, bn, spk_id) = self.extract_features(x, target)
+            return self._forward(f0, bn, spk_id).squeeze(0)
 
+        def _forward(self, f0, bn, spk_id):
+            f0 = f0.unsqueeze(1)
+            spk_id = spk_id.unsqueeze(2).to(torch.float32)
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
 
@@ -79,9 +83,14 @@ def build(args):
             x = torch.cat([x, spk_id_inter], dim=1)
 
             with torch.cuda.amp.autocast(enabled=True):
-                spec, phase = self.hifigan(x)
-            x = self.iSTFTNet.inverse(spec, phase)
+                x, _ = self.hifigan(x)
+            x = x.to(torch.float32)
             return x
+
+        def forward(self, egs_with_feat: hifigan.dataset.Egs):
+            return self._forward(egs_with_feat["get_f0"],
+                                 egs_with_feat["get_bn"],
+                                 egs_with_feat["get_spk_id"])
 
         @satools.utils.register_feature_extractor(compute_device="cuda", scp_cache=True)
         def get_bn(self, wavinfo: hifigan.dataset.Wavinfo):
@@ -89,14 +98,17 @@ def build(args):
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: hifigan.dataset.Wavinfo):
-            return satools.cmvn.UttCMVN(var_norm=True, keep_zeros=True)(hifigan.yaapt.yaapt(wavinfo.wav, self.f0_yaapt_opts).samp_values)
+            return self.f0_norm(hifigan.yaapt.yaapt(wavinfo.wav, self.f0_yaapt_opts).samp_values)
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
         def get_spk_id(self, wavinfo: hifigan.dataset.Wavinfo):
-            if not self.training: # testing
-                target = "6081"
+            if self.target == "":
+                if not self.training: # testing
+                    target = "6081"
+                else:
+                    target = self.utt2spk[wavinfo.name]
             else:
-                target = self.utt2spk[wavinfo.name]
+                target = self.target
             index_spk = self.spk.index(target)
             return F.one_hot(torch.tensor(index_spk), num_classes=len(self.spk))
 
@@ -105,6 +117,7 @@ def build(args):
 
 if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
+    parser.add("--asrbn-model", default="", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     hifigan.HifiGanModel(build(args), cmd_line=True)

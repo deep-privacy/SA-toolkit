@@ -130,29 +130,43 @@ class CMVN(object):
 
 class UttCMVN(torch.nn.Module):
     def __init__(self, var_norm=False, keep_zeros=False):
-        super(UttCMVN, self).__init__()
+        super().__init__()
         self.var_norm = var_norm
         self.keep_zeros = keep_zeros
 
     def forward(self, x):
         dim = x.dim()
-        if self.keep_zeros:
-            uv = x == 0
         if dim == 1:
             x = x.unsqueeze(0)
-        mean = x.mean(dim=1).unsqueeze(1)
-        if self.var_norm:
-            std = torch.sqrt(x.var(dim=1) + 1e-6).unsqueeze(1)
-            x = x - mean
-            x /= std
+
+        if self.keep_zeros:
+            uv = x == 0
+            vv = x != 0
+
+            mean = x[vv].mean()
+            if self.var_norm:
+                std = torch.sqrt(x[vv].var() + 1e-6)
+                x[vv] = x[vv] - mean
+                x[vv] /= std
+            else:
+                x[vv] = x[uv] - mean
+
+            x[uv] = 0
+
         else:
-            x = x - mean
+
+            mean = x.mean(dim=1).unsqueeze(1)
+            if self.var_norm:
+                std = torch.sqrt(x.var(dim=1) + 1e-6).unsqueeze(1)
+                x = x - mean
+                x /= std
+            else:
+                x = x - mean
+
 
         if dim == 1:
             x = x.squeeze(0)
 
-        if self.keep_zeros:
-            x[uv] = 0
         return x
 
 

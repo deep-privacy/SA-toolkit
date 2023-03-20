@@ -149,11 +149,11 @@ class HifiGanModel():
         file = self.opts.new_model
         model = self.Net(utt2spk=self.utt2spk)
         model.load_state_dict(self.load_state_model(self.opts.base_model))
+        self.save_model(model, self.opts.base_model) # re-save old model (update install_path/base_model_args/.. keys)
         model.remove_weight_norm()
         model = torch.jit.script(model)
         torch.jit.save(model, file)
         logging.info("Saved to: " + str(file))
-        self.save_model(model, self.opts.base_model) # re-save old model (update install_path/base_model_args/.. keys)
 
     def init(self):
         model = self.Net(utt2spk=self.utt2spk)
@@ -168,7 +168,7 @@ class HifiGanModel():
                 init_weight_provided_matched, strict=False
             )
             logging.info(
-                "Init from previous model {}, layers not initialized: {}: layers ommited (wrong shape): {}".format(
+                "Init generator from previous model {}, layers not initialized: {}: layers ommited (wrong shape): {}".format(
                     self.opts.init_weight_model,
                     str(not_inited),
                     str(unmatch.keys()),
@@ -184,6 +184,11 @@ class HifiGanModel():
 
         mpd = nn.MultiPeriodDiscriminator()
         msd = nn.MultiScaleDiscriminator()
+        if self.opts.init_weight_model != "" and os.path.exists(self.opts.init_weight_model.replace("g_", "d_")):
+            logging.info("Init discriminators from previous model")
+            mpd.load_state_dict(torch.load(self.opts.init_weight_model.replace("g_", "d_"))["mpd"])
+            msd.load_state_dict(torch.load(self.opts.init_weight_model.replace("g_", "d_"))["msd"])
+
         file = self.opts.base_model.replace("g_", "d_")
         torch.save({ "mpd":  mpd.state_dict(), "msd": msd.state_dict() }, file)
 
@@ -459,11 +464,12 @@ class HifiGanModel():
                                     symlink.unlink()
                                 symlink.symlink_to(os.path.basename(checkpoint_path_g))
 
-                            if steps >= 10000 and (steps - 10000) % 10000 != 0:
-                                mdl = "{}/g_{:08d}".format(self.opts.dirname, steps - 10000)
-                                if os.path.isfile(mdl) and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best")) != "g_{:08d}".format(steps - 10000):
+                            if steps >= self.opts.checkpoint_interval and (steps - self.opts.checkpoint_interval) % self.opts.checkpoint_interval != 0:
+                                mdl = "{}/g_{:08d}".format(self.opts.dirname, steps - self.opts.checkpoint_interval)
+                                if os.path.isfile(mdl) and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best")) != "g_{:08d}".format(steps - self.opts.checkpoint_interval):
                                     script_utils.run(["rm", mdl])
                                     script_utils.run(["rm", mdl.replace("g_", "d_")])
+                                    script_utils.run(["rm", mdl.replace("g_", "trainer_")])
 
                     torch.cuda.empty_cache()
                     generator.train()

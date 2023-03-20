@@ -1,25 +1,36 @@
 import inspect
 import torch
+import os
+
+import functools
+
+# REQUIRED For torchscript type anontation of functools.wrap to be found
+import satools
+from .. import hifigan
+from .. import chain
+import torch.nn as nn
+import torch.nn.functional as F
+
 
 from . import fs
 from . import torch_utils
 from .. import script_utils
 
-def register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=True):
+def _register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=True):
     cache = fs.SCPCache(enabled=scp_cache,
                               specifier="scp:{dir}{func}{name}{worker}.scp",
                               )
-
     def wrapper(func):
         func = cache.decorate()(func)
         #  cache.update_formatter({"dir": "./"})
-        def model_feat_wrapper(hisself, fname, egs, exec_in_decorator=False, ask_compute="cpu", specifier_format={}, key=lambda x:x):
+        def model_feat_wrapper(hisself, fname, egs, specifier_format, key,  exec_in_decorator=False, ask_compute="cpu"):
             with torch.no_grad():
-                if cache.enabled:
-                    cache.key = lambda hisself, egs:key(egs)
 
                 if not exec_in_decorator:
                     result = func(hisself, egs)
+
+                if cache.enabled:
+                    cache.key = lambda hisself, egs:key(egs)
 
                 specifier_format["func"] = fname
                 specifier_format_global = {k:v for k,v in specifier_format.items() if k in ["dir", "func"]}
@@ -45,6 +56,20 @@ def register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_f
         return model_feat_wrapper
 
     return wrapper
+
+if os.getenv('SA_JIT_TWEAK', 'False').lower() == "false":
+    def register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=True):
+        return _register_feature_extractor(compute_device, scp_cache, sequence_feat)
+else:
+    def register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=True):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapped_func(hisself, egs):
+                result = func(hisself, egs)
+                return result
+            return wrapped_func
+        return decorator
+
 
 
 def extract_features_from_decorator(instance:torch.nn.Module, egs, ask_compute="cpu", specifier_format={}, cache_funcs=[], key=lambda x:x):
