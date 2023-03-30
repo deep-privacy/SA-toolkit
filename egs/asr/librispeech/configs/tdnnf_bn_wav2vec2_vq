@@ -46,7 +46,7 @@ test_set = data/test_clean,data/test_other
 # test_set = data/dev_clean
 
 # decode on gpus
-num_jobs = 2
+num_jobs = 4
 gpu = True
 
 # vim:set et sw=2 ts=2 ft=toml:

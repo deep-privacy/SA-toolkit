@@ -19,15 +19,6 @@ local/chain/train.py --conf configs/...
 ```
 
 
-### Results train-clean-100 (Wav2vec2 large voxpopuli west_germanic_v2)
-
-```sh
-Test    Clean   Other    Exp                                Config
-%WER     3.70    8.60    exp/bn_tdnnf_wav2vec2_t100_aug     configs/tdnnf_bn_wav2vec2
-# Fine-tune with vector quantization at the bottleneck extraction layer
-%WER     4.77   11.84    exp/bn_tdnnf_wav2vec2_vq_48        configs/tdnnf_bn_wav2vec2_vq
-```
-
 ### Results train-clean-100 (fbanks)
 ```sh
 Test    Clean   Other    Exp                          Config
@@ -39,12 +30,22 @@ Test    Clean   Other    Exp                          Config
 %WER     9.24   28.69    exp/bn_tdnnf_t100_vq_48      configs/tdnnf_bn_vq
 ```
 
+
+### Results train-clean-100 (Wav2vec2 large voxpopuli west_germanic_v2)
+
+```sh
+Test    Clean   Other    Exp                                Config
+%WER     3.70    8.60    exp/bn_tdnnf_wav2vec2_t100_aug     configs/tdnnf_bn_wav2vec2
+# Fine-tune with vector quantization at the bottleneck extraction layer
+%WER     4.77   11.84    exp/bn_tdnnf_wav2vec2_vq_48        configs/tdnnf_bn_wav2vec2_vq
+```
+
 ### Results train-600 (fbanks)
 ```sh
 Test    Clean   Other    Exp                         Config
 %WER     5.04   12.14    exp/bn_tdnnf_t600_aug       configs/tdnnf_bn_data_large
 # Fine-tune with vector quantization at the bottleneck extraction layer
-%WER     7.35   17.99    exp/bn_tdnnf_t100_vq_64     configs/tdnnf_bn_data_large_vq
+%WER     7.35   17.99    exp/bn_tdnnf_t600_vq_64     configs/tdnnf_bn_data_large_vq
 ```
 
 ### Results train-clean-360 (fbanks)

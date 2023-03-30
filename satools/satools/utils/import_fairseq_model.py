@@ -34,7 +34,7 @@ def _load(input_file):
 
 def _parse_model_param(cfg, state_dict):
     """
-        To get the model param
+        To get the model param from fairseq model
         cfg, state_dict = _load(input_file)
         params = _parse_model_param(cfg, state_dict)
     """
@@ -109,6 +109,3 @@ def wav2vec2_model(
 
     _model = torchaudio.models.wav2vec2.model.wav2vec2_model(*args, **kwargs)
     return _model
-
-
-

@@ -11,14 +11,18 @@ set -e
 eval_sets='vctk'
 eval_subsets='test'
 
-echo "Enter getdata@voiceprivacychallenge.univ-avignon.fr password : "
-read -s password
-echo
-
 for dset in $eval_sets ; do
   for suff in $eval_subsets; do
-    printf "${GREEN}\n Downloading ${dset}_${suff} set...${NC}\n"
-    share/download_data.sh ${dset}_${suff} ${password} || exit 1
+    if [ ! -f ./data/${dset}_${suff}/wav.scp ]; then
+        if [ -z $password ]; then
+          echo "Enter getdata@voiceprivacychallenge.univ-avignon.fr password : "
+          read -s password
+          echo
+        fi
+        echo $password
+        printf "${GREEN}\n Downloading ${dset}_${suff} set...${NC}\n"
+        local/download_data.sh ${dset}_${suff} ${password} || exit 1
+    fi
   done
 done
 

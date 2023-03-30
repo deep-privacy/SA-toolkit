@@ -418,7 +418,7 @@ def train():
 
         if stage <= 8:
             num_jobs = satools.utils.split_data(test_set, cfg_decode.num_jobs)
-            logging.info(f"Decoding with {cfg_decode.num_jobs} jobs...")
+            logging.info(f"Decoding with {data_name} {cfg_decode.num_jobs} jobs...")
 
             gpu_opts = []
             if bool(cfg_decode.gpu):

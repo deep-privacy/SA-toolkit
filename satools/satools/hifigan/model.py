@@ -140,7 +140,7 @@ class HifiGanModel():
                     "task_path": os.getcwd().replace(install_path, ""),
                     "install_path": install_path,
                     "base_model_path": sys.argv[0],
-                    "base_model_params": {},
+                    "base_model_params": {"utt2spk": self.utt2spk},
                     "base_model_args": json.loads(self.opts.base_model_args),
                     }, file)
 
@@ -184,10 +184,12 @@ class HifiGanModel():
 
         mpd = nn.MultiPeriodDiscriminator()
         msd = nn.MultiScaleDiscriminator()
-        if self.opts.init_weight_model != "" and os.path.exists(self.opts.init_weight_model.replace("g_", "d_")):
-            logging.info("Init discriminators from previous model")
-            mpd.load_state_dict(torch.load(self.opts.init_weight_model.replace("g_", "d_"))["mpd"])
-            msd.load_state_dict(torch.load(self.opts.init_weight_model.replace("g_", "d_"))["msd"])
+        if self.opts.init_weight_model != "":
+            discriminators = os.path.realpath(self.opts.init_weight_model).replace("g_", "d_")
+            if os.path.exists(discriminators):
+                logging.info("Init discriminators from previous model")
+                mpd.load_state_dict(torch.load(discriminators)["mpd"])
+                msd.load_state_dict(torch.load(discriminators)["msd"])
 
         file = self.opts.base_model.replace("g_", "d_")
         torch.save({ "mpd":  mpd.state_dict(), "msd": msd.state_dict() }, file)
@@ -464,12 +466,14 @@ class HifiGanModel():
                                     symlink.unlink()
                                 symlink.symlink_to(os.path.basename(checkpoint_path_g))
 
-                            if steps >= self.opts.checkpoint_interval and (steps - self.opts.checkpoint_interval) % self.opts.checkpoint_interval != 0:
-                                mdl = "{}/g_{:08d}".format(self.opts.dirname, steps - self.opts.checkpoint_interval)
-                                if os.path.isfile(mdl) and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best")) != "g_{:08d}".format(steps - self.opts.checkpoint_interval):
-                                    script_utils.run(["rm", mdl])
-                                    script_utils.run(["rm", mdl.replace("g_", "d_")])
-                                    script_utils.run(["rm", mdl.replace("g_", "trainer_")])
+                            max_last = 10
+                            keep_every = self.opts.checkpoint_interval*10
+                            mdl = "{}/g_{:08d}.pt".format(self.opts.dirname, steps - (self.opts.checkpoint_interval*max_last))
+                            print((steps - (self.opts.checkpoint_interval*max_last)) % keep_every,(steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0, os.path.isfile(mdl) ,flush=True)
+                            if os.path.isfile(mdl) and (steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0 and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best.pt")) != "g_{:08d}.pt".format(steps - (self.opts.checkpoint_interval*max_last)):
+                                script_utils.run(["rm", mdl])
+                                script_utils.run(["rm", mdl.replace("g_", "d_")])
+                                script_utils.run(["rm", mdl.replace("g_", "trainer_")])
 
                     torch.cuda.empty_cache()
                     generator.train()

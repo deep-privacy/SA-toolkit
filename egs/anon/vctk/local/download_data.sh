@@ -2,14 +2,14 @@
 
 set -e
 
-KALDI_ROOT=`pwd`/../kaldi
+KALDI_ROOT=`pwd`/../../../kaldi
 if [ ! -L ./utils ]; then
   echo "Kaldi root: ${KALDI_ROOT}"
-  ./share/make_links.sh $KALDI_ROOT || exit 1
+  ./local/make_links.sh $KALDI_ROOT || exit 1
   echo "Succesfuly created ln links"
 fi
 
-if [ $# != 1 ]; then
+if [ $# != 2 ]; then
   echo "Usage: "
   echo "  $0 [options] <data-set> <password>"
   exit 1;

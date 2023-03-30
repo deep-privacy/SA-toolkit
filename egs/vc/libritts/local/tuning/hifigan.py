@@ -62,8 +62,8 @@ def build(args):
         @torch.jit.export
         def extract_features(self, x, target:str="6081"):
             x = hifigan.dataset.Wavinfo(wav=x, name="default_utts", filename="default_utt_filenames")
-            bn = self.get_bn(x)
             f0 = self.get_f0(x).unsqueeze(0)
+            bn = self.get_bn(x)
             self.target = target
             spk_id = self.get_spk_id(x).unsqueeze(0)
             return (f0, bn, spk_id)
@@ -74,6 +74,7 @@ def build(args):
             return self._forward(f0, bn, spk_id).squeeze(0)
 
         def _forward(self, f0, bn, spk_id):
+            f0 = self.f0_norm(f0)
             f0 = f0.unsqueeze(1)
             spk_id = spk_id.unsqueeze(2).to(torch.float32)
             f0_inter = F.interpolate(f0, bn.shape[-1])
@@ -94,11 +95,11 @@ def build(args):
 
         @satools.utils.register_feature_extractor(compute_device="cuda", scp_cache=True)
         def get_bn(self, wavinfo: hifigan.dataset.Wavinfo):
-            return self.bn_extractor.extract_bn(wavinfo.wav).permute(0, 2, 1)
+            return self.bn_extractor.extract_bn(wavinfo.wav.detach().clone()).permute(0, 2, 1)
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: hifigan.dataset.Wavinfo):
-            return self.f0_norm(hifigan.yaapt.yaapt(wavinfo.wav, self.f0_yaapt_opts).samp_values)
+            return hifigan.yaapt.yaapt(wavinfo.wav.detach().clone(), self.f0_yaapt_opts).samp_values
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
         def get_spk_id(self, wavinfo: hifigan.dataset.Wavinfo):
