@@ -11,7 +11,7 @@ train_set = data/train_clean_100
 # result reported on dev are with converted speech, hence Mel-Spec. Error is supposed to be high
 dev_set = data/dev_clean_reduced
 
-n_gpu = 1
+n_gpu = 2
 num_worker_dataloader = 20
 logging_interval = 20
 lr = 0.0002

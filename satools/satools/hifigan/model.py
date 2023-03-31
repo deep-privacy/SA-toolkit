@@ -469,7 +469,7 @@ class HifiGanModel():
                             max_last = 10
                             keep_every = self.opts.checkpoint_interval*10
                             mdl = "{}/g_{:08d}.pt".format(self.opts.dirname, steps - (self.opts.checkpoint_interval*max_last))
-                            print((steps - (self.opts.checkpoint_interval*max_last)) % keep_every,(steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0, os.path.isfile(mdl) ,flush=True)
+                            #  print((steps - (self.opts.checkpoint_interval*max_last)) % keep_every,(steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0, os.path.isfile(mdl) ,flush=True)
                             if os.path.isfile(mdl) and (steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0 and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best.pt")) != "g_{:08d}.pt".format(steps - (self.opts.checkpoint_interval*max_last)):
                                 script_utils.run(["rm", mdl])
                                 script_utils.run(["rm", mdl.replace("g_", "d_")])

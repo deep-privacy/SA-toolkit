@@ -207,6 +207,7 @@ if [ ! -f $mark ]; then
   echo 'matplotlib' >> requirements.txt
   echo python-dateutil >> requirements.txt
   echo graftr >> requirements.txt # an interactive shell to view and edit PyTorch checkpoints
+  echo h5py >> requirements.txt
 
   # asr additional req
   echo 'kaldiio>=2.15.1' >> requirements.txt

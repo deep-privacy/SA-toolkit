@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 description = """
-  This script trains hifigans models.
+  This script trains asv-sidekit models.
   It takes a config file
 """
 
@@ -41,20 +41,13 @@ class Opts:
     model_file: Path = "./local/chain/tuning/aaaa.py"
     model_args: str = ""  # allow empty
     exp_dir: Path = "./exp/"
-    cache_path: str = "./exp/cache"
-    #cache_functions    []     = cache all function with decorator 'register_feature_extractor' with 'scp_cache' param,
-    #                ["func1"] = only cache "func1" with  ^^^^^^
-    #                ["none" ] = disable cache
-    cache_functions: str = "[]"
     dirname: str = "model_a"
     init_weight_model: Path = ""
     train_iter: str = "0"
-    final_model: str = ""
 
     checkpoint_interval: int = 1000 # in step
     training_epochs: int = 1000
     segment_size: int = 16640
-    lr_decay: float = 0.999
     lr: float = 0.0002
     minibatch_size: int = 8
     num_worker_dataloader: int = 4
@@ -244,4 +237,5 @@ def train():
 
 if __name__ == "__main__":
     train()
+
 

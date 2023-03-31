@@ -1,3 +1,10 @@
+KALDI_ROOT=`pwd`/../../../kaldi
+if [ ! -L ./utils ]; then
+  echo "Kaldi root: ${KALDI_ROOT}"
+  ./local/make_links.sh $KALDI_ROOT || exit 1
+  echo "Succesfuly created ln links"
+fi
+
 # Environment variables for sa-toolkit
 [ -f `pwd`/../../../env.sh ] && . `pwd`/../../../env.sh
 
