@@ -38,7 +38,7 @@ class Opts:
 
     n_gpu:int = 1
 
-    model_file: Path = "./local/chain/tuning/aaaa.py"
+    model_file: Path = "./local/tuning/aaaa.py"
     model_args: str = ""  # allow empty
     exp_dir: Path = "./exp/"
     cache_path: str = "./exp/cache"
@@ -115,6 +115,7 @@ def train():
     parser = argparse.ArgumentParser(description="Acoustic model training script")
     parser.add_argument("--stage", default=0, type=int)
     parser.add_argument("--config", default="configs/default")
+    parser.add_argument("--final-model", default="")
     args = parser.parse_args()
 
     logging.info("Reading config")
@@ -211,6 +212,8 @@ def train():
                 *cfg_exp.get_forcmd("minibatch_size"),
                 *cfg_exp.get_forcmd("logging_interval"),
                 *cfg_exp.get_forcmd("segment_size"),
+                *cfg_exp.get_forcmd("lr"),
+                *cfg_exp.get_forcmd("lr_decay"),
                 *cfg_exp.get_forcmd("training_epochs"),
                 *cfg_exp.get_forcmd("checkpoint_interval"),
                 *cfg_exp.get_forcmd("cache_path"),
@@ -225,6 +228,11 @@ def train():
         carbonTracker.stop()
 
     if stage <= 10:
+        if args.final_model != "":
+            logging.info(f"'{args.final_model}' is now 'g_best.pt'")
+            satools.script_utils.run(["rm", cfg_exp.dir / f"g_best.pt"], quit_on_error=False)
+            satools.script_utils.run(["ln", "-s", os.path.basename(args.final_model), cfg_exp.dir / f"g_best.pt"], quit_on_error=True)
+
         logging.info(f"Creating JIT model from '{cfg_exp.final_model}'")
         shutil.copy(cfg_exp.dir / f"{cfg_exp.final_model}", cfg_exp.dir / "final.pt")
         satools.script_utils.run([

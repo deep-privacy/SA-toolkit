@@ -14,9 +14,8 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from .egs import (
-    Wav2vec2EgsDataset,
-    Wav2vec2DecodeDataset,
-    Wav2vec2EgsCollectFn,
+    EgsDataset,
+    EgsCollectFn,
 )
 from . import objf
 from .. import script_utils
@@ -47,7 +46,7 @@ class TrainerOpts:
 class DecodeOpts:
     use_gpu: bool = True
     gpu_id: int = 0
-    decode_feats: str = "data/test/feats.scp"
+    decode_feats: str = "data/test/wav.scp"
     decode_output: str = "-"
 
 
@@ -194,7 +193,7 @@ class ChainModel(nn.Module):
             chain_opts.xent_regularize,
         )
 
-        dataset = Wav2vec2EgsDataset(
+        dataset = EgsDataset(
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
             "{}/utt2len".format(chain_opts.dataset),
@@ -301,23 +300,25 @@ class ChainModel(nn.Module):
             close = writer.close
             tensor_to_writer = lambda x: x.numpy()
 
-        dataset = Wav2vec2DecodeDataset.from_wav_scp(chain_opts.decode_feats)
+        dataset = satools.utils.WavScpDataset.from_wav_scpfile(chain_opts.decode_feats)
         dataloader = torch.utils.data.DataLoader(
-            dataset, collate_fn=Wav2vec2EgsCollectFn, num_workers=8
+            dataset, collate_fn=EgsCollectFn, num_workers=6
         )
 
         if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
             tqdm_file = open(self.chain_opts.dir + "/log/tqdm", "w")
             dataloader = tqdm(dataloader, file=tqdm_file)
 
-        for feats, key in dataloader:
+        for wavinfo in dataloader:
+            # batch size = 1
+            feats = wavinfo[0].wav
+            key = wavinfo[0].name
             if chain_opts.use_gpu:
                 feats = feats.to(device)
             post, _ = model(feats)
             post = post.squeeze(0).cpu()
-            # batch size = 1 !!
-            writer(key[0], tensor_to_writer(post))
-            logging.info("Wrote {}".format(key[0]))
+            writer(key, tensor_to_writer(post))
+            logging.info("Wrote {}".format(key))
         close()
         if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
             tqdm_file.seek(0)
@@ -326,9 +327,18 @@ class ChainModel(nn.Module):
     def reset_dims(self):
         # what if the user wants to pass it? Just override this function
         num_pdfs_filename = os.path.join(self.chain_opts.dir, "num_pdfs")
-        self.chain_opts.output_dim = script_utils.read_single_param_file(
-            num_pdfs_filename
-        )
+        if os.path.exists(num_pdfs_filename):
+            self.chain_opts.output_dim = script_utils.read_single_param_file(
+                num_pdfs_filename
+            )
+        else:
+            self.chain_opts.output_dim = torch.load(self.chain_opts.base_model)["base_model_params"]["output_dim"]
+
+        if self.chain_opts.output_dim == 1:
+            logging.critical(f"Could not find file {num_pdfs_filename} or key 'base_model_params' in model file to know the number of pdfs outputs of the model")
+            sys.exit(1)
+
+
 
     @torch.no_grad()
     def combine_final_model(self):
@@ -352,7 +362,7 @@ class ChainModel(nn.Module):
         moving_average.load_state_dict(self.load_state_model(base_models[0]))
         moving_average.cuda()
         best_mdl = moving_average
-        dataset = Wav2vec2EgsDataset(
+        dataset = EgsDataset(
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
             "{}/utt2len".format(chain_opts.dataset),
@@ -500,7 +510,7 @@ class ChainE2EModel(ChainModel):
         model.load_state_dict(self.load_state_model(chain_opts.base_model))
         #  if torch.__version__.startswith("2."):
             #  model = torch.compile(model, dynamic=True)
-        dataset = Wav2vec2EgsDataset(
+        dataset = EgsDataset(
             "{}/wav.scp".format(chain_opts.dataset),
             chain_opts.egs,
             "{}/utt2len".format(chain_opts.dataset),

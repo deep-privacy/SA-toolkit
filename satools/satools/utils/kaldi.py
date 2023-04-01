@@ -5,8 +5,8 @@ import os
 import subprocess
 import sys
 
-import soundfile
 import torch
+import torchaudio
 
 from ..script_utils import run
 
@@ -73,6 +73,16 @@ def split_scp(input_file, prefix="", suffix="", num_splits=-1):
     subprocess.run(["utils/split_scp.pl", input_file, *out_scp])
 
 
+def read_utt2len_file(utt2len_file):
+    """read utt2len file, second column is the number of output frames"""
+    utt2len = {}
+    with open(utt2len_file) as utt2len_f:
+        for line in utt2len_f:
+            lns = line.strip().split()
+            utt2len[lns[0]] = float(lns[1])
+    return utt2len
+
+
 def read_wav_scp(wav_scp):
     """Reads wav.scp file and returns a dictionary
 
@@ -92,23 +102,34 @@ def read_wav_scp(wav_scp):
     return utt2wav
 
 
-def load_wav_from_scp(wav, out_type="torch"):
+def load_wav_from_scp(wav, frame_offset: int = 0,  num_frames: int = -1):
     """Reads a wav.scp entry like kaldi with embeded unix command
     and returns a pytorch tensor like it was open with torchaudio.load()
-    (within some tolerance due to numerical precision) or the direct ouput of soundfile.read()
+    (within some tolerance due to numerical precision))
 
-    signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
-    signalv2 = load_wav_from_scp('flac -c -d -s XX/1272-128104-0000.flac |')
-    signalv3 = load_wav_from_scp('XX/1272-128104-0000.flac')
+    import satools
+    signalv2, _ = satools.utils.kaldi.load_wav_from_scp("/lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360/100/121669/100-121669-0000.flac")
+    signalv3, _ = satools.utils.kaldi.load_wav_from_scp("flac -c -d -s /lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360/100/121669/100-121669-0000.flac |")
+    import torchaudio
+    import torch
+    signal, _ = torchaudio.load("/lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360/100/121669/100-121669-0000.flac")
 
     print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
     print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))
+
+    signalv2, _ = satools.utils.kaldi.load_wav_from_scp("/lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360/100/121669/100-121669-0000.flac", frame_offset=300, num_frames=1000)
+    signalv3, _ = satools.utils.kaldi.load_wav_from_scp("flac -c -d -s /lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360/100/121669/100-121669-0000.flac |", frame_offset=300, num_frames=1000)
+    signal, _ = torchaudio.load("/lium/raid01_b/pchampi/lab/asr-based-privacy-preserving-separation/pkwrap/egs/librispeech/v1/corpora/LibriSpeech/train-clean-360/100/121669/100-121669-0000.flac", frame_offset=300, num_frames=1000)
+
+    print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
+    print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))                                                                                                                                                                                                          #
+
 
     Args:
         wav: a list containing the scp entry
 
     Returns:
-        out_feats: torch.tensor dtype float32 (default) or output of soundfile.read()
+        out_feats: torch.tensor or numpy array dtype float32 (default)
     """
     if wav.strip().endswith("|"):
         devnull = open(os.devnull, "w")
@@ -116,18 +137,13 @@ def load_wav_from_scp(wav, out_type="torch"):
             wav_read_process = subprocess.Popen(
                 wav.strip()[:-1], stdout=subprocess.PIPE, shell=True, stderr=devnull
             )
-            sample, sr = soundfile.read(
+            sample, sr = torchaudio.backend.soundfile_backend.load(
                 io.BytesIO(wav_read_process.communicate()[0]),
+                frame_offset=frame_offset, num_frames=num_frames
             )
         except Exception as e:
             raise IOError("Error processing wav file: {}\n{}".format(wav, e))
     else:
-        sample, sr = soundfile.read(wav)
+        sample, sr = torchaudio.backend.soundfile_backend.load(wav, frame_offset=frame_offset, num_frames=num_frames)
 
-    if out_type == "torch":
-        out_feats = torch.tensor(
-            sample, dtype=torch.float32, requires_grad=False
-        ).unsqueeze(0)
-    else:
-        out_feats = sample
-    return out_feats, sr
+    return sample, sr

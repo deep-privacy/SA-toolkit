@@ -1,3 +1,6 @@
+###########
+# TODO FIX THIS to match vq impl
+###########
 [cmd]
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
@@ -25,8 +28,8 @@ xent_regularize = 0.02
 final_combination_n_model = 5
 
 
-model_file = local/chain/e2e/tuning/tdnnf_wav2vec2_dp.py
-dirname = e2e_tdnnf_wav2vec2_dp_110000
+model_file = local/chain/tuning/tdnnf_wav2vec2_dp.py
+dirname = bn_tdnnf_wav2vec2_dp_110000
 model_args = ["--freeze-encoder", "True", "--epsilon", "110000"]
 init_weight_model = "./exp/chain/e2e_tdnnf_wav2vec2/final.pt"
 

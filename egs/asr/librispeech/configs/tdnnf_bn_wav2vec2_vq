@@ -2,6 +2,7 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
+# Can be modified through venv: e.g.: vq=128 local/chain/train.py ...
 [var]
 vq = 48
 

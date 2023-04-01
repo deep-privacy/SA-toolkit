@@ -1,3 +1,6 @@
+###########
+# TODO FIX THIS TO NEW SATOOLS WITH INTERNAL sidekit package
+###########
 [cmd]
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
@@ -26,7 +29,7 @@ train_stage = 4
 # train_stage = 200
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf_spkadv.py
+model_file = local/chain/tuning/tdnnf_spkadv.py
 dirname = e2e_tdnnf_train_adv
 model_args = ["--freeze-encoder", "True", "--adversarial-training", "False", "--spk2id", "./data/spk2id"]
 init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"

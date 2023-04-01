@@ -199,37 +199,34 @@ def make_train_data(root_data, data_dir, filter_dataset):
     # Browse directories to retrieve list of audio files
     spk_list = []
     pbar = tqdm(os.walk(root_data))
-    for root, dirs, files in pbar:
-        _continue = True
-        for _filter in filter_dataset:
-            if _filter in root:
-                _continue = False
-                break
+    with open(os.path.join(data_dir, "wav.scp"), "w") as wav_f, open(os.path.join(data_dir, "utt2spk"), "w") as utt_f, open(os.path.join(data_dir, "utt2dur"), "w") as utt_d:
 
-        pbar.set_description(f"spk count: {len(spk_list)} scaning: {root}")
-        if _continue:
-            continue
+        for root, dirs, files in pbar:
+            _continue = True
+            for _filter in filter_dataset:
+                if _filter in root:
+                    _continue = False
+                    break
 
-        for file in files:
-            file_path = os.path.join(root, file)
-            if os.path.splitext(file_path)[1] == ".wav":
-                dataset = root.split("/")
-                spk_id = dataset[-2]
-                if spk_id not in spk_list:
-                    spk_list.append(spk_id)
-                file_id, file_path = format_file_id(file_path)
-                duration = calculate_duration(file_path)
+            pbar.set_description(f"spk count: {len(spk_list)} scaning: {root}")
+            if _continue:
+                continue
 
-                # write to wav.scp file
-                with open(os.path.join(data_dir, "wav.scp"), "a") as wav_f:
+            for file in files:
+                file_path = os.path.join(root, file)
+                if os.path.splitext(file_path)[1] == ".wav":
+                    dataset = root.split("/")
+                    spk_id = dataset[-2]
+                    if spk_id not in spk_list:
+                        spk_list.append(spk_id)
+                    file_id, file_path = format_file_id(file_path)
+                    duration = calculate_duration(file_path)
+
+                    # write to wav.scp file
                     wav_f.write(f"{file_id} {file_path}\n")
-
-                # write to utt2spk file
-                with open(os.path.join(data_dir, "utt2spk"), "a") as utt_f:
+                    # write to utt2spk file
                     utt_f.write(f"{file_id} {spk_id}\n")
-
-                # write to utt2dur file
-                with open(os.path.join(data_dir, "utt2dur"), "a") as utt_d:
+                    # write to utt2dur file
                     utt_d.write(f"{file_id} {duration}\n")
 
 ## ========== ===========
@@ -517,10 +514,11 @@ https://thor.robots.ox.ac.uk/~vgg/data/voxceleb/vox1a/vox1_test_wav.zip 185fdc63
         convert(args, files)
 
     if args.make_test:
-        args.save_path += "/asv_test"
+        args.save_path += "/voxceleb1_test"
         os.makedirs(args.save_path, exist_ok=True)
         if args.filter_dataset == "voxceleb1/,voxceleb2/":
             args.filter_dataset = "voxceleb1_test/"
         if args.vox2:
-                args.filter_dataset = "voxceleb1/,voxceleb1_test/"
+            args.save_path += "/voxceleb2_test"
+            args.filter_dataset = "voxceleb1/,voxceleb1_test/"
         make_test(args)

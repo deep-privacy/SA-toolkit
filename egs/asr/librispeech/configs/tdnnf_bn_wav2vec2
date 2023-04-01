@@ -42,8 +42,8 @@ augmentation = {
       "rir_db_csv": "../../data/reverb.csv",
       "data_path": "/"
     },
-    "sanity_check_path" : "/tmp/sanity_test",
-    "sanity_check_samples" : 2
+  "sanity_check_path" : "/tmp/sanity_test",
+  "sanity_check_samples" : 2
   }
 
 [test]

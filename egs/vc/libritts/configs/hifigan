@@ -2,6 +2,7 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
+# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_t100_aug local/train.py --conf configs/hifigan
 [var]
 asrbn_path = ../../asr/librispeech/exp/chain/
 asrbn_model = bn_tdnnf_t100_aug

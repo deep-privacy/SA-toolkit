@@ -1,3 +1,6 @@
+###########
+# TODO FIX THIS to match vq impl
+###########
 [cmd]
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
@@ -9,33 +12,29 @@ egs_dir = exp/chain/e2e_train_clean_100/fst_egs
 
 # train params
 num_epochs = 1
-num_jobs_initial = 1
-# No Parameter Averaging (Natural Gradient)
-num_jobs_final = 1
-# add some random in the sampler such that the adv does not train the sampler generator
-sampler = BucketBatchSuffleAllowSomePadding
-
+num_jobs_initial = 2
+num_jobs_final = 5
 lr_initial = 0.0005
 lr_final = 0.00001
 diagnostics_interval = 10
 checkpoint_interval = 20
-# Higher batch_size for x-vector training than ASR training
-minibatch_size = 32
-final_combination_n_model = 1
+minibatch_size = 16
+ # merge weight, 5 last epoch checkpoints
+final_combination_n_model = 5
 # train_stage = 15
 # train_stage = last
 
-model_file = local/chain/e2e/tuning/tdnnf_spkadv.py
-dirname = e2e_tdnnf_rev_grad
-model_args = ["--freeze-encoder", "False", "--adversarial-training", "True", "--spk2id", "./data/spk2id"]
-init_weight_model = "./exp/spk/adv/best_model_custom.pt"
+model_file = local/chain/tuning/tdnnf_dp.py
+dirname = bn_tdnnf_dp_e160000
+model_args = ["--freeze-encoder", "True", "--epsilon", "160000.0"]
+init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
 
 [test]
 graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
 # test_set = data/test_clean
 # test_set = data/test_other
 # test_set = data/dev_other
-# test_set = data/dev_clean
+# test_set = data/test_clean
 test_set = data/dev_clean
 suffix = _final
 # decode on gpus

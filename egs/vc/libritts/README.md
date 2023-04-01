@@ -15,6 +15,9 @@ local/train.py --conf configs/...
 
 # Change asrbn extractor with
 asrbn_model=bn_tdnnf_t100_vq_64 local/train.py --conf configs/hifigan
+
+# Create best model (based on the quality of the audio generated)
+asrbn_model=bn_tdnnf_t100_vq_64 local/train.py --conf configs/hifigan --stage 10 --final-model ./exp/bn_tdnnf_t100_vq_64/g_00111000.pt
 ```
 
 ### JIT model convert/anonymize speech

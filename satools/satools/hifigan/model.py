@@ -221,6 +221,7 @@ class HifiGanModel():
         _networks = [generator, mpd, msd]
         if self.opts.num_gpus > 1:
             for i in range(len(_networks)):
+                _networks[i] = torch.nn.SyncBatchNorm.convert_sync_batchnorm(_networks[i])
                 _networks[i] = torch.nn.parallel.DistributedDataParallel(
                     _networks[i], device_ids=[self.opts.rank], find_unused_parameters=True
                 )
@@ -276,8 +277,7 @@ class HifiGanModel():
         scheduler_g = torch.optim.lr_scheduler.ExponentialLR(optim_g, gamma=self.opts.lr_decay, last_epoch=last_epoch)
         scheduler_d = torch.optim.lr_scheduler.ExponentialLR(optim_d, gamma=self.opts.lr_decay, last_epoch=last_epoch)
 
-        wavs_scp = utils.kaldi.read_wav_scp(self.opts.train_set + "/wav.scp")
-        trainset = dataset.WavList(list(wavs_scp.values()), list(wavs_scp.keys()), load_func=utils.kaldi.load_wav_from_scp)
+        trainset = utils.WavScpDataset.from_wav_scpfile(self.opts.train_set + "/wav.scp")
 
         train_sampler = (torch.utils.data.DistributedSampler(trainset, shuffle=True) if self.opts.num_gpus > 1 else None)
 
@@ -293,8 +293,7 @@ class HifiGanModel():
         )
 
         if self.opts.rank == 0:
-            wavs_scp = utils.kaldi.read_wav_scp(self.opts.dev_set + "/wav.scp")
-            dataset_test = dataset.WavList(list(wavs_scp.values()), list(wavs_scp.keys()), load_func=utils.kaldi.load_wav_from_scp)
+            dataset_test = utils.WavScpDataset.from_wav_scpfile(self.opts.dev_set + "/wav.scp")
             self.opts.cache_worker_name = "dev_set"
             dataloader_test = torch.utils.data.DataLoader(
                 dataset_test,

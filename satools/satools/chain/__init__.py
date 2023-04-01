@@ -1,5 +1,5 @@
 from . import nn
-from .egs import Wav2vec2BatchSampler, Wav2vec2EgsDataset
+from .egs import BatchSampler, EgsDataset
 from .model import TrainerOpts, DecodeOpts, ChainModelOpts, ChainModel, ChainE2EModel
 from .objf import (
     KaldiChainObjfFunction,

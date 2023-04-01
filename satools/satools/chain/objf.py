@@ -5,9 +5,9 @@ import torch.optim as optim
 from torch.nn.utils import clip_grad_value_
 
 from .egs import (
-    Wav2vec2BatchSampler,
-    Wav2vec2EgsCollectFn,
-    GetSupervisionFromWav2Vec2Egs,
+    BatchSampler,
+    EgsCollectFn,
+    GetSupervisionFromEgs,
 )
 
 try:
@@ -250,7 +250,7 @@ def train_lfmmi_one_iter(
 
     Args:
         model: Path to pytorch model (.pt file)
-        dataset: a Wav2vec2EgsDataset dataset
+        dataset: a EgsDataset dataset
         den_fst_path: path to den.fst file
         training_opts: options of type ChainTrainingOpts
         grad_acc_steps: Number of training steps for which the gradients should be accumulated.
@@ -287,7 +287,7 @@ def train_lfmmi_one_iter(
     add_param = {}
     if sampler == "BucketBatch":
         logging.info("using sequence-length buckets sampler")
-        batch_sampler = Wav2vec2BatchSampler(
+        batch_sampler = BatchSampler(
             dataset.egs_holder,
             batch_size=minibatch_size,
             drop_last=False,
@@ -296,7 +296,7 @@ def train_lfmmi_one_iter(
 
     if sampler == "BucketBatchSuffle":
         logging.info("using sequence-length buckets sampler with dataset shuffle")
-        batch_sampler = Wav2vec2BatchSampler(
+        batch_sampler = BatchSampler(
             dataset.egs_holder,
             batch_size=minibatch_size,
             drop_last=False,
@@ -305,7 +305,7 @@ def train_lfmmi_one_iter(
         add_param["batch_sampler"]=batch_sampler
     if sampler == "BucketBatchSuffleAllowSomePadding":
         logging.info("using sequence-length buckets sampler with dataset shuffle and allow some padding")
-        batch_sampler = Wav2vec2BatchSampler(
+        batch_sampler = BatchSampler(
             dataset.egs_holder,
             batch_size=minibatch_size,
             drop_last=False,
@@ -318,12 +318,12 @@ def train_lfmmi_one_iter(
     dataloader = torch.utils.data.DataLoader(
         dataset,
         **add_param,
-        collate_fn=Wav2vec2EgsCollectFn,
+        collate_fn=EgsCollectFn,
         num_workers=10,
     )
 
     #  for mb_id, data in enumerate(dataloader):
-    #  print(mb_id, data[0].shape, GetSupervisionFromWav2Vec2Egs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
+    #  print(mb_id, data[0].shape, GetSupervisionFromEgs(dataset.transition_model, dataset.normalization_fst, data[1], 500), flush=True)
 
     optimizer.zero_grad()
     for mb_id, data in enumerate(dataloader):
@@ -333,7 +333,7 @@ def train_lfmmi_one_iter(
         #  print("OUT:", output.shape, flush=True)
 
         num_output_frames = output.shape[1]
-        sup = GetSupervisionFromWav2Vec2Egs(
+        sup = GetSupervisionFromEgs(
             dataset.transition_model,
             dataset.normalization_fst,
             data[1],
@@ -406,7 +406,7 @@ def compute_chain_objf(
 
     Args:
         model: the model to run validation on
-        dataset: a Wav2vec2EgsDataset dataset
+        dataset: a EgsDataset dataset
         den_fst_path: path to den.fst
         training_opts: ChainTrainingOpts object
     """
@@ -418,7 +418,7 @@ def compute_chain_objf(
     acc_sum = torch.tensor(0.0, requires_grad=False)
     tot_weight = 0.0
 
-    batch_sampler = Wav2vec2BatchSampler(
+    batch_sampler = BatchSampler(
         dataset.egs_holder,
         batch_size=minibatch_size,
         drop_last=False,
@@ -426,7 +426,7 @@ def compute_chain_objf(
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=batch_sampler,
-        collate_fn=Wav2vec2EgsCollectFn,
+        collate_fn=EgsCollectFn,
         num_workers=9,
     )
 
@@ -436,7 +436,7 @@ def compute_chain_objf(
         output, xent_output = model(features)
 
         num_output_frames = output.shape[1]
-        sup = GetSupervisionFromWav2Vec2Egs(
+        sup = GetSupervisionFromEgs(
             dataset.transition_model,
             dataset.normalization_fst,
             data[1],

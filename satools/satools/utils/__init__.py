@@ -1,4 +1,5 @@
 from . import kaldi
+from .wav_scp_dataset import WavScpDataset, WavInfo
 from .fs import (
     split_data,
     num_lines,
@@ -10,4 +11,7 @@ from .feature_extractor_decorator import (
     extract_features_from_decorator,
     register_feature_extractor,
     extract_features_fnames,
+)
+from .general import (
+    StdoutFilterOut,
 )

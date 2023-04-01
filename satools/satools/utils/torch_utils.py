@@ -7,6 +7,19 @@ import copy
 import torch
 from torch.nn.utils.weight_norm import WeightNorm
 
+def seed_worker(seed_val):
+    """
+    Function that initialize the random seed
+
+    :param seed_val: not used
+    """
+    import torch
+    import numpy
+    import random
+    worker_seed = torch.initial_seed() % 2 ** 32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 
 def match_state_dict(state_dict_a, state_dict_b):
     """Filters state_dict_b to contain only states that are present in state_dict_a.

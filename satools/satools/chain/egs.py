@@ -1,4 +1,4 @@
-"""Module to prepare egs for e2e-lfmmi training with wav2vec2 models"""
+"""Module to prepare egs for e2e-lfmmi training models"""
 
 import io
 import logging
@@ -12,6 +12,7 @@ import torch
 import torchaudio
 
 from .. import augmentation
+from .. import utils
 
 try:
     from _satools import kaldi  # lazy import (kaldi-free decoding)
@@ -19,21 +20,11 @@ except ImportError as error:
     pass
 
 
-class WavInfo(object):
-    """WavInfo objects hole information about each example without the supervision fst graph"""
-
-    def __init__(self, name, wav):
-        self.name = name
-        self.wav = wav
-
-    def __repr__(self):
-        return f"(name={self.name}, wav={self.wav})"
-
-class EgsInfo(WavInfo):
+class EgsInfo(utils.WavInfo):
     """EgsInfo objects hole information about each example"""
 
-    def __init__(self, name, wav, fstscp, num_output_frames):
-        super().__init__(name, wav)
+    def __init__(self, wav, name, filename, fstscp, num_output_frames):
+        super().__init__(wav, name, filename)
         self.num_output_frames = int(num_output_frames)
         self.supervision = None
         self.fstscp = fstscp
@@ -64,61 +55,7 @@ class EgsInfo(WavInfo):
         kaldi.chain.AddWeightToSupervisionFst(normalize_fst, self.supervision)
 
 
-def wav_from_scp(egs):
-    """Reads a wav.scp entry like kaldi with embeded unix command
-     and returns a pytorch tensor like it was open with torchaudio.load()
-     (within some tolerance due to numerical precision)
-     And a merged supervision for LF-MMI training
-
-     signal, _ = torchaudio.load("XX/1272-128104-0000.flac")
-     signalv2 = wav_from_scp(['flac', '-c', '-d', '-s', 'XX/1272-128104-0000.flac', "|"])
-     signalv3 = wav_from_scp(['XX/1272-128104-0000.flac'])
-     print("all close:", torch.allclose(signal, signalv2, rtol=1e-1))
-     print("all close:", torch.allclose(signal, signalv3, rtol=1e-1))
-
-     Args:
-         wav: a list containing the scp entry
-     Returns:
-         feats: a Tensor of size  time x dimension
-         sup: Supervision object to be used as target for LF-MMI
-
-    Raises:
-        IOError: when something wrong while read a file
-    """
-    # load the audio
-    if not egs:
-        return None, None
-    devnull = open(os.devnull, "w")
-    if len(egs.wav) == 1:
-        samples, _ = soundfile.read(" ".join(egs.wav))
-    else:
-        try:
-            wav_read_process = subprocess.Popen(
-                " ".join(egs.wav), stdout=subprocess.PIPE, shell=True, stderr=devnull
-            )
-            samples, _ = soundfile.read(io.BytesIO(wav_read_process.communicate()[0]))
-        except Exception:
-            logging.warning(
-                "Error processing.. Trying a second time..  {}".format(egs.name)
-            )
-            try:
-                time.sleep(5)
-                wav_read_process = subprocess.Popen(
-                    " ".join(egs.wav),
-                    stdout=subprocess.PIPE,
-                    shell=True,
-                    stderr=devnull,
-                )
-                samples, _ = soundfile.read(
-                    io.BytesIO(wav_read_process.communicate()[0])
-                )
-            except Exception:
-                raise IOError("Error processing {}".format(egs.name))
-    feats_torch = torch.tensor(samples, dtype=torch.float32, requires_grad=False)
-    return (feats_torch, egs)
-
-
-def GetSupervisionFromWav2Vec2Egs(
+def GetSupervisionFromEgs(
     transition_model, normalization_fst, egs_list, num_output_frames
 ):
     batch = []
@@ -132,7 +69,7 @@ def GetSupervisionFromWav2Vec2Egs(
     return merged_sup
 
 
-def Wav2vec2EgsCollectFn(batch):
+def EgsCollectFn(batch):
     elem = batch[0]
     elem_type = type(elem)
     if isinstance(elem, torch.Tensor):
@@ -150,7 +87,7 @@ def Wav2vec2EgsCollectFn(batch):
         return torch.stack(batch, 0, out=out)
     if isinstance(elem, EgsInfo):
         return list(batch)
-    if isinstance(elem, WavInfo):
+    if isinstance(elem, utils.WavInfo):
         return list(batch)
     if isinstance(elem, str):
         return list(batch)
@@ -161,7 +98,7 @@ def Wav2vec2EgsCollectFn(batch):
         if not all(len(elem) == elem_size for elem in it):
             raise RuntimeError("each element in list of batch should be of equal size")
         transposed = zip(*batch)
-        res = [Wav2vec2EgsCollectFn(samples) for samples in transposed]
+        res = [EgsCollectFn(samples) for samples in transposed]
         return res
     raise TypeError(
         "default_collate: batch must contain tensors, numpy arrays, numbers, dicts or lists; found {}".format(
@@ -170,7 +107,7 @@ def Wav2vec2EgsCollectFn(batch):
     )
 
 
-class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
+class BatchSampler(torch.utils.data.BatchSampler):
     """Samples batch indices from sequence-length buckets efficiently
     with very little memory overhead."""
 
@@ -199,36 +136,12 @@ class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
                 yield batch_by_length[num_output_frames]
 
 
-class Wav2vec2DecodeDataset(torch.utils.data.Dataset):
-    """A Pytorch Dataset class to prepare WavInfo decoding"""
-
-    def __init__(self, wav_spc_file):
-        utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav_spc_file)
-        self.holder = []
-        for key, wavfile in utt2wav.items():
-            self.holder.append(WavInfo(key, wavfile))
-
-    def __len__(self):
-        return len(self.holder)
-
-    def __getitem__(self, idx):
-        feats, info = wav_from_scp(self.holder[idx])
-        return feats, info.name
-
-    def __item__(self, i):
-        return self.holder[i]
-
-    @classmethod
-    def from_wav_scp(cls, wav_scp_file):
-        return cls(wav_scp_file)
-
-
-class Wav2vec2EgsDataset(torch.utils.data.Dataset):
+class EgsDataset(torch.utils.data.Dataset):
     """A Pytorch Dataset class to prepare EgsInfo training"""
 
     def __init__(
         self,
-        wav,
+        wav_scp_file,
         fst_file,
         utt2len_file,
         transition_model_filename,
@@ -238,7 +151,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         """instantiates a Pytorch Dataset for E2E training
 
         Args:
-            wav: the file with wav.scp
+            wav_scp_file: the file to wav.scp
             fst_file: fst_file (e2e_biphone_tree/fst.{number}.scp)
             transition_model: transition model that maps transition ids to pdf ids
             normalization_fst: fst to normalize when supervision is created
@@ -250,7 +163,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         )
         self.normalization_fst = kaldi.fst.StdVectorFst()
         kaldi.fst.ReadFstKaldi(normalization_fst_rxfilename, self.normalization_fst)
-        self.prepare_egs(wav, fst_file)
+        self.prepare_egs(wav_scp_file, fst_file)
 
         self.augmentation = augmentation
         self.use_augmentation = False
@@ -272,14 +185,13 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
 
             logging.info("Using data augmentation")
 
-
-
-
     def __len__(self):
         return len(self.egs_holder)
 
     def __getitem__(self, idx):
-        audio, egs = wav_from_scp(self.egs_holder[idx])
+        audio, sr = utils.kaldi.load_wav_from_scp(self.egs_holder[idx].filename)
+        egs = self.egs_holder[idx]
+        egs.wav = audio
         if self.use_augmentation:
             audio, selected_aug = augmentation.data_augmentation(audio,
                            self.augmentation,
@@ -299,40 +211,11 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
     def prepare_egs(self, wav, fst_file):
         """Method to prepare egs_holder"""
         # egs file is wav.scp file
-        utt2wav = Wav2vec2EgsDataset.read_wav_scp(wav)
-        utt2len = Wav2vec2EgsDataset.read_utt2len_file(
+        utt2wav = utils.kaldi.read_wav_scp(wav)
+        utt2len = utils.kaldi.read_utt2len_file(
             "{}/utt2len".format(os.path.dirname(wav))
         )
         self.egs_holder = self.get_egs_holder(fst_file, utt2wav, utt2len)
-
-    @staticmethod
-    def read_wav_scp(wav_scp):
-        """Reads wav.scp file and returns a dictionary
-
-        Args:
-            wav_scp: a string, contains the path to wav.scp
-
-        Returns:
-            utt2wav: a dictionary, keys are the first column of wav.scp
-                and values are the second column
-        """
-        utt2wav = {}
-        with open(wav_scp) as ipf:
-            for line in ipf:
-                lns = line.strip().rstrip("|").split()
-                uttname = lns[0]
-                utt2wav[uttname] = lns[1:]
-        return utt2wav
-
-    @staticmethod
-    def read_utt2len_file(utt2len_file):
-        """read utt2len file, second column is the number of output frames"""
-        utt2len = {}
-        with open(utt2len_file) as utt2len_f:
-            for line in utt2len_f:
-                lns = line.strip().split()
-                utt2len[lns[0]] = float(lns[1])
-        return utt2len
 
     def get_egs_holder(self, fst_file, utt2wav, utt2len):
         """Populate egs_holder"""
@@ -364,7 +247,7 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 kaldi.fst.ReadFstKaldi(fstscp, fst)
                 min_path_length = kaldi.chain.FindMinimumLengthPathFromFst(fst)
                 this_egs_info = EgsInfo(
-                    uttname, utt2wav[uttname], fstscp, num_output_frames
+                    None, uttname, utt2wav[uttname], fstscp, num_output_frames
                 )
                 if min_path_length == -1:
                     logging.warning(

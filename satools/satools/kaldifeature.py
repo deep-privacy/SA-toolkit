@@ -12,7 +12,7 @@ import torchaudio
 """
 Implements speech feature extraction algorithms compatible with Kaldi
 In our experiments, kaldi fank outperformed torchaudio.transforms.MelSpectrogram
-This implementation is based on https://pytorch.org/audio/stable/compliance.kaldi.html 
+This implementation is based on https://pytorch.org/audio/stable/compliance.kaldi.html
 with added support to batch processing and torch.jit.script.
 The batch processing code was inspired by https://github.com/csukuangfj/kaldifeat
  3 time slower than csukuangfj/kaldifeat

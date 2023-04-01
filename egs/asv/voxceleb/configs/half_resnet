@@ -1,3 +1,71 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
 
+[exp]
+train_set = data/voxceleb1
+dev_ratio = 0.02
+
+test_set = data/voxceleb1_test/voxceleb1-O
+compute_test_set_eer = true
+
+
+n_gpu = 1
+num_worker_dataloader = 20
+logging_interval = 200
+checkpoint_interval = 2
+
+training_epochs = 100
+patience = 100
+minibatch_size = 5
+class_samples_per_batch = "all"
+segment_size = 48000
+lr = 0.001
+optim = {
+  "optimizer": {
+    "type": "torch.optim.Adam",
+    "opts": {"lr": 0.001}
+  },
+  "scheduler": {
+    "type": "torch.optim.lr_scheduler.CyclicLR",
+    "opts": {
+      "base_lr": 1.0e-10,
+      "max_lr": 0.001,
+      "step_size_up": 40000,
+      "cycle_momentum": false,
+      "mode": "triangular2"
+    }
+  }
+  }
+
+# resume training from:
+# train_iter = 18000
+train_iter = last
+
+model_file = ./local/tuning/half_resnet.py
+dirname = asv_eval_half_resnet_vox1
+model_args = []
+
+# init_weight_model = "exp/.../.."
+
+# see ../../../share/dataprep_aug.py
+augmentation = {
+  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
+  "aug_number": 1,
+  "add_noise": {
+      # "babble_noise": "true",
+      "noise_db_csv": "../../data/musan.csv",
+      "data_path": "/"
+    },
+  "add_reverb": {
+      "rir_db_csv": "../../data/reverb.csv",
+      "data_path": "/"
+    },
+  "sanity_check_path" : "/tmp/sanity_test",
+  "sanity_check_samples" : 2
+  }
+
+# for jit
+final_model = g_best.pt
 
 # vim:set et sw=2 ts=2 ft=toml:

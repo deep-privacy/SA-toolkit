@@ -10,6 +10,12 @@ import torchaudio
 
 from scipy import signal
 
+# https://pytorch.org/audio/stable/_modules/torchaudio/functional/functional.html#apply_codec cannot be replaced atm
+import warnings
+warnings.filterwarnings(
+    "ignore", message=r'.*File-like object support in sox_io backend is deprecated.*'
+)
+
 
 def fuse_speech_noise(speech, noise, snr_db):
     speech_power = speech.norm(p=2)
@@ -187,3 +193,30 @@ def load_noise_seg(noise_row, speech_shape, sample_rate, data_path):
         noise_seg = torch.tensor(numpy.resize(noise_seg.numpy(), speech_shape))
     return noise_seg
 
+
+class PreEmphasis(torch.nn.Module):
+    """
+    Apply pre-emphasis filtering
+    """
+
+    def __init__(self, coef: float = 0.97):
+        super().__init__()
+        self.coef = coef
+        # make kernel
+        # In pytorch, the convolution operation uses cross-correlation. So, filter is flipped.
+        self.register_buffer(
+            'flipped_filter', torch.FloatTensor([-self.coef, 1.]).unsqueeze(0).unsqueeze(0)
+        )
+
+    def forward(self, input_signal: torch.tensor) -> torch.tensor:
+        """
+        Forward pass of the pre-emphasis filtering
+
+        :param input_signal: the input signal
+        :return: the filtered signal
+        """
+        assert len(input_signal.size()) == 2, 'The number of dimensions of input tensor must be 2!'
+        # reflect padding to match lengths of in/out
+        input_signal = input_signal.unsqueeze(1)
+        input_signal = torch.nn.functional.pad(input_signal, (1, 0), 'reflect')
+        return torch.nn.functional.conv1d(input_signal, self.flipped_filter).squeeze(1)

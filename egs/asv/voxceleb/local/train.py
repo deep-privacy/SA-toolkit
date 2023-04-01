@@ -38,7 +38,7 @@ class Opts:
 
     n_gpu:int = 1
 
-    model_file: Path = "./local/chain/tuning/aaaa.py"
+    model_file: Path = "./local/chain/aaaa.py"
     model_args: str = ""  # allow empty
     exp_dir: Path = "./exp/"
     dirname: str = "model_a"
@@ -47,14 +47,20 @@ class Opts:
 
     checkpoint_interval: int = 1000 # in step
     training_epochs: int = 1000
-    segment_size: int = 16640
-    lr: float = 0.0002
+    segment_size: int = 48000
+    overlap: int = -1
     minibatch_size: int = 8
+    class_samples_per_batch: str = "all"
+    dev_ratio: float = 0.02
     num_worker_dataloader: int = 4
-    dev_set: Path = "./data/part"
+    test_set: Path = "./data/part"
     train_set: Path = "./data/part"
+    final_model: str = ""
+    compute_test_set_eer: str= "false"
     logging_interval:int = 20
-
+    patience:int = 100
+    augmentation: str = "" # allow empty
+    optim: str = ""
 
     @property
     def dir(self):
@@ -66,13 +72,10 @@ class Opts:
             return []
         return json.loads(self.model_args)
 
-    def get_forcmd(self, key, add_quote=False, append=""):
+    def get_forcmd(self, key):
         if getattr(self, key) == "":
             return []
-        if add_quote:
-            a = '\'' + str(getattr(self, key)).replace('\n', '').replace("\"", "\\\"").replace(" ", "") + '\''
-            return [f"--{key.replace('_', '-')}", a+append]
-        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace('\n', '')+append]
+        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace("\n", "")]
 
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -136,10 +139,26 @@ def train():
         else:
             cfg_exp.train_iter = "0"
 
+    if stage <= 4 and cfg_exp.train_iter == "0":
+        # create sidekit train dataset
+        logging.info("Create egs csv")
+        satools.script_utils.run([
+                cfg_cmd.cpu_cmd,
+                cfg_exp.dir / "log" / "create_train_csv.log",
+                "local/create_train_csv_from_kaldi.py",
+                "--kaldi-data", f"{cfg_exp.train_set}",
+                "--out-csv", cfg_exp.dir / "train.csv"
+            ]
+        )
+
+        os.makedirs(cfg_exp.dir / "test", exist_ok=True)
+        satools.script_utils.run([
+            "cp", f"{cfg_exp.test_set}/trials", f"{cfg_exp.test_set}/trials.wav.scp", f"{cfg_exp.test_set}/enroll.wav.scp", f"{cfg_exp.test_set}/enroll.utt2spk", cfg_exp.dir / "test",
+        ])
+
     carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
     carbonTracker.epoch_start()
 
-    #   start the training
     if stage <= 5 and cfg_exp.train_iter == "0":
         logging.info("Initializing model")
         process_out = subprocess.run([
@@ -148,10 +167,10 @@ def train():
                 cfg_exp.model_file,
                 *cfg_exp.get_model_args,
                 "--mode", "init",
-                *cfg_exp.get_forcmd("train_set"), # spk2id
+                "--train-set", cfg_exp.dir / "train.csv",
                 *cfg_exp.get_forcmd("dir"),
                 *cfg_exp.get_forcmd("init_weight_model"),
-                cfg_exp.dir / "g_0.pt",
+                cfg_exp.dir / "0.pt",
         ])
         if process_out.returncode != 0:
             quit(process_out.returncode)
@@ -165,17 +184,6 @@ def train():
             logging.error(f"Training requires a gpus, if you are on a gid you can use queue.pl, slurm.pl or ssh.pl cmd job unified interfaces")
             logging.error(f"Or connect yourself to a node before running this file (run.pl)")
             quit(1)
-
-        # reduce dataset to only segment_size utts
-        satools.script_utils.run([
-                cfg_cmd.cpu_cmd,
-                cfg_exp.dir / "log" / "reduce_train.log",
-                "local/filterlen_data_dir.sh",
-                "--min-length", f"{cfg_exp.segment_size}",
-                f"{cfg_exp.train_set}", f"{cfg_exp.train_set}_reduced"
-            ]
-        )
-
 
         # resume from init stage (start) or a given train_iter
         if not cfg_exp.train_iter.startswith("0"):
@@ -197,8 +205,15 @@ def train():
                  cfg_exp.model_file,
                  *cfg_exp.get_model_args,
                 "--mode", "train",
-                *cfg_exp.get_forcmd("train_set", append="_reduced"),
-                *cfg_exp.get_forcmd("dev_set"),
+                *cfg_exp.get_forcmd("train_set"),
+                *cfg_exp.get_forcmd("test_set"),
+                *cfg_exp.get_forcmd("dev_ratio"),
+                *cfg_exp.get_forcmd("compute_test_set_eer"),
+                *cfg_exp.get_forcmd("patience"),
+                *cfg_exp.get_forcmd("augmentation"),
+                *cfg_exp.get_forcmd("optim"),
+                *cfg_exp.get_forcmd("overlap"),
+                *cfg_exp.get_forcmd("class_samples_per_batch"),
                 *cfg_exp.get_forcmd("num_worker_dataloader"),
                 *cfg_exp.get_forcmd("dir"),
                 *cfg_exp.get_forcmd("minibatch_size"),
@@ -206,10 +221,8 @@ def train():
                 *cfg_exp.get_forcmd("segment_size"),
                 *cfg_exp.get_forcmd("training_epochs"),
                 *cfg_exp.get_forcmd("checkpoint_interval"),
-                *cfg_exp.get_forcmd("cache_path"),
-                *cfg_exp.get_forcmd("cache_functions", add_quote=True),
-                cfg_exp.dir / f"g_{cfg_exp.train_iter}.pt",
-            ], shell=True, on_error=lambda x: tail.kill()
+                cfg_exp.dir / f"{cfg_exp.train_iter}.pt",
+            ], on_error=lambda x: tail.kill()
         )
 
 
@@ -227,7 +240,7 @@ def train():
                  cfg_exp.model_file,
                  *cfg_exp.get_model_args,
                 "--mode", "jit_save",
-                *cfg_exp.get_forcmd("train_set", append="_reduced"),
+                *cfg_exp.get_forcmd("train_set"),
                  *cfg_exp.get_forcmd("dir"),
                 "--new-model", cfg_exp.dir / f"final.jit",
                 cfg_exp.dir / f"final.pt",

@@ -13,18 +13,6 @@ from typing import List, Union, Dict, Optional, Callable, TypeVar, Any
 
 from .. import utils
 
-class Wavinfo(object):
-    def __init__(self, wav:torch.Tensor, name:str, filename:str):
-        self.name = name
-        self.filename = filename
-        self.wav = wav
-
-    def to(self, device:str="cpu"):
-        self.wav = self.wav.to(device)
-        return self
-
-    def __repr__(self):
-        return f"(name={self.name}, wav={self.wav.shape}, filename={self.filename})"
 
 class Egs(object):
     def __init__(self, wavs:torch.Tensor, names:List[str], filenames:List[str], yss:torch.Tensor=torch.tensor([0]), lengths:torch.Tensor=torch.tensor([0])):
@@ -108,35 +96,7 @@ class Egs(object):
     @torch.jit.unused
     def __iter__(self):
         for i in range(len(self.names)):
-            yield Wavinfo(name=self.names[i], filename=self.filenames[i], wav=self.wavs[i][:self.lengths[i]].unsqueeze(0))
-
-
-class WavList(torch.utils.data.Dataset):
-    def __init__(self, wavs_paths, wavs_idx, load_func=None):
-        if isinstance(wavs_paths, str):
-            self.wavs_path = wavs_paths.split(",")
-            self.wavs_idx = wavs_idx.split(",")
-        else:
-            self.wavs_path = wavs_paths
-            self.wavs_idx = wavs_idx
-
-        assert len(self.wavs_path) == len(self.wavs_idx)
-        if load_func == None:
-
-            def _load(filename):
-                return torchaudio.load(filename)
-
-            self.load = _load
-        else:
-            self.load = load_func
-
-    def __len__(self):
-        return len(self.wavs_path)
-
-    def __getitem__(self, idx):
-        filename = self.wavs_path[idx]
-        waveform, sr = self.load(filename)
-        return Wavinfo(waveform, self.wavs_idx[idx], filename)
+            yield utils.WavInfo(name=self.names[i], filename=self.filenames[i], wav=self.wavs[i][:self.lengths[i]].unsqueeze(0))
 
 
 @torch.no_grad()
