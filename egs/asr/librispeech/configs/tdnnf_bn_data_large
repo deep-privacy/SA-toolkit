@@ -33,7 +33,7 @@ final_combination_n_model = 5
 train_stage = last
 
 model_file = local/chain/tuning/tdnnf.py
-dirname = bn_tdnnf_t600_aug
+dirname = bn_tdnnf_600h_aug
 
 # see ../../../share/dataprep_aug.py
 augmentation = {

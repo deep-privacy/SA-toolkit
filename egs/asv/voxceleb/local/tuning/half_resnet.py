@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
 import json
-import logging
 import sys
-
-
+import logging
 import configargparse
+from typing import Optional
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import OrderedDict
 
+import satools
 from satools import sidekit
 
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +30,12 @@ def build(args):
                                                 win_length=400,
                                                 hop_length=160,
                                                 n_mels=80)
+
+            # No dropout in network
+            self.spec_augment = satools.augmentation.SpecAugment(
+                frequency=0.1, frame=0.1, rows=2, cols=2, random_rows=True, random_cols=True
+            )
+
             self.sequence_network = sidekit.archi.PreHalfResNet34()
 
             self.embedding_size = 256
@@ -54,7 +61,7 @@ def build(args):
             self.after_speaker_embedding_weight_decay = 0.000
 
 
-        def forward(self, x, target=None):
+        def forward(self, x, target:Optional[torch.Tensor]=None):
             """
             The forward mothod MUST return 2 values:
                - a tuple of: (loss: to train the model, or in testing (target==None) you should return torch.tensor(float('nan')).
@@ -65,6 +72,7 @@ def build(args):
             """
 
             x = self.preprocessor(x)
+            x = self.spec_augment(x)
             x = self.sequence_network(x)
             x = self.stat_pooling(x)
 

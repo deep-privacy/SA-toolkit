@@ -27,7 +27,7 @@ weight_decay_l2_regularize_factor = 0.002
 final_combination_n_model = 1
 
 model_file = local/chain/tuning/tdnnf_wav2vec2.py
-dirname = bn_tdnnf_wav2vec2_t100_aug
+dirname = bn_tdnnf_wav2vec2_100h_aug
 
 # see ../../../share/dataprep_aug.py
 augmentation = {

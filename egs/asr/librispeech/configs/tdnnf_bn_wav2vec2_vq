@@ -32,7 +32,7 @@ final_combination_n_model = 1
 model_file = local/chain/tuning/tdnnf_wav2vec2_vq.py
 dirname = bn_tdnnf_wav2vec2_vq_${:vq}
 model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
-init_weight_model = "./exp/chain/bn_tdnnf_wav2vec2_t100_aug/final.pt"
+init_weight_model = "./exp/chain/bn_tdnnf_wav2vec2_100h_aug/final.pt"
 
 # a=bn_tdnnf_wav2vec2_vq_; tail $a_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
 

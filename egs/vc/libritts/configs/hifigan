@@ -18,7 +18,7 @@ logging_interval = 20
 lr = 0.0002
 minibatch_size = 32
 segment_size = 16320
-training_epochs = 250
+training_epochs = 225
 checkpoint_interval = 1000
 # resume training from:
 # train_iter = 18000

@@ -60,6 +60,8 @@ class ModelOpts(DataloadingOpts):
     max_len_missmatch: int = 200 # allow some missmatch between original an converted speech
     logging_interval: int = 20
 
+    torch_compile: str = "false"
+
     # dataset mel_spectrogram config
     n_fft:int = 1024
     num_mels:int = 80
@@ -308,6 +310,12 @@ class HifiGanModel():
         generator.train()
         mpd.train()
         msd.train()
+
+        if self.opts.torch_compile.lower() == "true":
+            if self.opts.rank == 0: logging.info(f"torch.compile network..")
+            generator = torch.compile(generator)
+            mpd = torch.compile(mpd)
+            msd = torch.compile(msd)
 
         if self.opts.rank == 0:
             logging.info(

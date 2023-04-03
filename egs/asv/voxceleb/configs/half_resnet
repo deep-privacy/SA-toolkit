@@ -4,23 +4,24 @@ cuda_cmd = ./utils/run.pl
 
 [exp]
 train_set = data/voxceleb1
-dev_ratio = 0.02
+# == 0: train on full (dev -> 0.02 part of train)
+dev_ratio = 0.00
 
 test_set = data/voxceleb1_test/voxceleb1-O
 compute_test_set_eer = true
 
 
-n_gpu = 1
+n_gpu = 3
 num_worker_dataloader = 20
-logging_interval = 200
-checkpoint_interval = 2
+logging_interval = 500
+checkpoint_interval = 1
 
 training_epochs = 100
-patience = 100
-minibatch_size = 5
-class_samples_per_batch = "all"
+patience = 30
+minibatch_size = 495
+examples_per_speaker_in_batch = "99"
+samples_per_speaker_in_epoch = 30
 segment_size = 48000
-lr = 0.001
 optim = {
   "optimizer": {
     "type": "torch.optim.Adam",
@@ -39,18 +40,19 @@ optim = {
   }
 
 # resume training from:
-# train_iter = 18000
-train_iter = last
+# train_epoch = 10
+train_epoch = last
 
 model_file = ./local/tuning/half_resnet.py
-dirname = asv_eval_half_resnet_vox1
+# dirname = asv_eval_half_resnet_vox1_test
+dirname = asv_eval_half_resnet_vox1_test2
 model_args = []
 
-# init_weight_model = "exp/.../.."
+init_weight_model = "exp/asv_eval_half_resnet_vox1/best.pt"
 
 # see ../../../share/dataprep_aug.py
 augmentation = {
-  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
+  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec", "speed_perturb"],
   "aug_number": 1,
   "add_noise": {
       # "babble_noise": "true",
@@ -66,6 +68,6 @@ augmentation = {
   }
 
 # for jit
-final_model = g_best.pt
+final_model = best.pt
 
 # vim:set et sw=2 ts=2 ft=toml:

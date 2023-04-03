@@ -202,7 +202,7 @@ class EgsDataset(torch.utils.data.Dataset):
                 torchaudio.save(self.augmentation["sanity_check_path"] + "/" + str(idx) + "-" + ','.join(selected_aug) + ".wav", audio, 16_000)
 
 
-            audio = audio.squeeze(0)
+        audio = audio.squeeze(0)
         return audio, egs
 
     def __item__(self, i):

@@ -14,10 +14,10 @@ To run the recipe:
 local/train.py --conf configs/...
 
 # Change asrbn extractor with
-asrbn_model=bn_tdnnf_t100_vq_64 local/train.py --conf configs/hifigan
+asrbn_model=bn_tdnnf_100h_vq_64 local/train.py --conf configs/hifigan
 
-# Create best model (based on the quality of the audio generated)
-asrbn_model=bn_tdnnf_t100_vq_64 local/train.py --conf configs/hifigan --stage 10 --final-model ./exp/bn_tdnnf_t100_vq_64/g_00111000.pt
+# Create final (.pt and .jit) models (based on the quality of the audio generated)
+asrbn_model=bn_tdnnf_100h_vq_64 local/train.py --conf configs/hifigan --stage 10 --final-model ./exp/bn_tdnnf_t100_vq_64/g_00111000.pt
 ```
 
 ### JIT model convert/anonymize speech
@@ -27,7 +27,8 @@ import torch
 import torchaudio
 waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPEECH("/tmp", "dev-clean", download=True)[1]
 torchaudio.save(f"/tmp/clear_{speaker}-{chapter}-{str(utterance)}.wav", waveform, 16000)
-model = torch.jit.load("__Exp_Path__/final.jit")
+# model = torch.jit.load("__Exp_Path__/final.jit")
+model = torch.jit.load("exp/hifigan_bn_tdnnf_100h_aug/final.jit")
 model = model.eval()
 
 wav_conv = model.convert(waveform, target="1069")

@@ -33,9 +33,9 @@ minibatch_size = 16
 final_combination_n_model = 1
 
 model_file = local/chain/tuning/tdnnf_vq.py
-dirname = bn_tdnnf_t600_vq_${:vq}
+dirname = bn_tdnnf_600h_vq_${:vq}
 model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
-init_weight_model = "./exp/chain/bn_tdnnf_t600_aug/final.pt"
+init_weight_model = "./exp/chain/bn_tdnnf_600h_aug/final.pt"
 
 [test]
 graph_dir = exp/chain/e2e_train_600/e2e_biphone_tree/graph_tgsmall

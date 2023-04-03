@@ -51,7 +51,7 @@ def data_augmentation(speech,
     Config example:
 
     augmentation = {
-      "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
+      "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec", "speed_perturb"],
       "aug_number": 1,
       "add_noise": {
             "babble_noise": "true",
@@ -74,6 +74,11 @@ def data_augmentation(speech,
 
     if speech.dim() == 1:
         speech = speech.unsqueeze(0)
+
+    allowd_augm = ["none", "add_reverb", "add_noise", "phone_filtering", "codec", "speed_perturb"]
+    for a in augmentations:
+        if a not in allowd_augm:
+            raise ValueError(f"{a} is not a valid augmentation, allowed augmentation: ({allowd_augm})")
 
     if "none" in augmentations:
         pass
@@ -155,6 +160,23 @@ def data_augmentation(speech,
         speech = torchaudio.functional.apply_codec(speech, sample_rate, **param)
         speech = speech[:, :final_shape]
 
+    if "speed_perturb" in augmentations:
+        final_shape = speech.shape[1]
+        speed_factor = random.uniform(0.9, 1.1)
+        speech, sample_rate = torchaudio.sox_effects.apply_effects_tensor(
+            speech,
+            sample_rate,
+            effects=[
+                ["rate", str(int(sample_rate * speed_factor))],
+                ["channels", "1"],
+            ])
+        pad_length = final_shape - speech.shape[1]
+        if pad_length > 0:
+            speech = torch.nn.functional.pad(speech, (0, pad_length), "constant", 0)
+        speech = speech[:, :final_shape]
+
+
+
     return speech, augmentations
 
 
@@ -208,7 +230,7 @@ class PreEmphasis(torch.nn.Module):
             'flipped_filter', torch.FloatTensor([-self.coef, 1.]).unsqueeze(0).unsqueeze(0)
         )
 
-    def forward(self, input_signal: torch.tensor) -> torch.tensor:
+    def forward(self, input_signal: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the pre-emphasis filtering
 
@@ -220,3 +242,86 @@ class PreEmphasis(torch.nn.Module):
         input_signal = input_signal.unsqueeze(1)
         input_signal = torch.nn.functional.pad(input_signal, (1, 0), 'reflect')
         return torch.nn.functional.conv1d(input_signal, self.flipped_filter).squeeze(1)
+
+
+
+class SpecAugment(torch.nn.Module):
+    """Implement specaugment for acoustics features' augmentation but without time wraping.
+    FROM: Snowdar/asv-subtools
+    It is different to egs.augmentation.SpecAugment for all egs have a same dropout method in one batch here.
+    Reference: Park, D. S., Chan, W., Zhang, Y., Chiu, C.-C., Zoph, B., Cubuk, E. D., & Le, Q. V. (2019).
+               Specaugment: A simple data augmentation method for automatic speech recognition. arXiv
+               preprint arXiv:1904.08779.
+    Likes in Compute Vision:
+           [1] DeVries, T., & Taylor, G. W. (2017). Improved regularization of convolutional neural networks
+               with cutout. arXiv preprint arXiv:1708.04552.
+           [2] Zhong, Z., Zheng, L., Kang, G., Li, S., & Yang, Y. (2017). Random erasing data augmentation.
+               arXiv preprint arXiv:1708.04896.
+    """
+    def __init__(self, frequency=0.2, frame=0.2, rows=1, cols=1, random_rows=False, random_cols=False):
+        super(SpecAugment, self).__init__()
+
+        assert 0. <= frequency < 1.
+        assert 0. <= frame < 1. # a.k.a time axis.
+
+        self.p_f = frequency
+        self.p_t = frame
+
+        # Multi-mask.
+        self.rows = rows # Mask rows times for frequency.
+        self.cols = cols # Mask cols times for frame.
+
+        self.random_rows = random_rows
+        self.random_cols = random_cols
+
+        self.init = False
+        # after first forward instance values
+        self.F = 0
+        self.num_f = 0
+        self.T = 0
+        self.num_t = 0
+
+    def forward(self, inputs):
+        """
+        @inputs: a 3-dimensional tensor, including [batch, frenquency, time]
+        """
+        assert len(inputs.shape) == 3
+
+        if not self.training: return inputs
+
+        if self.p_f > 0. or self.p_t > 0.:
+            if not self.init:
+                input_size = (inputs.shape[1], inputs.shape[2])
+                if self.p_f > 0.:
+                    self.num_f = input_size[0] # Total channels.
+                    self.F = int(self.num_f * self.p_f) # Max channels to drop.
+                if self.p_t > 0.:
+                    self.num_t = input_size[1] # Total frames. It requires all egs with the same frames.
+                    self.T = int(self.num_t * self.p_t) # Max frames to drop.
+                self.init = True
+
+            if self.p_f > 0.:
+                if self.random_rows:
+                    multi = torch.randint(1, self.rows+1, (1,)).item()
+                else:
+                    multi = self.rows
+
+                for i in range(int(multi)):
+                    f = torch.randint(0, self.F+1, (1,)).item()
+                    f_0 = torch.randint(0, self.num_f - f+1, (1,)).item()
+                    inverted_factor = self.num_f / (self.num_f - f)
+                    inputs[f_0:f_0+f,:].fill_(0.)
+                    inputs.mul_(inverted_factor)
+
+            if self.p_t > 0.:
+                if self.random_cols:
+                    multi = torch.randint(1, self.cols+1, (1,)).item()
+                else:
+                    multi = self.cols
+
+                for i in range(int(multi)):
+                    t = torch.randint(0, self.T+1, (1,)).item()
+                    t_0 = torch.randint(0, self.num_t - t+1, (1,)).item()
+                    inputs[:,t_0:t_0+t].fill_(0.)
+
+        return inputs.contiguous()

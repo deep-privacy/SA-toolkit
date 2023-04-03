@@ -137,12 +137,12 @@ def train():
     if cfg_exp.train_iter == "last":
         pattern = os.path.join(cfg_exp.dir, "g_" + "????????" + ".pt")
         cp_list = glob.glob(pattern)
-        if len(cp_list) != 0:
+        if len(cp_list) == 0 or (len(cp_list) == 1 and cp_list[0] == "0") or int(stage) > 6:
+            cfg_exp.train_iter = "0"
+        else:
             cfg_exp.train_iter = sorted(cp_list)[-1].replace("g_", "").replace(".pt", "")
             cfg_exp.train_iter = cfg_exp.train_iter.split("/")[-1]
             logging.info(f"Last training iter found: {cfg_exp.train_iter}")
-        else:
-            cfg_exp.train_iter = "0"
 
     carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
     carbonTracker.epoch_start()

@@ -75,6 +75,7 @@ def File(file, mode='r'):
 
 def file_writer_helper(
     wspecifier: str,
+    overwrite=False,
 ):
     """Write matrices in kaldi style
 
@@ -98,7 +99,8 @@ def file_writer_helper(
     if wspecifier != None and wspecifier.startswith("scp:"):
         wspecifier = wspecifier.replace("scp:", "scp,ark:") + "," + wspecifier.split(":")[1].replace("scp", "ark")
     return Writer(
-        wspecifier
+        wspecifier,
+        overwrite=overwrite
     )
 
 
@@ -128,10 +130,15 @@ class Writer():
         ...     f['key'] = array
     """
 
-    def __init__(self, wspecifier):
+    def __init__(self, wspecifier, overwrite=False):
         self.writer = File(wspecifier, mode="a")
         self.specifier = wspecifier
         spec_dict = parse_wspecifier(wspecifier)
+        if overwrite:
+            with open(spec_dict["ark"], 'w') as f:
+                f.truncate(0)
+            with open(spec_dict["scp"], 'w') as f:
+                f.truncate(0)
         self.filename = spec_dict["ark"]
 
     def id(self):
@@ -145,6 +152,13 @@ class Writer():
 
     def __setitem__(self, key, value):
         self.writer[key] = value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 def file_reader_helper(
     rspecifier: str,

@@ -181,7 +181,7 @@ def train():
         cp_list = list(map(lambda x: x.split("/")[-1].split(".")[0], cp_list))
         if "final" in cp_list:
             cp_list.remove("final")
-        if len(cp_list) == 0:
+        if len(cp_list) == 0 or (len(cp_list) == 1 and cp_list[0] == "0") or int(stage) > 6:
             cfg_exp.train_stage = "0"
         else:
             cp_list = list(map(lambda x: int(x), cp_list))
@@ -295,7 +295,7 @@ def train():
                     if p.result() != 0:
                         quit(p.result())
 
-            logging.info("{} Running iter={} of {} with {} jobs and lr={:.6f}".format(
+            logging.info("{} Running iter: {} of {} with {} jobs and lr: {:.6f}".format(
                     datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     iter_no,
                     num_iters,
@@ -418,7 +418,7 @@ def train():
 
         if stage <= 8:
             num_jobs = satools.utils.split_data(test_set, cfg_decode.num_jobs)
-            logging.info(f"Decoding with {data_name} {cfg_decode.num_jobs} jobs...")
+            logging.info(f"Decoding '{data_name}' with  {cfg_decode.num_jobs} jobs...")
 
             gpu_opts = []
             if bool(cfg_decode.gpu):

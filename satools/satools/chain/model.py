@@ -310,7 +310,7 @@ class ChainModel(nn.Module):
             dataloader = tqdm(dataloader, file=tqdm_file)
 
         for wavinfo in dataloader:
-            # batch size = 1
+            # !batch size = 1!
             feats = wavinfo[0].wav
             key = wavinfo[0].name
             if chain_opts.use_gpu:

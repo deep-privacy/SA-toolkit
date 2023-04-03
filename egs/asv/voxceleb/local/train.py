@@ -43,14 +43,15 @@ class Opts:
     exp_dir: Path = "./exp/"
     dirname: str = "model_a"
     init_weight_model: Path = ""
-    train_iter: str = "0"
+    train_epoch: str = "0"
 
     checkpoint_interval: int = 1000 # in step
     training_epochs: int = 1000
     segment_size: int = 48000
     overlap: int = -1
     minibatch_size: int = 8
-    class_samples_per_batch: str = "all"
+    examples_per_speaker_in_batch: str = "batch_size/16"
+    samples_per_speaker_in_epoch: str = "num_spk/5"
     dev_ratio: float = 0.02
     num_worker_dataloader: int = 4
     test_set: Path = "./data/part"
@@ -128,18 +129,23 @@ def train():
 
     os.makedirs(cfg_exp.dir, exist_ok=True)
 
-    cfg_exp.train_iter = cfg_exp.train_iter.replace("\"", "").replace("'", "")
-    if cfg_exp.train_iter == "last":
-        pattern = os.path.join(cfg_exp.dir, "g_" + "????????" + ".pt")
-        cp_list = glob.glob(pattern)
-        if len(cp_list) != 0:
-            cfg_exp.train_iter = sorted(cp_list)[-1].replace("g_", "").replace(".pt", "")
-            cfg_exp.train_iter = cfg_exp.train_iter.split("/")[-1]
-            logging.info(f"Last training iter found: {cfg_exp.train_iter}")
+    if cfg_exp.train_epoch == "last" or cfg_exp.train_epoch == '"last"':
+        pattern = cfg_exp.dir / "*.pt"
+        cp_list = glob.glob(str(pattern))
+        cp_list = list(map(lambda x: x.split("/")[-1].split(".")[0], cp_list))
+        cp_list = [filename for filename in cp_list if 'trainer' not in filename]
+        if "final" in cp_list:
+            cp_list.remove("final")
+        if "best" in cp_list:
+            cp_list.remove("best")
+        if len(cp_list) == 0 or (len(cp_list) == 1 and cp_list[0] == "0") or int(stage) > 6:
+            cfg_exp.train_epoch = "0"
         else:
-            cfg_exp.train_iter = "0"
+            cp_list = list(map(lambda x: int(x), cp_list))
+            cfg_exp.train_epoch = str(sorted(cp_list)[-1])
+            logging.info(f"Last training iter found: {cfg_exp.train_epoch}")
 
-    if stage <= 4 and cfg_exp.train_iter == "0":
+    if stage <= 4 and cfg_exp.train_epoch == "0":
         # create sidekit train dataset
         logging.info("Create egs csv")
         satools.script_utils.run([
@@ -151,15 +157,15 @@ def train():
             ]
         )
 
-        os.makedirs(cfg_exp.dir / "test", exist_ok=True)
+        os.makedirs(cfg_exp.dir / os.path.basename(cfg_exp.test_set), exist_ok=True)
         satools.script_utils.run([
-            "cp", f"{cfg_exp.test_set}/trials", f"{cfg_exp.test_set}/trials.wav.scp", f"{cfg_exp.test_set}/enroll.wav.scp", f"{cfg_exp.test_set}/enroll.utt2spk", cfg_exp.dir / "test",
+            "cp", f"{cfg_exp.test_set}/trials", f"{cfg_exp.test_set}/trials.wav.scp", f"{cfg_exp.test_set}/enroll.wav.scp", f"{cfg_exp.test_set}/enroll.utt2spk", cfg_exp.dir / os.path.basename(cfg_exp.test_set),
         ])
 
     carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
     carbonTracker.epoch_start()
 
-    if stage <= 5 and cfg_exp.train_iter == "0":
+    if stage <= 5 and cfg_exp.train_epoch == "0":
         logging.info("Initializing model")
         process_out = subprocess.run([
                 cfg_cmd.cpu_cmd,
@@ -185,11 +191,7 @@ def train():
             logging.error(f"Or connect yourself to a node before running this file (run.pl)")
             quit(1)
 
-        # resume from init stage (start) or a given train_iter
-        if not cfg_exp.train_iter.startswith("0"):
-            cfg_exp.train_iter = '{:0>8}'.format(str(cfg_exp.train_iter))
-
-        logging.info(f"Starting training from iter={cfg_exp.train_iter}")
+        logging.info(f"Starting training from iter={cfg_exp.train_epoch}")
 
         python_cmd = ["python3"]
         if cfg_exp.n_gpu != 1:
@@ -206,14 +208,15 @@ def train():
                  *cfg_exp.get_model_args,
                 "--mode", "train",
                 *cfg_exp.get_forcmd("train_set"),
-                *cfg_exp.get_forcmd("test_set"),
+                "--test-set", cfg_exp.dir / os.path.basename(cfg_exp.test_set),
                 *cfg_exp.get_forcmd("dev_ratio"),
                 *cfg_exp.get_forcmd("compute_test_set_eer"),
                 *cfg_exp.get_forcmd("patience"),
                 *cfg_exp.get_forcmd("augmentation"),
                 *cfg_exp.get_forcmd("optim"),
                 *cfg_exp.get_forcmd("overlap"),
-                *cfg_exp.get_forcmd("class_samples_per_batch"),
+                *cfg_exp.get_forcmd("examples_per_speaker_in_batch"),
+                *cfg_exp.get_forcmd("samples_per_speaker_in_epoch"),
                 *cfg_exp.get_forcmd("num_worker_dataloader"),
                 *cfg_exp.get_forcmd("dir"),
                 *cfg_exp.get_forcmd("minibatch_size"),
@@ -221,7 +224,7 @@ def train():
                 *cfg_exp.get_forcmd("segment_size"),
                 *cfg_exp.get_forcmd("training_epochs"),
                 *cfg_exp.get_forcmd("checkpoint_interval"),
-                cfg_exp.dir / f"{cfg_exp.train_iter}.pt",
+                cfg_exp.dir / f"{cfg_exp.train_epoch}.pt",
             ], on_error=lambda x: tail.kill()
         )
 
