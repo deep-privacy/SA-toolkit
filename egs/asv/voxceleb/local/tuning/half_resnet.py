@@ -26,15 +26,15 @@ def build(args):
 
         def __init__(self, num_speakers):
             super().__init__()
-            self.preprocessor = sidekit.preprocessor.MelSpecFrontEnd(n_fft=1024,
-                                                win_length=400,
-                                                hop_length=160,
-                                                n_mels=80)
 
+            self.preprocessor = sidekit.preprocessor.MelSpecFrontEnd(n_fft=1024,
+                                                                     win_length=400,
+                                                                     hop_length=160,
+                                                                     n_mels=80)
             # No dropout in network
-            self.spec_augment = satools.augmentation.SpecAugment(
-                frequency=0.1, frame=0.1, rows=2, cols=2, random_rows=True, random_cols=True
-            )
+            #  self.spec_augment = satools.augmentation.SpecAugment(
+                #  frequency=0.05, frame=0.05, rows=1, cols=1, random_rows=True, random_cols=True
+            #  )
 
             self.sequence_network = sidekit.archi.PreHalfResNet34()
 
@@ -72,7 +72,7 @@ def build(args):
             """
 
             x = self.preprocessor(x)
-            x = self.spec_augment(x)
+            #  x = self.spec_augment(x)
             x = self.sequence_network(x)
             x = self.stat_pooling(x)
 

@@ -15,4 +15,25 @@ To run the recipe:
 
 # Create test data
 ./local/data_prep.py  --from ./data --make-test-data # set --filter-dir if your data dir structure differ from the '--download' one (e.g.: voxceleb1_test/wav/)
+
+# Train
+./local/train.py  --config configs/...
+```
+
+### Results train-Voxceleb 1 (fbanks)
+```sh
+Test | as-norm    Voxceleb-0             Exp                              Config
+EER/Link          1.1/0.91 | 1.0/0.92    exp/asv_eval_half_resnet_vox1    configs/half_resnet
+```
+
+### JIT model
+
+```python3
+import torch
+import torchaudio
+waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPEECH("/tmp", "dev-clean", download=True)[0]
+model = torch.jit.load("__Exp_Path__/final.jit")
+model = model.eval()
+
+x_vector = model(waveform)
 ```

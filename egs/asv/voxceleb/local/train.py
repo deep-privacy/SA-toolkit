@@ -10,7 +10,6 @@ import concurrent
 import configparser
 import datetime
 import glob
-import json
 import logging
 import os
 import sys
@@ -71,7 +70,7 @@ class Opts:
     def get_model_args(self):
         if self.model_args == "":
             return []
-        return json.loads(self.model_args)
+        return satools.utils.fix_json(self.model_args)
 
     def get_forcmd(self, key):
         if getattr(self, key) == "":

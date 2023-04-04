@@ -1,7 +1,6 @@
 import os
 import sys
 import random
-import json
 
 import librosa
 import numpy as np
@@ -154,7 +153,7 @@ def setup_extractor(model, opts):
     cache_path = opts.cache_path
     rank = opts.rank
     if isinstance(cache_functions, str):
-        opts.cache_functions = json.loads(cache_functions)
+        opts.cache_functions = utils.fix_json(cache_functions)
         cache_functions = opts.cache_functions
 
     return cache_functions, cache_worker_name, cache_path, rank

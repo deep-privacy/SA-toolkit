@@ -27,8 +27,8 @@ import torch
 import torchaudio
 waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPEECH("/tmp", "dev-clean", download=True)[1]
 torchaudio.save(f"/tmp/clear_{speaker}-{chapter}-{str(utterance)}.wav", waveform, 16000)
-# model = torch.jit.load("__Exp_Path__/final.jit")
-model = torch.jit.load("exp/hifigan_bn_tdnnf_100h_aug/final.jit")
+model = torch.jit.load("__Exp_Path__/final.jit")
+# model = torch.jit.load("exp/hifigan_bn_tdnnf_100h_aug/final.jit")
 model = model.eval()
 
 wav_conv = model.convert(waveform, target="1069")

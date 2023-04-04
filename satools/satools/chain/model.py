@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 import io
-import json
 from dataclasses import dataclass, fields
 import pickle
 
@@ -444,7 +443,7 @@ class ChainModel(nn.Module):
                     "install_path": install_path,
                     "base_model_path": sys.argv[0],
                     "base_model_params": {"output_dim": self.chain_opts.output_dim},
-                    "base_model_args": json.loads(self.chain_opts.base_model_args),
+                    "base_model_args": satools.utils.fix_json(self.chain_opts.base_model_args),
                     }, file)
 
 
@@ -516,7 +515,7 @@ class ChainE2EModel(ChainModel):
             "{}/utt2len".format(chain_opts.dataset),
             "{}/0.trans_mdl".format(chain_opts.dir),
             "{}/normalization.fst".format(chain_opts.dir),
-            augmentation=json.loads(self.chain_opts.augmentation),
+            augmentation=satools.utils.fix_json(self.chain_opts.augmentation),
         )
         new_model = objf.train_lfmmi_one_iter(
             model,

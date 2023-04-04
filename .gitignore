@@ -18,7 +18,6 @@ fairseq
 *stderr
 *stdout
 requirements.txt
-sidekit
 core
 *old*
 *.zip

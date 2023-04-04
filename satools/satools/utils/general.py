@@ -1,4 +1,5 @@
 import sys
+import json
 
 class StdoutFilterOut:
     """
@@ -30,3 +31,21 @@ class StdoutFilterOut:
 
     def flush(self):
         pass
+
+def fix_json(json_str):
+    
+    # remove new lines and extra spaces
+    json_str = json_str.replace("\n", "")
+    json_str = json_str.strip()
+    # remove trailing commas
+    json_str = json_str.replace(",}", "}")
+    json_str = json_str.replace(",]", "]")
+    
+    # replace single quotes with double quotes
+    json_str = json_str.replace("'", "\"")
+    
+    # replace equals with colons
+    json_str = json_str.replace("=", ":")
+    
+    # load the fixed JSON object
+    return json.loads(json_str)

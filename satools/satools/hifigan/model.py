@@ -1,6 +1,5 @@
 import argparse
 import itertools
-import json
 import logging
 import sys
 import os
@@ -143,7 +142,7 @@ class HifiGanModel():
                     "install_path": install_path,
                     "base_model_path": sys.argv[0],
                     "base_model_params": {"utt2spk": self.utt2spk},
-                    "base_model_args": json.loads(self.opts.base_model_args),
+                    "base_model_args": utils.fix_json(self.opts.base_model_args),
                     }, file)
 
     def jit_save(self):
@@ -475,12 +474,12 @@ class HifiGanModel():
 
                             max_last = 10
                             keep_every = self.opts.checkpoint_interval*10
-                            mdl = "{}/g_{:08d}.pt".format(self.opts.dirname, steps - (self.opts.checkpoint_interval*max_last))
-                            #  print((steps - (self.opts.checkpoint_interval*max_last)) % keep_every,(steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0, os.path.isfile(mdl) ,flush=True)
-                            if os.path.isfile(mdl) and (steps - (self.opts.checkpoint_interval*max_last)) % keep_every !=0 and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best.pt")) != "g_{:08d}.pt".format(steps - (self.opts.checkpoint_interval*max_last)):
-                                script_utils.run(["rm", mdl])
-                                script_utils.run(["rm", mdl.replace("g_", "d_")])
-                                script_utils.run(["rm", mdl.replace("g_", "trainer_")])
+                            rm_step = steps - (self.opts.checkpoint_interval*max_last)
+                            mdl = "{}/g_{:08d}.pt".format(self.opts.dirname, rm_step)
+                            if os.path.isfile(mdl) and (rm_step) % keep_every !=0 and os.path.basename(os.path.realpath(self.opts.dirname + "/g_best.pt")) != "g_{:08d}.pt".format(rm_step):
+                                script_utils.run(["rm", mdl], quit_on_error=False)
+                                script_utils.run(["rm", mdl.replace("g_", "d_")], quit_on_error=False)
+                                script_utils.run(["rm", mdl.replace("g_", "trainer_")], quit_on_error=False)
 
                     torch.cuda.empty_cache()
                     generator.train()

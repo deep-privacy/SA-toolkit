@@ -14,4 +14,5 @@ from .feature_extractor_decorator import (
 )
 from .general import (
     StdoutFilterOut,
+    fix_json,
 )

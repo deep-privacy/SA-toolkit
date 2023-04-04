@@ -11,48 +11,46 @@ test_set = data/voxceleb1_test/voxceleb1-O
 compute_test_set_eer = true
 
 
-n_gpu = 3
+n_gpu = 2
 num_worker_dataloader = 20
 logging_interval = 500
 checkpoint_interval = 1
 
-training_epochs = 100
-patience = 30
-minibatch_size = 495
-examples_per_speaker_in_batch = "99"
-samples_per_speaker_in_epoch = 30
+training_epochs = 50
+patience = 20
+minibatch_size = 256
+examples_per_speaker_in_batch = "batch_size/16"
+samples_per_speaker_in_epoch = 70
 segment_size = 48000
 optim = {
   "optimizer": {
-    "type": "torch.optim.Adam",
+    "type": "torch.optim.AdamW",
     "opts": {"lr": 0.001}
   },
   "scheduler": {
-    "type": "torch.optim.lr_scheduler.CyclicLR",
+    "type": "torch.optim.lr_scheduler.OneCycleLR",
     "opts": {
-      "base_lr": 1.0e-10,
       "max_lr": 0.001,
-      "step_size_up": 40000,
-      "cycle_momentum": false,
-      "mode": "triangular2"
+      "total_steps": 22000,
+      "div_factor": 5,
     }
   }
   }
 
 # resume training from:
 # train_epoch = 10
-train_epoch = last
+# train_epoch = last
 
 model_file = ./local/tuning/half_resnet.py
 # dirname = asv_eval_half_resnet_vox1_test
-dirname = asv_eval_half_resnet_vox1_test2
+dirname = asv_eval_half_resnet_vox1_test3
 model_args = []
 
-init_weight_model = "exp/asv_eval_half_resnet_vox1/best.pt"
+# init_weight_model = "exp/.../best.pt"
 
 # see ../../../share/dataprep_aug.py
 augmentation = {
-  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec", "speed_perturb"],
+  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
   "aug_number": 1,
   "add_noise": {
       # "babble_noise": "true",
