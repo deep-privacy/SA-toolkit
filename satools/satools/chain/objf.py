@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 from torch.nn.utils import clip_grad_value_
 
-from .egs import (
+from .dataset import (
     BatchSampler,
     EgsCollectFn,
     GetSupervisionFromEgs,

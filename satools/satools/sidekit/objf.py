@@ -42,6 +42,10 @@ def train_epoch(model,
     accuracy = 0.0
     running_loss = 0.0
     batch_count = 0
+
+    if hasattr(model, 'new_epoch_hook'):
+            model.new_epoch_hook(training_monitor, training_loader.dataset, scheduler)
+
     for batch_idx, (data, target) in enumerate(training_loader):
         data = data.squeeze().to(device)
 
@@ -78,7 +82,7 @@ def train_epoch(model,
                                     training_acc=100.0 * accuracy / (batch_count*target.shape[0]),
                                     lr=scheduler._last_lr[0])
 
-            logging.info('{} Epoch: {} [{:>6}/{} ({:>2}%)]  Loss: {{:> 2.4f}}  Accuracy: {:.3f}  lr={:.3e}'.format(
+            logging.info('{} Epoch: {} [{:>6}/{} ({:>2}%)]  Loss: {:> 2.4f}  Accuracy: {:.3f}  lr={:.3e}'.format(
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 training_monitor.current_epoch+1,
                 batch_idx,
@@ -94,25 +98,31 @@ def train_epoch(model,
         run_scheduler(scheduler, scaler, scope="step")
     run_scheduler(scheduler, scaler, scope="epoch")
     run_scheduler(scheduler, scaler, scope="epoch", val=training_monitor.best_eer)
+
     return model
 
 
 def run_scheduler(scheduler, scaler, scope, val=None):
+    step_sch = (torch.optim.lr_scheduler.OneCycleLR, torch.optim.lr_scheduler.CyclicLR)
+    epoch_sch = (torch.optim.lr_scheduler.MultiStepLR, torch.optim.lr_scheduler.StepLR)
+    epoch_sch_val = (torch.optim.lr_scheduler.ReduceLROnPlateau,)
+
+    if not isinstance(scheduler, step_sch + epoch_sch + epoch_sch_val):
+        raise ValueError("Scheduler '%s' not defined in  'objf.run_scheduler'" % (scheduler.__class__.__name__))
+
     # Call scheduler step only for batch scheduler
-    if scope == "step":
+    if scope == "step" and isinstance(scheduler, step_sch):
         # scaler._prev_scale is to be manually added to the object!
         if scaler == None or scaler.get_scale() == scaler._prev_scale:
             scheduler.step()
-    elif scope == "epoch":
+    if scope == "epoch" and isinstance(scheduler, epoch_sch):
         # Call scheduler step for epoch scheduler without validation data needed
         if val==None and scaler == None or scaler.get_scale() == scaler._prev_scale:
             scheduler.step()
         # Call scheduler step when validation data is needed for epoch scheduler
-        if val!=None and isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+        if val!=None and isinstance(scheduler, epoch_sch_val):
             if scaler == None or scaler.get_scale() == scaler._prev_scale:
                 scheduler.step()
-    else:
-        raise ValueError("Could not find scope '%s'" % (scope))
 
 
 
@@ -312,17 +322,19 @@ def compute_metrics(utt2embd_enroll, utt2embd_trial, enroll_spk2utt, trials_file
     metrics = {}
 
     cmin, matedScores, nonMatedScores = scoring.min_cllr(matedScores, nonMatedScores, return_opt=True) # return optimally calibrated scores (PAV)
-    feer, ci_lower, ci_upper, bootstrapped_eers = scoring.feerci(nonMatedScores, matedScores, is_sorted=False)
+    feer, ci_lower, ci_upper, bootstrapped_eers, threshold = scoring.feerci(nonMatedScores, matedScores, is_sorted=False, return_threshold=True)
 
     metrics["eer"] = feer*100
     metrics["eer_lower"] = ci_lower*100
     metrics["eer_upper"] = ci_upper*100
     metrics["min_cllr"] = cmin
+    metrics["eer_threshold"] = threshold
     metrics["asnorm"] = {}
     metrics["asnorm"]["eer"] = None
     metrics["asnorm"]["eer_lower"] = None
     metrics["asnorm"]["eer_upper"] = None
     metrics["asnorm"]["min_cllr"] = None
+    metrics["asnorm"]["eer_threshold"] = None
 
     if cohort != None:
         enroll_test_scores = torch.FloatTensor(list(score_dict.values())).cpu()
@@ -334,12 +346,13 @@ def compute_metrics(utt2embd_enroll, utt2embd_trial, enroll_spk2utt, trials_file
         nonMatedScores = as_norm_enroll_test_scores[nontar].numpy().astype(numpy.float64)
 
         cmin, matedScores, nonMatedScores = scoring.min_cllr(matedScores, nonMatedScores, return_opt=True) # return optimally calibrated scores (PAV)
-        feer, ci_lower, ci_upper, bootstrapped_eers = scoring.feerci(nonMatedScores, matedScores, is_sorted=False)
+        feer, ci_lower, ci_upper, bootstrapped_eers, threshold = scoring.feerci(nonMatedScores, matedScores, is_sorted=False, return_threshold=True)
 
         metrics["asnorm"]["eer"] = feer*100
         metrics["asnorm"]["eer_lower"] = ci_lower*100
         metrics["asnorm"]["eer_upper"] = ci_upper*100
         metrics["asnorm"]["min_cllr"] = cmin
+        metrics["asnorm"]["eer_threshold"] = threshold
     metrics["score"] = (matedScores, nonMatedScores)
 
     return metrics

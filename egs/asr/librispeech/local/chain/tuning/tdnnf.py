@@ -11,7 +11,6 @@ import satools
 import satools.nn as sann
 from satools.chain import ChainE2EModel
 
-logging.basicConfig(level=logging.DEBUG)
 import sys
 import configargparse
 

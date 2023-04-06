@@ -2,10 +2,10 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
-# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_t100_aug local/train.py --conf configs/hifigan
+# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_100h_aug local/train.py --conf configs/hifigan
 [var]
 asrbn_path = ../../asr/librispeech/exp/chain/
-asrbn_model = bn_tdnnf_t100_aug
+asrbn_model = bn_tdnnf_100h_aug
 
 [exp]
 train_set = data/train_clean_100
@@ -28,7 +28,7 @@ model_file = local/tuning/hifigan.py
 dirname = hifigan_${:asrbn_model}
 model_args = ["--asrbn-model", "${:asrbn_path}${:asrbn_model}/final.pt"]
 
-init_weight_model = "exp/hifigan_bn_tdnnf_t100_aug/g_best.pt"
+init_weight_model = "exp/hifigan_bn_tdnnf_100h_aug/g_best.pt"
 cache_path = ./exp/hifigan_${:asrbn_model}/cache/
  # default / [] -> On  ||  ["none"] -> Off  ||  ["get_f0"] -> only get_f0
 # cache_functions = ["none"]

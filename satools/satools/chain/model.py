@@ -12,11 +12,12 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 
-from .egs import (
+from .dataset import (
     EgsDataset,
     EgsCollectFn,
 )
 from . import objf
+from .tensorboard import ChainTensorBoard
 from .. import script_utils
 import satools
 
@@ -205,7 +206,7 @@ class ChainModel(nn.Module):
             den_fst_path,
             training_opts,
             minibatch_size=chain_opts.minibatch_size,
-            tensorboard=satools.tensorboard.SATwensorBoard(self)
+            tensorboard=ChainTensorBoard(self)
             if "valid" in self.chain_opts.egs
             else None,
         )
@@ -526,7 +527,7 @@ class ChainE2EModel(ChainModel):
             grad_acc_steps=chain_opts.grad_acc_steps,
             lr=chain_opts.lr,
             weight_decay=chain_opts.weight_decay_l2_regularize_factor,
-            tensorboard=satools.tensorboard.SATwensorBoard(self),
+            tensorboard=ChainTensorBoard(self),
             optimizer=optimizer,
             sampler=chain_opts.sampler,
         )

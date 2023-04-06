@@ -2,10 +2,10 @@ import os
 
 from torch.utils.tensorboard import SummaryWriter
 
-from . import script_utils
-from . import utils
+from .. import script_utils
+from .. import utils
 
-class SATwensorBoard():
+class ChainTensorBoard():
 
     def __init__(otherself, self):
         if "valid" in self.chain_opts.egs:

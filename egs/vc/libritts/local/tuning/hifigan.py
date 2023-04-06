@@ -14,11 +14,6 @@ from satools import hifigan
 import satools
 import satools.infer_helper
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("geocoder").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-
-
 def build(args):
     class Net(nn.Module):
         def init(self):

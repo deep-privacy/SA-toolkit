@@ -12,8 +12,6 @@ import satools.nn as sann
 from satools.chain import ChainE2EModel
 from satools.utils.import_fairseq_model import wav2vec2_model
 
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("hydra").setLevel(logging.WARNING)
 import sys
 import configargparse
 

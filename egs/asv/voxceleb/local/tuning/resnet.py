@@ -14,11 +14,6 @@ import torch.nn.functional as F
 import satools
 from satools import sidekit
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("geocoder").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-
-
 def build(args):
     class Net(nn.Module):
         #  def init(self):
@@ -47,6 +42,7 @@ def build(args):
 
             self.stat_pooling = sidekit.pooling.AttentivePooling(256, 10, global_context=True)
 
+            self.margin_update_fine_tune = False
             self.after_speaker_embedding = sidekit.loss.ArcMarginProduct(
                 self.embedding_size,
                 num_speakers,
@@ -82,9 +78,18 @@ def build(args):
             speaker_loss, s_layer = self.after_speaker_embedding(x, target=target)
             return (speaker_loss, s_layer), x_vector
 
+
+        def new_epoch_hook(self, monitor, dataset, scheduler):
+            for_last = 30
+            if monitor.current_epoch > 10 and not self.margin_update_fine_tune and len(monitor.training_acc[for_last:]) != 0 and min(monitor.training_acc[for_last:]) > 99.5:
+                logging.info("Updating AAM margin loss (will use 2x more vram)")
+                dataset.change_params(segment_size=dataset.segment_size*2, set_type="fine-tune train")
+                self.after_speaker_embedding.change_params(m=0.4)
+                self.margin_update_fine_tune = True
+                scheduler.last_epoch = scheduler.last_epoch//2
+
         
         def set_lr_weight_decay_layers_for_optim(self, _optimizer, _options):
-            logging.info("Set lr and weight decay")
             self._optimizer_option = _options
             self._optimizer = _optimizer
 

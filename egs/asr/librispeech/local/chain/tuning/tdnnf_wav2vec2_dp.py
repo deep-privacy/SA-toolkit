@@ -18,8 +18,6 @@ from satools.nn import (
 )
 from scipy.stats import laplace
 
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("hydra").setLevel(logging.WARNING)
 import sys
 import os
 import configargparse

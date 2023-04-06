@@ -42,17 +42,10 @@ class ArcMarginProduct(torch.nn.Module):
         super(ArcMarginProduct, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.s = s
-        self.m = m
         self.weight = Parameter(torch.FloatTensor(out_features, in_features))
         torch.nn.init.xavier_uniform_(self.weight)
-
+        self.change_params(s=s, m=m)
         self.easy_margin = easy_margin
-        self.cos_m = math.cos(self.m)
-        self.sin_m = math.sin(self.m)
-        self.th = math.cos(math.pi - self.m)
-        self.mm = math.sin(math.pi - self.m) * self.m
-        
         self.criterion = torch.nn.CrossEntropyLoss(reduction='mean')
 
     def change_params(self, s=None, m=None):

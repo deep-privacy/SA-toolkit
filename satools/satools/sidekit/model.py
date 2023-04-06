@@ -19,7 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from .. import script_utils
 from .. import utils
-from . import xsets
+from . import dataset
 from . import objf
 from .monitor import TrainingMonitor
 import satools
@@ -102,6 +102,9 @@ class SidekitModel():
         self.Net = model_cls
         self.opts.num_gpus = int(os.environ.get("WORLD_SIZE", "1"))
         self.opts.rank = int(os.environ.get("LOCAL_RANK", "0"))
+
+        if self.opts.rank != 0:
+            logging.disable(logging.INFO)
 
         self.call_by_mode()
 
@@ -186,7 +189,7 @@ class SidekitModel():
         device = torch.device("cuda")
         if self.opts.num_gpus > 1:
             device = torch.device("cuda:{:d}".format(self.opts.rank))
-            logging.info(
+            logging.warning(
                 "Init from distributed training rank: {}".format(self.opts.rank)
             )
             init_process_group(
@@ -217,6 +220,7 @@ class SidekitModel():
             compute_test_eer=self.opts.compute_test_set_eer.lower()=="true"
         )
         last_epoch = -1
+        scheduler_epoch = -1
 
         f = os.path.dirname(self.opts.base_model) + "/" + "trainer_" + os.path.basename(self.opts.base_model)
         if Path(f).is_file():
@@ -224,10 +228,18 @@ class SidekitModel():
             sd = torch.load(f)
             optim.load_state_dict(sd["optim"])
             last_epoch = sd["epoch"]
+            scheduler_epoch = sd["scheduler_epoch"]
             monitor = sd["monitor"]
 
-        monitor.add_tensorboard(os.path.join(self.opts.dirname, "runs"))
-        return optim, monitor, last_epoch
+        scheduler = self.get_scheduler(optim, scheduler_epoch)
+
+        if self.opts.rank == 0:
+            sw = monitor.add_tensorboard(os.path.join(self.opts.dirname, "runs"))
+            handler = utils.LogHandlerSummaryWriter(sw)
+            handler.setFormatter(logging.Formatter("`" + logging.root.handlers[0].formatter._fmt + "`"))
+            logging.getLogger().addHandler(handler)
+
+        return optim, scheduler, monitor, last_epoch
 
     def get_optim(self, net):
         otpim_dict = utils.fix_json(self.opts.optim)
@@ -235,23 +247,24 @@ class SidekitModel():
         _options = {**otpim_dict["optimizer"]["opts"]}
         if hasattr(net, 'set_lr_weight_decay_layers_for_optim'):
             optimizer = net.set_lr_weight_decay_layers_for_optim(_optimizer, _options)
+            logging.info("Set lr weight decay for optim in model definition")
         else:
             optimizer = _optimizer(net.parameters(), **_options)
+            logging.info("Set lr weight for optim in traininer")
         return optimizer
 
     def get_scheduler(self, optimizer, last_epoch):
         otpim_dict = utils.fix_json(self.opts.optim)
-        try:
-            scheduler = eval(otpim_dict["scheduler"]["type"])(optimizer=optimizer, **otpim_dict["scheduler"]["opts"], last_epoch=last_epoch)
-        except Exception:
+        if "last_epoch" in otpim_dict["scheduler"]["opts"]:
             scheduler = eval(otpim_dict["scheduler"]["type"])(optimizer=optimizer, **otpim_dict["scheduler"]["opts"])
+        else:
+            scheduler = eval(otpim_dict["scheduler"]["type"])(optimizer=optimizer, **otpim_dict["scheduler"]["opts"], last_epoch=last_epoch)
         return scheduler
 
     def train(self):
         xtractor, device = self.init_cuda_model_distributed()
         optim = self.get_optim(xtractor)
-        optim, monitor, last_epoch = self.init_monitor_train_optims(optim)
-        scheduler = self.get_scheduler(optim, last_epoch)
+        optim, scheduler, monitor, last_epoch = self.init_monitor_train_optims(optim)
 
         df = pandas.read_csv(os.path.join(self.opts.dirname, "train.csv"))
         numpy.random.seed(42)
@@ -261,7 +274,7 @@ class SidekitModel():
         if self.opts.dev_ratio == 0:
             training_df = df
 
-        training_set = xsets.SideSet(
+        training_set = dataset.SideSet(
             dataset_df=training_df,
             segment_size=self.opts.segment_size,
             set_type="train",
@@ -291,7 +304,7 @@ class SidekitModel():
 
         #  samples_per_speaker_in_epoch=1
 
-        train_sampler = xsets.SideSampler(
+        train_sampler = dataset.SideSampler(
             data_source=training_set.sessions['speaker_idx'],
             spk_count=self.num_speakers,
             examples_per_speaker=examples_per_speaker_in_batch,
@@ -311,7 +324,7 @@ class SidekitModel():
         )
 
         if self.opts.rank == 0:
-            validation_set = xsets.SideSet(
+            validation_set = dataset.SideSet(
                 dataset_df=validation_df,
                 set_type="validation",
                 overlap=0,
@@ -329,15 +342,17 @@ class SidekitModel():
         scaler = torch.cuda.amp.GradScaler()
 
         if self.opts.torch_compile.lower() == "true":
-            if self.opts.rank == 0: logging.info(f"torch.compile network..")
+            logging.info(f"torch.compile network..")
             xtractor = torch.compile(xtractor)
 
-        if self.opts.rank == 0 and self.opts.mixed_precision.lower(): logging.info(f"Using mixed_precision")
+        if self.opts.mixed_precision.lower(): logging.info(f"Using mixed_precision")
 
-        if self.opts.rank == 0:
-            logging.info(
-                f"Logging:\n\ttensorboard --logdir {self.opts.dirname}"
-            )
+        if last_epoch != -1:
+            logging.info(f"Loaded model metrics")
+            monitor.display(add_to_tensorboard=False)
+            monitor.display_final()
+
+        logging.info(f"Logging:\n\ttensorboard --logdir {self.opts.dirname}")
 
         for epoch in range(max(0, last_epoch), self.opts.training_epochs):
 
@@ -383,7 +398,7 @@ class SidekitModel():
                         self.opts.mixed_precision.lower()=="true",
                     )
 
-                    monitor.update(test_eer=metrics["eer"] if not "asnorm" in metrics else: metrics["asnorm"]["eer"],
+                    monitor.update(test_eer=metrics["eer"],
                                    test_metric=metrics,
                                    val_eer=val_eer,
                                    val_loss=val_loss,
@@ -394,7 +409,7 @@ class SidekitModel():
                     checkpoint_path_trainer = "{}/trainer_{}.pt".format(self.opts.dirname, epoch+1)
 
                     self.save_model(xtractor, checkpoint_path)
-                    torch.save({"optim": optim.state_dict(),"epoch": epoch, "monitor": monitor}, checkpoint_path_trainer)
+                    torch.save({"optim": optim.state_dict(),"epoch": epoch, "scheduler_epoch": scheduler.last_epoch,  "monitor": monitor}, checkpoint_path_trainer)
 
                     if monitor.is_best:
                         symlink = Path(self.opts.dirname + "/best.pt")
@@ -412,7 +427,6 @@ class SidekitModel():
 
                 torch.cuda.empty_cache()
 
-        if self.opts.rank == 0:
-            monitor.display_final()
-            logging.info("Finished training")
+        monitor.display_final()
+        logging.info("Finished training")
 

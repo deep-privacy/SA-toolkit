@@ -1,22 +1,22 @@
 import sys
 import json
 
-class StdoutFilterOut:
+class StdFilterOut:
     """
     usage example:
 
     ```
     from contextlib import redirect_stdout
-    with redirect_stdout(StdoutFilterOut(ignore="can not import s3prl.", to_keep="wavlm")):
+    with redirect_stdout(StdFilterOut(ignore="can not import s3prl.", to_keep="wavlm")):
         self.feature_extract = torch.hub.load('s3prl/s3prl', self.feat_type)
     ```
     """
 
-    def __init__(self, *_, ignore=None, to_keep=None):
+    def __init__(self, *_, ignore=None, to_keep=None, terminal=sys.stdout):
         self.last_ignore = False
         self.ignore = ignore
         self.to_keep = to_keep
-        self.terminal = sys.stdout
+        self.terminal = terminal
 
     def write(self, txt):
         if (self.ignore and self.ignore in txt) and (

@@ -19,7 +19,6 @@ from satools.nn import (
     RevGrad,
 )
 
-logging.basicConfig(level=logging.DEBUG)
 import sys
 import configargparse
 

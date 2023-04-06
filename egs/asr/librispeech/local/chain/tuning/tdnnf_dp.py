@@ -12,7 +12,6 @@ from satools.nn import (
     TDNNFBatchNorm_LD,
 )
 
-logging.basicConfig(level=logging.DEBUG)
 import sys
 import configargparse
 

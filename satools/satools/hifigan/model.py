@@ -109,6 +109,9 @@ class HifiGanModel():
         self.opts.num_gpus = int(os.environ.get("WORLD_SIZE", "1"))
         self.opts.rank = int(os.environ.get("LOCAL_RANK", "0"))
 
+        if self.opts.rank != 0:
+            logging.disable(logging.INFO)
+
         self.call_by_mode()
 
     def call_by_mode(self):
@@ -199,7 +202,7 @@ class HifiGanModel():
         device = torch.device("cuda")
         if self.opts.num_gpus > 1:
             device = torch.device("cuda:{:d}".format(self.opts.rank))
-            logging.info(
+            logging.warning(
                 "Init from distributed training rank: {}".format(self.opts.rank)
             )
             init_process_group(
@@ -305,21 +308,24 @@ class HifiGanModel():
                 persistent_workers=True,
             )
             sw = SummaryWriter(os.path.join(self.opts.dirname, "runs"))
+            handler = utils.LogHandlerSummaryWriter(sw)
+            handler.setFormatter(logging.Formatter("`" + logging.root.handlers[0].formatter._fmt + "`"))
+            logging.getLogger().addHandler(handler)
+
 
         generator.train()
         mpd.train()
         msd.train()
 
         if self.opts.torch_compile.lower() == "true":
-            if self.opts.rank == 0: logging.info(f"torch.compile network..")
+            logging.info(f"torch.compile network..")
             generator = torch.compile(generator)
             mpd = torch.compile(mpd)
             msd = torch.compile(msd)
 
-        if self.opts.rank == 0:
-            logging.info(
-                f"Logging:\n\ttensorboard --logdir {self.opts.dirname} --samples_per_plugin=images=100000,audio=100000"
-            )
+        logging.info(
+            f"Logging:\n\ttensorboard --logdir {self.opts.dirname} --samples_per_plugin=images=100000,audio=100000"
+        )
 
         dataset.setup_extractor(generator, self.opts)
 
@@ -329,8 +335,7 @@ class HifiGanModel():
 
             optimizer_was_run = False
             for i, batch in enumerate(dataloader):
-                if self.opts.rank == 0:
-                    start_b = time.time()
+                start_b = time.time()
 
                 batch.compute_cuda_extract_feat(generator, self.opts, "train_set", device)
                 batch.to(device)
@@ -491,5 +496,4 @@ class HifiGanModel():
             if self.opts.rank == 0:
                 utils.feature_extractor_decorator.merge_cache(generator, self.opts.cache_path)
 
-        if self.opts.rank == 0:
-            logging.info("Finished training")
+        logging.info("Finished training")

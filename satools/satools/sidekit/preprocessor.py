@@ -89,7 +89,7 @@ class WavLmFrontEnd(torch.nn.Module):
         super(WavLmFrontEnd, self).__init__()
         self.feat_type = 'wavlm_large'
         # supress import error for other ssl pre-trained model than wavlm.
-        with redirect_stdout(utils.StdoutFilterOut(ignore="can not import s3prl.", to_keep="wavlm")):
+        with redirect_stdout(utils.StdFilterOut(ignore="can not import s3prl.", to_keep="wavlm")):
             self.feature_extract = torch.hub.load('s3prl/s3prl', self.feat_type)
         self.update_extract = update_extract
         self.feature_selection = 'hidden_states'

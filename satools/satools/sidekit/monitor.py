@@ -104,55 +104,62 @@ class TrainingMonitor:
             }
         }
         self.sw.add_custom_scalars(layout)
+        return self.sw
 
 
-    def display(self):
+    def display(self, add_to_tensorboard=True):
         """
         Display validation and test indicators during the training
         """
 
-        if self.sw:
+        if add_to_tensorboard and self.sw:
             self.sw.add_scalar("validation/accuracy", self.val_acc[-1], len(self.val_acc))
             self.sw.add_scalar("validation/eer", self.val_eer[-1], len(self.val_eer))
             self.sw.add_scalar("validation/loss", self.val_loss[-1], len(self.val_loss))
 
         logging.info(
-            f"***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}"
+            f"***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}***"
         )
         if self.compute_test_eer:
             metrics = self.test_metric[-1]
             eer_mean = round(metrics['eer'], 3)
-            eer_std = round((metrics['eer_upper'] - metrics['eer_lower'])/2, 3)
+            if asnorm['eer_upper'] < 10:
+                eer_std = round((metrics['eer_upper'] - metrics['eer_lower'])/2, 3)
+            else:
+                eer_std = round((asnorm['eer'] - asnorm['eer_lower']), 3)
             min_cllr = round(metrics['min_cllr'], 3)
 
-            if self.sw:
+            if add_to_tensorboard and self.sw:
                 self.sw.add_scalar("test/eer", metrics['eer'], len(self.test_eer))
-                self.sw.add_scalar("test/eer_upper", metrics['eer_upper'], len(self.test_eer))
+                if asnorm['eer_upper'] < 10:
+                    self.sw.add_scalar("test/eer_upper", metrics['eer_upper'], len(self.test_eer))
+                else:
+                    self.sw.add_scalar("test/eer_upper", metrics['eer']+eer_std, len(self.test_eer))
                 self.sw.add_scalar("test/eer_lower", metrics['eer_lower'], len(self.test_eer))
                 self.sw.add_scalar("test/min_cllr", metrics['min_cllr'], len(self.test_eer))
 
             if 'asnorm' in metrics:
                 asnorm = metrics['asnorm']
                 asnorm_eer_mean = round(asnorm['eer'], 3)
-                if asnorm['eer_upper'] < 50:
+                if asnorm['eer_upper'] < 10:
                     asnorm_eer_std = round((asnorm['eer_upper'] - asnorm['eer_lower'])/2, 3)
                 else:
                     asnorm_eer_std = round((asnorm['eer'] - asnorm['eer_lower']), 3)
                 asnorm_min_cllr = round(asnorm['min_cllr'], 3)
 
-                if self.sw:
+                if add_to_tensorboard and self.sw:
                     self.sw.add_scalar("test/eer_asnorm", metrics["asnorm"]['eer'], len(self.test_eer))
-                    if asnorm['eer_upper'] < 50:
+                    if asnorm['eer_upper'] < 10:
                         self.sw.add_scalar("test/eer_upper_asnorm", metrics["asnorm"]['eer_upper'], len(self.test_eer))
                     else:
                         self.sw.add_scalar("test/eer_upper_asnorm", asnorm['eer']+asnorm_eer_std, len(self.test_eer))
                     self.sw.add_scalar("test/eer_lower_asnorm", metrics["asnorm"]['eer_lower'], len(self.test_eer))
                     self.sw.add_scalar("test/min_cllr_asnorm", metrics["asnorm"]['min_cllr'], len(self.test_eer))
 
-                logging.info(f"***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr} // as-norm - EER: {asnorm_eer_mean} ± {asnorm_eer_std}, min_cllr: {asnorm_min_cllr}")
+                logging.info(f"***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr} // as-norm - EER: {asnorm_eer_mean} ± {asnorm_eer_std}, min_cllr: {asnorm_min_cllr}***")
 
             else:
-                logging.info(f"***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr}")
+                logging.info(f"***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr}***")
 
     def display_final(self):
         """
@@ -161,7 +168,7 @@ class TrainingMonitor:
         if self.best_eer_epoch == 1:
             return
         logging.info(
-            f"Best Accuracy {round(self.best_eer, 3)} obtained at epoch {self.best_eer_epoch}"
+            f"Best model {round(self.best_eer, 3)} obtained at epoch {self.best_eer_epoch+1}"
         )
 
     def update(
@@ -214,7 +221,7 @@ class TrainingMonitor:
             self.is_best = test_eer < self.best_eer
             self.best_eer = min(test_eer, self.best_eer)
             if self.is_best:
-                self.best_eer_epoch = epoch
+                self.best_eer_epoch = self.current_epoch
                 self.current_patience = self.init_patience
             else:
                 self.current_patience -= 1
@@ -222,7 +229,7 @@ class TrainingMonitor:
             self.is_best = val_eer < self.best_eer
             self.best_eer = min(val_eer, self.best_eer)
             if self.is_best:
-                self.best_eer_epoch = epoch
+                self.best_eer_epoch = self.current_epoch
                 self.current_patience = self.init_patience
             else:
                 self.current_patience -= 1
