@@ -7,6 +7,12 @@ from feerci import *
 def asnorm(enroll_test_scores, enroll_xv, test_xv, cohort_xv):
     """
     Calculate adaptive s-norm
+
+    A direct and continuous measurement of speaker confusion between all
+    training samples is computationally expensive. Hence, an option is to
+    compute speaker similarities from the weights of the AAM-softmax layer as
+    approximations of the class-centers.
+
     :param enroll_test_scores: Score between enrollment and test utterances. Must be in torch.tensor format
     :param enroll_xv: Extracted xvectors from enrollment utterances. Must be in torch.tensor format
     :param test_xv: Extracted xvectors from test utterances. Must be in torch.tensor format

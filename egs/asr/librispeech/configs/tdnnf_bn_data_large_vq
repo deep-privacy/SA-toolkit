@@ -4,12 +4,12 @@ cpu_cmd = ./utils/run.pl
 
 cuda_cmd = ./utils/ssh.pl
 # example of ssh.pl config file (in .queue/machines)
-# ssh localhost @ CUDA_VISIBLE_DEVICES=0
-# ssh gpu20 @ CUDA_VISIBLE_DEVICES=0
-# ssh gpu20 @ CUDA_VISIBLE_DEVICES=1
-# ssh gpu06 @ CUDA_VISIBLE_DEVICES=0
-# ssh gpu06 @ CUDA_VISIBLE_DEVICES=1
-# srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 @ CUDA_VISIBLE_DEVICES=1
+# ssh localhost ~ CUDA_VISIBLE_DEVICES=0
+# ssh gpu20 ~ CUDA_VISIBLE_DEVICES=0
+# ssh gpu20 ~ CUDA_VISIBLE_DEVICES=1
+# ssh gpu06 ~ CUDA_VISIBLE_DEVICES=0
+# ssh gpu06 ~ CUDA_VISIBLE_DEVICES=1
+# srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 ~ CUDA_VISIBLE_DEVICES=1
 
 # Can be modified through venv: e.g.: vq=128 local/chain/train.py ...
 [var]

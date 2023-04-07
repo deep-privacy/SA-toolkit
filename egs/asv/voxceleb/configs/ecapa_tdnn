@@ -24,7 +24,7 @@ samples_per_speaker_in_epoch = 70
 segment_size = 48000
 optim = {
   "optimizer": {
-    "type": "torch.optim.Adam",
+    "type": "torch.optim.AdamW",
     "opts": {"lr": 0.001}
   },
   "scheduler": {
@@ -43,8 +43,8 @@ optim = {
 # train_epoch = 8
 # train_epoch = last
 
-model_file = ./local/tuning/resnet.py
-dirname = asv_eval_vox1_resnet
+model_file = ./local/tuning/ecapa_tdnn.py
+dirname = asv_eval_vox1_ecapa_tdnn_v2
 # dirname = asv_eval_half_resnet_vox1_dev
 model_args = []
 

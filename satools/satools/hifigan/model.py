@@ -329,7 +329,7 @@ class HifiGanModel():
 
         dataset.setup_extractor(generator, self.opts)
 
-        for epoch in range(max(0, last_epoch), self.opts.training_epochs):
+        for epoch in range(last_epoch+1, self.opts.training_epochs):
             if self.opts.num_gpus > 1:
                 train_sampler.set_epoch(epoch)
 

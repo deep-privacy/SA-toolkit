@@ -158,3 +158,32 @@ class PreFastResNet34(torch.nn.Module):
         x = self.layer4(x)
         return x
 
+
+
+class PreEcapaTDNN(nn.Module):
+    """
+    Implementation of 
+    "ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification".
+    (https://github.com/lawlict/ECAPA-TDNN/blob/master/ecapa_tdnn.py)
+
+    Note that we DON'T concatenate the last frame-wise layer with non-weighted mean and standard deviation,
+    because it brings little improvment but significantly increases model parameters.
+    As a result, this implementation basically equals the A.2 of Table 2 in the paper.
+    """
+    def __init__(self, in_feature=80, channels=512):
+        super().__init__()
+        self.layer1 = sann.Conv1dReluBn(in_feature, channels, kernel_size=5, padding=2)
+        self.layer2 = sann.SE_Res2Block(channels, kernel_size=3, stride=1, padding=2, dilation=2, scale=8)
+        self.layer3 = sann.SE_Res2Block(channels, kernel_size=3, stride=1, padding=3, dilation=3, scale=8)
+        self.layer4 = sann.SE_Res2Block(channels, kernel_size=3, stride=1, padding=4, dilation=4, scale=8)
+        cat_channels = channels * 3
+        self.conv = nn.Conv1d(cat_channels, cat_channels, kernel_size=1)
+
+    def forward(self, x):
+        out1 = self.layer1(x)
+        out2 = self.layer2(out1) + out1
+        out3 = self.layer3(out1 + out2) + out1 + out2
+        out4 = self.layer4(out1 + out2 + out3) + out1 + out2 + out3
+        out = torch.cat([out2, out3, out4], dim=1)
+        out = F.relu(self.conv(out))
+        return out

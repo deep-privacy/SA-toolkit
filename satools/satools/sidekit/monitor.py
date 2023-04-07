@@ -118,20 +118,20 @@ class TrainingMonitor:
             self.sw.add_scalar("validation/loss", self.val_loss[-1], len(self.val_loss))
 
         logging.info(
-            f"***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}***"
+            f"`***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}`***"
         )
         if self.compute_test_eer:
             metrics = self.test_metric[-1]
             eer_mean = round(metrics['eer'], 3)
-            if asnorm['eer_upper'] < 10:
+            if metrics['eer_upper'] < 10:
                 eer_std = round((metrics['eer_upper'] - metrics['eer_lower'])/2, 3)
             else:
-                eer_std = round((asnorm['eer'] - asnorm['eer_lower']), 3)
+                eer_std = round((metrics['eer'] - metrics['eer_lower']), 3)
             min_cllr = round(metrics['min_cllr'], 3)
 
             if add_to_tensorboard and self.sw:
                 self.sw.add_scalar("test/eer", metrics['eer'], len(self.test_eer))
-                if asnorm['eer_upper'] < 10:
+                if metrics['eer_upper'] < 10:
                     self.sw.add_scalar("test/eer_upper", metrics['eer_upper'], len(self.test_eer))
                 else:
                     self.sw.add_scalar("test/eer_upper", metrics['eer']+eer_std, len(self.test_eer))
@@ -156,10 +156,10 @@ class TrainingMonitor:
                     self.sw.add_scalar("test/eer_lower_asnorm", metrics["asnorm"]['eer_lower'], len(self.test_eer))
                     self.sw.add_scalar("test/min_cllr_asnorm", metrics["asnorm"]['min_cllr'], len(self.test_eer))
 
-                logging.info(f"***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr} // as-norm - EER: {asnorm_eer_mean} ± {asnorm_eer_std}, min_cllr: {asnorm_min_cllr}***")
+                logging.info(f"`***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr} // as-norm - EER: {asnorm_eer_mean} ± {asnorm_eer_std}, min_cllr: {asnorm_min_cllr}***`")
 
             else:
-                logging.info(f"***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr}***")
+                logging.info(f"`***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr}***`")
 
     def display_final(self):
         """

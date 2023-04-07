@@ -40,6 +40,7 @@ class OneCycleLR(torch.optim.lr_scheduler.OneCycleLR):
             self.step()
 
     def get_lr(self):
+        step_num = self.last_epoch
 
         if self._old_get_lrs == None:
             step_num = self.total_steps
@@ -49,4 +50,6 @@ class OneCycleLR(torch.optim.lr_scheduler.OneCycleLR):
             #  print("Usually ends here", flush=True)
 
         lrs = super().get_lr()
+
         self._old_get_lrs = lrs
+        return lrs

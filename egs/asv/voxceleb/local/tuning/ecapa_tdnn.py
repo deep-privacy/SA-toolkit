@@ -22,25 +22,26 @@ def build(args):
         def __init__(self, num_speakers):
             super().__init__()
 
+            n_mels = 80
             self.preprocessor = sidekit.preprocessor.MelSpecFrontEnd(n_fft=1024,
                                                                      win_length=400,
                                                                      hop_length=160,
-                                                                     n_mels=80)
+                                                                     n_mels=n_mels)
             # No dropout in network
-            #  self.spec_augment = satools.augmentation.SpecAugment(
-                #  frequency=0.05, frame=0.05, rows=1, cols=1, random_rows=True, random_cols=True
-            #  )
+            self.spec_augment = satools.augmentation.SpecAugment(
+                frequency=0.1, frame=0.1, rows=2, cols=2, random_rows=True, random_cols=True
+            )
 
-            self.sequence_network = sidekit.archi.PreHalfResNet34()
+            self.sequence_network = sidekit.archi.PreEcapaTDNN(in_feature=n_mels, channels=512)
 
-            self.embedding_size = 256
+            self.embedding_size = 192
 
             self.before_speaker_embedding = nn.Sequential(OrderedDict([
-                ("lin_be", nn.Linear(in_features = 5120, out_features = self.embedding_size, bias=False)),
-                ("bn_be", nn.BatchNorm1d(self.embedding_size))
+                ("lin", nn.Linear(in_features = 3072, out_features = self.embedding_size, bias=False)),
+                ("bn2", nn.BatchNorm1d(self.embedding_size))
             ]))
 
-            self.stat_pooling = sidekit.pooling.AttentivePooling(256, 10, global_context=True)
+            self.stat_pooling = sidekit.pooling.AttentiveStatsPool(1536, 128)
 
             self.margin_update_fine_tune = False
             self.after_speaker_embedding = sidekit.loss.ArcMarginProduct(
@@ -50,11 +51,11 @@ def build(args):
                 m=0.2,
                 easy_margin=False)
 
-            self.preprocessor_weight_decay = 0.00002
-            self.sequence_network_weight_decay = 0.00002
-            self.stat_pooling_weight_decay = 0.00002
-            self.before_speaker_embedding_weight_decay = 0.00002
-            self.after_speaker_embedding_weight_decay = 0.000
+            self.preprocessor_weight_decay = 2e-5
+            self.sequence_network_weight_decay = 2e-5
+            self.stat_pooling_weight_decay = 2e-5
+            self.before_speaker_embedding_weight_decay = 2e-5
+            self.after_speaker_embedding_weight_decay =  2e-4
 
 
         def forward(self, x, target:Optional[torch.Tensor]=None):
@@ -68,7 +69,7 @@ def build(args):
             """
 
             x = self.preprocessor(x)
-            #  x = self.spec_augment(x)
+            x = self.spec_augment(x)
             x = self.sequence_network(x)
             x = self.stat_pooling(x)
 
@@ -82,10 +83,11 @@ def build(args):
         def new_epoch_hook(self, monitor, dataset, scheduler):
             for_last = 30
             from_epoch = 15
-            accuracy_tr = 99.0
+            accuracy_tr = 98.0
             if monitor.current_epoch > from_epoch and not self.margin_update_fine_tune and len(monitor.training_acc[for_last:]) != 0 and min(monitor.training_acc[for_last:]) > accuracy_tr:
                 logging.info("Updating AAM margin loss (will use 2x more vram)")
                 dataset.change_params(segment_size=dataset.segment_size*2, set_type="fine-tune train")
+                self.spec_augment.disable()
                 self.after_speaker_embedding.change_params(m=0.4)
                 self.margin_update_fine_tune = True
                 scheduler.last_epoch = scheduler.last_epoch//2
@@ -118,4 +120,5 @@ if __name__ == "__main__":
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     sidekit.SidekitModel(build(args), cmd_line=True)
+
 

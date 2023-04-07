@@ -35,7 +35,7 @@ index 5d3e3e44d..1aeb7d510 100755
 -      if ($A[0] !~ m/^[a-z0-9\.\-]+/) {
 -        die "ssh.pl: invalid machine name '$A[0]'";
 -      }
-+      @A = split("@", $_);
++      @A = split("~", $_);
        push @machines, $A[0];
 +      push @envs, $A[1];
      }

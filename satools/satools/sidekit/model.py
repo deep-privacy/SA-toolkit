@@ -231,6 +231,12 @@ class SidekitModel():
             scheduler_epoch = sd["scheduler_epoch"]
             monitor = sd["monitor"]
 
+        if last_epoch != -1:
+            logging.info(f"Loaded last metrics from trainer:")
+            monitor.display(add_to_tensorboard=False)
+            monitor.display_final()
+            logging.info("")
+
         scheduler = self.get_scheduler(optim, scheduler_epoch)
 
         if self.opts.rank == 0:
@@ -347,14 +353,9 @@ class SidekitModel():
 
         if self.opts.mixed_precision.lower(): logging.info(f"Using mixed_precision")
 
-        if last_epoch != -1:
-            logging.info(f"Loaded model metrics")
-            monitor.display(add_to_tensorboard=False)
-            monitor.display_final()
-
         logging.info(f"Logging:\n\ttensorboard --logdir {self.opts.dirname}")
 
-        for epoch in range(max(0, last_epoch), self.opts.training_epochs):
+        for epoch in range(last_epoch+1, self.opts.training_epochs):
 
             # Process one epoch and return the current model
             if monitor.current_patience == 0:

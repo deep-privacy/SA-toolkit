@@ -38,4 +38,5 @@ class LogHandlerSummaryWriter(logging.Handler):
             self.title,
             self.accomulated_entries,
             1,
+            1,
         )
