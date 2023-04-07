@@ -28,9 +28,9 @@ def build(args):
                                                                      hop_length=160,
                                                                      n_mels=n_mels)
             # No dropout in network
-            self.spec_augment = satools.augmentation.SpecAugment(
-                frequency=0.1, frame=0.1, rows=2, cols=2, random_rows=True, random_cols=True
-            )
+            #  self.spec_augment = satools.augmentation.SpecAugment(
+                #  frequency=0.1, frame=0.1, rows=2, cols=2, random_rows=True, random_cols=True
+            #  )
 
             self.sequence_network = sidekit.archi.PreEcapaTDNN(in_feature=n_mels, channels=512)
 
@@ -69,7 +69,7 @@ def build(args):
             """
 
             x = self.preprocessor(x)
-            x = self.spec_augment(x)
+            #  x = self.spec_augment(x)
             x = self.sequence_network(x)
             x = self.stat_pooling(x)
 
@@ -87,7 +87,7 @@ def build(args):
             if monitor.current_epoch > from_epoch and not self.margin_update_fine_tune and len(monitor.training_acc[for_last:]) != 0 and min(monitor.training_acc[for_last:]) > accuracy_tr:
                 logging.info("Updating AAM margin loss (will use 2x more vram)")
                 dataset.change_params(segment_size=dataset.segment_size*2, set_type="fine-tune train")
-                self.spec_augment.disable()
+                #  self.spec_augment.disable()
                 self.after_speaker_embedding.change_params(m=0.4)
                 self.margin_update_fine_tune = True
                 scheduler.last_epoch = scheduler.last_epoch//2

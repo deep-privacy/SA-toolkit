@@ -41,7 +41,7 @@ optim = {
 
 # resume training from:
 # train_epoch = 8
-# train_epoch = last
+train_epoch = last
 
 model_file = ./local/tuning/resnet.py
 dirname = asv_eval_vox1_resnet

@@ -118,7 +118,7 @@ class TrainingMonitor:
             self.sw.add_scalar("validation/loss", self.val_loss[-1], len(self.val_loss))
 
         logging.info(
-            f"`***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}`***"
+            f"`***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}***`"
         )
         if self.compute_test_eer:
             metrics = self.test_metric[-1]
@@ -165,8 +165,6 @@ class TrainingMonitor:
         """
         Display validation and test indicators at the end of thre training process
         """
-        if self.best_eer_epoch == 1:
-            return
         logging.info(
             f"Best model {round(self.best_eer, 3)} obtained at epoch {self.best_eer_epoch+1}"
         )

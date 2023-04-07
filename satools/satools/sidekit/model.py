@@ -231,12 +231,6 @@ class SidekitModel():
             scheduler_epoch = sd["scheduler_epoch"]
             monitor = sd["monitor"]
 
-        if last_epoch != -1:
-            logging.info(f"Loaded last metrics from trainer:")
-            monitor.display(add_to_tensorboard=False)
-            monitor.display_final()
-            logging.info("")
-
         scheduler = self.get_scheduler(optim, scheduler_epoch)
 
         if self.opts.rank == 0:
@@ -244,6 +238,12 @@ class SidekitModel():
             handler = utils.LogHandlerSummaryWriter(sw)
             handler.setFormatter(logging.Formatter("`" + logging.root.handlers[0].formatter._fmt + "`"))
             logging.getLogger().addHandler(handler)
+
+        if last_epoch != -1:
+            logging.info(f"Loaded last metrics from trainer:")
+            monitor.display(add_to_tensorboard=False)
+            monitor.display_final()
+            logging.info("")
 
         return optim, scheduler, monitor, last_epoch
 

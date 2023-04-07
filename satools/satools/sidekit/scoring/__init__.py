@@ -23,7 +23,7 @@ def asnorm(enroll_test_scores, enroll_xv, test_xv, cohort_xv):
     # Calculate scores between enroll and cohort
     #  print(enroll_xv.shape, cohort_xv.shape, flush=True)
     enroll_cohort_scores = torch.einsum('ij,kj', enroll_xv, cohort_xv)
-    k = 300
+    k = 200
     if cohort_xv.shape[0] < k:
         k = cohort_xv.shape[0]
     # Calculate mean and std from top 200 scores

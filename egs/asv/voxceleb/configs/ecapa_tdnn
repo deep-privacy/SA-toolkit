@@ -34,17 +34,17 @@ optim = {
       "cycle_momentum": false,
       "base_lr": 1.0e-10,
       "max_lr": 0.001,
-      "step_size_up": 5000,
+      "step_size_up": 4000,
     }
   }
   }
 
 # resume training from:
 # train_epoch = 8
-# train_epoch = last
+train_epoch = last
 
 model_file = ./local/tuning/ecapa_tdnn.py
-dirname = asv_eval_vox1_ecapa_tdnn_v2
+dirname = asv_eval_vox1_ecapa_tdnn_v3
 # dirname = asv_eval_half_resnet_vox1_dev
 model_args = []
 
