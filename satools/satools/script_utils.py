@@ -10,6 +10,7 @@ except ImportError as error:
     pass
 
 import math
+import re
 import os
 import subprocess
 import sys
@@ -246,7 +247,6 @@ def vartoml(item):
     bindir = "${:basedir}/bin"
     datadir = "${:basedir}/data"
     """
-    import re
 
     RE_VAR = re.compile(r"""
              [$][{]
@@ -269,6 +269,15 @@ def vartoml(item):
             sys.exit(1)
         return var[x.groups()[1]]
 
+    
+    inline_comment_re = re.compile(r"\s+#")
+    def rm_inline_comment(value):
+        match = inline_comment_re.search(value)
+        if match:
+            return value[:match.start()].strip()
+        else:
+            return None
+
     out = {}
     data = dict(item.items())
     for key, val in data.items():
@@ -276,8 +285,14 @@ def vartoml(item):
 
     for key, val in data.items():
         for _k, _v in dict(val.items()).items():
-            out[key][_k] = _v
-            if re.search(RE_VAR, _v):
-                r = re.sub(RE_VAR, _var_replace, _v)
+            wihtout_inline_comment = rm_inline_comment(_v)
+            if wihtout_inline_comment:
+                value = wihtout_inline_comment
+            else:
+                value = _v
+
+            out[key][_k] = value
+            if re.search(RE_VAR, value):
+                r = re.sub(RE_VAR, _var_replace, value)
                 out[key][_k] = r
     return out

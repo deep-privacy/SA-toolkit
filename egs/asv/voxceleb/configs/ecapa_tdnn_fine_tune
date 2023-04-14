@@ -21,11 +21,11 @@ patience = 20
 minibatch_size = 128
 examples_per_speaker_in_batch = "batch_size/32"
 samples_per_speaker_in_epoch = 70
-segment_size = 96000
+segment_size = 96000 # to better match test data
 optim = {
   "optimizer": {
     "type": "torch.optim.AdamW",
-    "opts": {"lr": 1.0e-7}
+    "opts": {"lr": 1.0e-8}
   },
   "scheduler": {
     "type": "torch.optim.lr_scheduler.ExponentialLR",

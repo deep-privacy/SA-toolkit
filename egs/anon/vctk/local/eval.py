@@ -102,7 +102,8 @@ def eval():
     for test_set in str(cfg_exp.asr_test_set).split(","):
         test_set = Path(test_set)
         data_name = os.path.basename(test_set)
-        decode_suff = "_iter{}{}".format(os.path.basename(cfg_exp.asr_model).replace(".pt", ""), cfg_exp.asr_suffix)
+        decode_suff = "_{}_iter{}".format(os.path.basename(os.path.dirname(cfg_exp.asr_model))+"_"+os.path.basename(cfg_exp.asr_model).replace(".pt", ""), cfg_exp.asr_suffix)
+
         out_dir = cfg_exp.dir / f"asr_decode_{data_name}{decode_suff}"
 
         if stage <= 1:
@@ -187,7 +188,7 @@ def eval():
 
         python_cmd = ["python3"]
 
-        decode_suff = "_iter{}{}".format(os.path.basename(cfg_exp.asv_model).replace(".pt", ""), cfg_exp.asv_suffix)
+        decode_suff = "_{}_iter{}".format(os.path.basename(os.path.dirname(cfg_exp.asv_model))+"_"+os.path.basename(cfg_exp.asv_model).replace(".pt", ""), cfg_exp.asv_suffix)
         out_dir = cfg_exp.dir / f"asv_decode_{data_name}{decode_suff}"
 
         tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
@@ -210,7 +211,7 @@ def eval():
         )
         tqdm.kill()
         print("", file=sys.stderr)
-        logging.info(f"Printing ASV metrics for {out_dir}...")
+        logging.info(f"Printing ASV metrics...")
         with open(out_dir / "metric.json", 'r') as m:
             metrics = satools.utils.fix_json(m.read())
         eer_std = round((metrics['eer_upper'] - metrics['eer_lower'])/2, 3)

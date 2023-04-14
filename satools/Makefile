@@ -1,12 +1,6 @@
 package:
-	python setup.py install
-	pip install -e .
-
-test:
-	./tests/test-import.py
-
-test-gpu:
-	queue.pl -l q_gpu -V test_gpu.log tests/test-gpu.py
+	python3 setup.py install
+	pip3 install -e .
 
 clean:
 	rm -rf build dist *.egg-info *.egg-info/ *satools*.so

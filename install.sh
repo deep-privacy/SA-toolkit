@@ -280,9 +280,7 @@ if [ ! -f $mark ]; then
     export PKWRAP_CPP_EXT=no
   fi
   cd satools
-  make clean
-  python3 setup.py install
-  pip3 install -e .
+  make cleanly
   cd $home
   touch $mark
 fi

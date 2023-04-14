@@ -2,3 +2,4 @@ data
 steps
 utils
 exp
+local/score.sh

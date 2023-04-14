@@ -28,12 +28,12 @@ else:
 PACKAGE_NAME = "satools"
 EXTENSION_NAME = "_satools"
 SRC_FILES = [
-    "src/pkwrap-main.cc",
-    "src/matrix.cc",
-    "src/chain.cc",
-    "src/nnet3.cc",
-    "src/fst.cc",
-    "src/hmm.cc",
+    "csrc/pkwrap-main.cc",
+    "csrc/matrix.cc",
+    "csrc/chain.cc",
+    "csrc/nnet3.cc",
+    "csrc/fst.cc",
+    "csrc/hmm.cc",
 ]
 EXTRA_COMPILE_ARGS = {
     "cxx": [
