@@ -4,7 +4,7 @@
 <h2 align='center'>SA-toolkit: Speaker speech anonymization toolkit in python</h2>
 </div>
 
-SA-toolkit is a [pytorch](https://pytorch.org/)-based library providing evaluation pipelines and basic building blocs and for evaluating and designing speaker anonymization techniques.
+SA-toolkit is a [pytorch](https://pytorch.org/)-based library providing evaluation pipelines and basic building blocs for evaluating and designing speaker anonymization techniques.
 
 Features include:
 
@@ -62,10 +62,8 @@ If you found this library useful in academic research, please cite [(arXiv link)
 * Organazers of the [VoicePrivacy](https://github.com/Voice-Privacy-Challenge/Voice-Privacy-Challenge-2022) Challenge
 
 ## License
-Most of the software is distributed under Apache 2.0 License (http://www.apache.org/licenses/LICENSE-2.0), the parts of the software that is distributed under other licenses is indicated by a `LICENSE` file in the relatated direcotry.
+Most of the software is distributed under Apache 2.0 License (http://www.apache.org/licenses/LICENSE-2.0); the parts distributed under other licenses are indicated by a `LICENSE` file in related directories.
 
 ## Evaluation choices
-_As discussed in the thesis, one key element to proper privacy evaluation is selecting the target identities for voice conversion.
-We want to push the community to use any-to-one voice conversion because it is the type of VC with the most guaranty regarding unlinkable speech generation and proper training of a white-box asv evaluation model.
-In addition, it is simple to understand (everyone should sounds-like one identity) and allows using one-hot encoding as the target identity representation, which is more straightforward than x-vectors while having good utility.
-Also discussed in the thesis, the current utility evaluation has a limitation, the use of subjective listening to asses the mispronunciation that the vc system produce is the best option in our opinion._
+_As outlined in the thesis, selecting the appropriate target identities for voice conversion is crucial for privacy evaluation. We strongly encourage the use of any-to-one voice conversion as it provides the greatest level of assurance regarding unlinkable speech generation and facilitates proper training of a white-box ASV evaluation model. Additionally, this approach is easy to comprehend (ensuring that everyone sounds like a single identity) and enables using one-hot encoding for target identity representation, which is simpler than x-vectors but still highly effective.
+Furthermore, the thesis identifies a limitation in the current utility evaluation process. We believe that the best solution for proper assessment of utility is through subjective listening, which allows for accurate evaluation of any mispronunciations produced by the VC system._
