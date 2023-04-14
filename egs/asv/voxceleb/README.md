@@ -10,7 +10,7 @@ To run the recipe:
 # Download dataset to data
 ./local/data_prep.py --save-path ./data --download
 
-# Create train CSV list from directory (recursive search of wavs) (Change `--from data` if you already have downloaded the wavs)
+# Create train data (recursive search of wavs) (Change `--from data` if you already have downloaded the wavs)
 ./local/data_prep.py  --from ./data --make-train-data # set --filter-dir if your data dir structure differ from the '--download' one (e.g.: voxceleb1/wav/)
 
 # Create test data
@@ -22,8 +22,10 @@ To run the recipe:
 
 ### Results train-Voxceleb 1 (fbanks)
 ```sh
-Test | as-norm    Voxceleb-0             Exp                              Config
-EER/Link          1.1/0.91 | 1.0/0.92    exp/asv_eval_half_resnet_vox1    configs/half_resnet
+Test                Voxceleb-0               Exp                                Config
+EER / min cllr      2.593 ± 0.0   / 0.106    exp/asv_eval_vox1_ecapa_tdnn       configs/ecapa_tdnn
+EER / min cllr      2.089 ± 0.408 / 0.105    exp/asv_eval_vox1_ecapa_tdnn_ft    configs/ecapa_tdnn_fine_tune
+EER / min cllr      2.413 ± 0.101 / 0.101    exp/asv_eval_vox1_resnet           configs/resnet
 ```
 
 ### JIT model

@@ -86,27 +86,6 @@ class Opts:
         return self
 
 
-def cuda_env(cfg_cmd, cfg_exp, job_id):
-    """
-    for parallel training
-    """
-    if "run.pl" not in cfg_cmd.cuda_cmd:
-        return []
-    cuda_device = job_id - 1
-    cuda_device %= cfg_exp.max_concurrent_jobs
-    cuda_device %= torch.cuda.device_count()
-    return ["env", "CUDA_VISIBLE_DEVICES=" + str(cuda_device)]
-
-
-def run_job(cmd):
-    """
-    sub a single run job and let ThreadPoolExecutor monitor its progress
-    """
-    #  print(cmd, flush=True) # DEBUG
-    process_out = subprocess.run(cmd)
-    return process_out.returncode
-
-
 def train():
     parser = argparse.ArgumentParser(description="ASV model training script")
     parser.add_argument("--stage", default=0, type=int)
@@ -148,13 +127,12 @@ def train():
         # create sidekit train dataset
         logging.info("Create egs csv")
         satools.script_utils.run([
-                cfg_cmd.cpu_cmd,
-                cfg_exp.dir / "log" / "create_train_csv.log",
-                "local/create_train_csv_from_kaldi.py",
-                "--kaldi-data", f"{cfg_exp.train_set}",
-                "--out-csv", cfg_exp.dir / "train.csv"
-            ]
-        )
+            cfg_cmd.cpu_cmd,
+            cfg_exp.dir / "log" / "create_train_csv.log",
+            "local/create_train_csv_from_kaldi.py",
+            "--kaldi-data", f"{cfg_exp.train_set}",
+            "--out-csv", cfg_exp.dir / "train.csv"
+        ])
 
         os.makedirs(cfg_exp.dir / os.path.basename(cfg_exp.test_set), exist_ok=True)
         satools.script_utils.run([
@@ -167,15 +145,15 @@ def train():
     if stage <= 5 and cfg_exp.train_epoch == "0":
         logging.info("Initializing model")
         process_out = subprocess.run([
-                cfg_cmd.cpu_cmd,
-                cfg_exp.dir / "log" / "init.log",
-                cfg_exp.model_file,
-                *cfg_exp.get_model_args,
-                "--mode", "init",
-                "--train-set", cfg_exp.dir / "train.csv",
-                *cfg_exp.get_forcmd("dir"),
-                *cfg_exp.get_forcmd("init_weight_model"),
-                cfg_exp.dir / "0.pt",
+            cfg_cmd.cpu_cmd,
+            cfg_exp.dir / "log" / "init.log",
+            cfg_exp.model_file,
+            *cfg_exp.get_model_args,
+            "--mode", "init",
+            "--train-set", cfg_exp.dir / "train.csv",
+            *cfg_exp.get_forcmd("dir"),
+            *cfg_exp.get_forcmd("init_weight_model"),
+            cfg_exp.dir / "0.pt",
         ])
         if process_out.returncode != 0:
             quit(process_out.returncode)
@@ -202,32 +180,31 @@ def train():
             a = open(f, "w");a.seek(0);a.truncate()
         tail = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
         satools.script_utils.run([
-                cfg_cmd.cuda_cmd,
-                f"{cfg_exp.dir}/log/train.log",
-                *python_cmd,
-                 cfg_exp.model_file,
-                 *cfg_exp.get_model_args,
-                "--mode", "train",
-                *cfg_exp.get_forcmd("train_set"),
-                "--test-set", cfg_exp.dir / os.path.basename(cfg_exp.test_set),
-                *cfg_exp.get_forcmd("dev_ratio"),
-                *cfg_exp.get_forcmd("compute_test_set_eer"),
-                *cfg_exp.get_forcmd("patience"),
-                *cfg_exp.get_forcmd("augmentation"),
-                *cfg_exp.get_forcmd("optim"),
-                *cfg_exp.get_forcmd("overlap"),
-                *cfg_exp.get_forcmd("examples_per_speaker_in_batch"),
-                *cfg_exp.get_forcmd("samples_per_speaker_in_epoch"),
-                *cfg_exp.get_forcmd("num_worker_dataloader"),
-                *cfg_exp.get_forcmd("dir"),
-                *cfg_exp.get_forcmd("minibatch_size"),
-                *cfg_exp.get_forcmd("logging_interval"),
-                *cfg_exp.get_forcmd("segment_size"),
-                *cfg_exp.get_forcmd("training_epochs"),
-                *cfg_exp.get_forcmd("checkpoint_interval"),
-                cfg_exp.dir / f"{cfg_exp.train_epoch}.pt",
-            ], on_error=lambda x: tail.kill()
-        )
+            cfg_cmd.cuda_cmd,
+            f"{cfg_exp.dir}/log/train.log",
+            *python_cmd,
+            cfg_exp.model_file,
+            *cfg_exp.get_model_args,
+            "--mode", "train",
+            *cfg_exp.get_forcmd("train_set"),
+            "--test-set", cfg_exp.dir / os.path.basename(cfg_exp.test_set),
+            *cfg_exp.get_forcmd("dev_ratio"),
+            *cfg_exp.get_forcmd("compute_test_set_eer"),
+            *cfg_exp.get_forcmd("patience"),
+            *cfg_exp.get_forcmd("augmentation"),
+            *cfg_exp.get_forcmd("optim"),
+            *cfg_exp.get_forcmd("overlap"),
+            *cfg_exp.get_forcmd("examples_per_speaker_in_batch"),
+            *cfg_exp.get_forcmd("samples_per_speaker_in_epoch"),
+            *cfg_exp.get_forcmd("num_worker_dataloader"),
+            *cfg_exp.get_forcmd("dir"),
+            *cfg_exp.get_forcmd("minibatch_size"),
+            *cfg_exp.get_forcmd("logging_interval"),
+            *cfg_exp.get_forcmd("segment_size"),
+            *cfg_exp.get_forcmd("training_epochs"),
+            *cfg_exp.get_forcmd("checkpoint_interval"),
+            cfg_exp.dir / f"{cfg_exp.train_epoch}.pt",
+        ], on_error=lambda x: tail.kill())
         tail.kill()
 
 
@@ -239,18 +216,18 @@ def train():
         logging.info(f"Creating JIT model from '{cfg_exp.final_model}'")
         shutil.copy(cfg_exp.dir / f"{cfg_exp.final_model}", cfg_exp.dir / "final.pt")
         satools.script_utils.run([
-                cfg_cmd.cpu_cmd,
-                cfg_exp.dir / "log" / "jit.log",
-                "SA_JIT_TWEAK=True",
-                 cfg_exp.model_file,
-                 *cfg_exp.get_model_args,
-                "--mode", "jit_save",
-                *cfg_exp.get_forcmd("train_set"),
-                 *cfg_exp.get_forcmd("dir"),
-                "--new-model", cfg_exp.dir / f"final.jit",
-                cfg_exp.dir / f"final.pt",
-            ]
-        )
+            cfg_cmd.cpu_cmd,
+            cfg_exp.dir / "log" / "jit.log",
+            "SA_JIT_TWEAK=True",
+            cfg_exp.model_file,
+            *cfg_exp.get_model_args,
+            "--mode", "jit_save",
+            *cfg_exp.get_forcmd("train_set"),
+            *cfg_exp.get_forcmd("dir"),
+            "--new-model", cfg_exp.dir / f"final.jit",
+            cfg_exp.dir / f"final.pt",
+        ]
+                                 )
 
 
 if __name__ == "__main__":
