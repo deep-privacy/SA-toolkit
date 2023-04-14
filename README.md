@@ -30,8 +30,8 @@ git clone https://github.com/deep-privacy/SA-toolkit
 ## Quick evaluation example
 
 ```sh
-$ cd egs/anon/vctk
-$./local/eval.py --config configs/eval_clear  # eval privacy/utility of the signals
+cd egs/anon/vctk
+./local/eval.py --config configs/eval_clear  # eval privacy/utility of the signals
 ```
 Ensure you have the corresponding evaluation model trained or [downloaded](https://github.com/deep-privacy/SA-toolkit/releases).
 
