@@ -108,7 +108,7 @@ def run_job(cmd):
 
 
 def train():
-    parser = argparse.ArgumentParser(description="Acoustic model training script")
+    parser = argparse.ArgumentParser(description="ASV model training script")
     parser.add_argument("--stage", default=0, type=int)
     parser.add_argument("--config", default="configs/default")
     args = parser.parse_args()
@@ -197,7 +197,9 @@ def train():
             #  TODO add support for other cfg_cmd.cuda_cmd than run.pl (ssh.pl with multi nnodes)
             python_cmd = ["OMP_NUM_THREADS=1", "torchrun", "--standalone", "--nnodes=1", "--nproc_per_node", f"{cfg_exp.n_gpu}"]
 
-        a = open(f"{cfg_exp.dir}/log/train.log", "w");a.seek(0);a.truncate()
+        f = f"{cfg_exp.dir}/log/train.log"
+        if os.path.exists(f):
+            a = open(f, "w");a.seek(0);a.truncate()
         tail = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
         satools.script_utils.run([
                 cfg_cmd.cuda_cmd,
@@ -226,6 +228,7 @@ def train():
                 cfg_exp.dir / f"{cfg_exp.train_epoch}.pt",
             ], on_error=lambda x: tail.kill()
         )
+        tail.kill()
 
 
     if stage <= 5:

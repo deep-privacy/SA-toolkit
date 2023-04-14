@@ -10,6 +10,7 @@ import tqdm
 import datetime
 from . import scoring
 from .. import utils
+from .. import lr_scheduler
 import logging
 
 def train_epoch(model,
@@ -76,7 +77,7 @@ def train_epoch(model,
         accuracy += (torch.argmax(cce_prediction.data, 1) == target).sum().cpu()
         batch_count += 1
 
-        if math.fmod(batch_idx, training_opts.logging_interval) == 0 and training_opts.rank == 0:
+        if (math.fmod(batch_idx, training_opts.logging_interval) == 0) and training_opts.rank == 0:
             batch_size = target.shape[0]
             training_monitor.update(training_loss=running_loss / batch_count,
                                     training_acc=100.0 * accuracy / (batch_count*target.shape[0]),
@@ -95,6 +96,8 @@ def train_epoch(model,
             running_loss = 0.0
             accuracy = 0.0
             batch_count = 0
+        elif (math.fmod(batch_idx, training_opts.logging_interval//2) == 0) and training_opts.rank == 0:
+            training_monitor.update(lr=scheduler._last_lr[0])
         run_scheduler(scheduler, scaler, scope="step")
     run_scheduler(scheduler, scaler, scope="epoch")
     run_scheduler(scheduler, scaler, scope="epoch", val=training_monitor.best_eer)
@@ -103,8 +106,8 @@ def train_epoch(model,
 
 
 def run_scheduler(scheduler, scaler, scope, val=None):
-    step_sch = (torch.optim.lr_scheduler.OneCycleLR, torch.optim.lr_scheduler.CyclicLR)
-    epoch_sch = (torch.optim.lr_scheduler.MultiStepLR, torch.optim.lr_scheduler.StepLR)
+    step_sch = (torch.optim.lr_scheduler.OneCycleLR, torch.optim.lr_scheduler.CyclicLR, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts, lr_scheduler.CosineAnnealingWarmRestartsWithDecayAndLinearWarmup)
+    epoch_sch = (torch.optim.lr_scheduler.MultiStepLR, torch.optim.lr_scheduler.StepLR, torch.optim.lr_scheduler.ExponentialLR)
     epoch_sch_val = (torch.optim.lr_scheduler.ReduceLROnPlateau,)
 
     if not isinstance(scheduler, step_sch + epoch_sch + epoch_sch_val):
@@ -193,15 +196,18 @@ def test(model,
          out_xvectors_and_scores,
          as_norm=True,
          mixed_precision=False,
+         tqdm_file=None,
          ):
     """Compute model metrics
 
     :param model:
     :param device:
     :param opts: dictionary of options describing the options
-    :param as_norm: boolea,, if True, compute the nnormalized scores
+    :param as_norm: boolea, if True, compute the normalized scores
+    :param mixed_precision: boolea, float16 amp or not
+    :param tqdm_file: str, file to log tqdm
 
-    :return: the Equal Error Rate with bootci and min_cllr score and Normalized EER as a floats
+    :return: the Equal Error Rate with bootci and min_cllr score and Normalized EER as a floats and linkability
     """
     model.eval()
 
@@ -238,12 +244,12 @@ def test(model,
 
     with utils.scp_io.file_writer_helper(f"scp:{out_xvectors_and_scores}/xvector.scp", overwrite=True) as f:
 
-        for batch_idx, (wavinfo) in enumerate(tqdm.tqdm(dataloader_enroll, desc='test compute (enroll)')):
+        for batch_idx, (wavinfo) in enumerate(tqdm.tqdm(dataloader_enroll, desc='test compute (enroll)', file=tqdm_file)):
             x_vector = extract(wavinfo).cpu()
             f[wavinfo.name] = x_vector
             utt2embd_enroll[wavinfo.name] = x_vector
 
-        for batch_idx, (wavinfo) in enumerate(tqdm.tqdm(dataloader_trials, desc='test compute (trials)')):
+        for batch_idx, (wavinfo) in enumerate(tqdm.tqdm(dataloader_trials, desc='test compute (trials)', file=tqdm_file)):
             if wavinfo.name not in utt2embd_enroll:
                 x_vector = extract(wavinfo).cpu()
                 f[wavinfo.name] = x_vector
@@ -266,8 +272,8 @@ def compute_metrics(utt2embd_enroll, utt2embd_trial, enroll_spk2utt, trials_file
     utt2embd_enroll_mean = {}
     for spk, uttrs in enroll_spk2utt.items():
         if len(uttrs) > 1:
-            mean = np.mean([utt2embd_enroll[utt] for utt in uttrs], axis=0)
-            norm = np.linalg.norm(mean, ord=2)
+            mean = torch.mean(torch.stack([utt2embd_enroll[utt] for utt in uttrs]), dim=0)
+            norm = torch.norm(mean, p=2)
             mean /= norm
         else:
             # don't apply l2norm twice, already done by the Xtractor
@@ -321,9 +327,11 @@ def compute_metrics(utt2embd_enroll, utt2embd_trial, enroll_spk2utt, trials_file
 
     metrics = {}
 
+    dsys, _, _, _ = scoring.linkability(matedScores, nonMatedScores)
     cmin, matedScores, nonMatedScores = scoring.min_cllr(matedScores, nonMatedScores, return_opt=True) # return optimally calibrated scores (PAV)
     feer, ci_lower, ci_upper, bootstrapped_eers, threshold = scoring.feerci(nonMatedScores, matedScores, is_sorted=False, return_threshold=True)
 
+    metrics["linkability"] = dsys
     metrics["eer"] = feer*100
     metrics["eer_lower"] = ci_lower*100
     metrics["eer_upper"] = ci_upper*100
@@ -331,6 +339,7 @@ def compute_metrics(utt2embd_enroll, utt2embd_trial, enroll_spk2utt, trials_file
     metrics["eer_threshold"] = threshold
     metrics["asnorm"] = {}
     metrics["asnorm"]["eer"] = None
+    metrics["asnorm"]["linkability"] = None
     metrics["asnorm"]["eer_lower"] = None
     metrics["asnorm"]["eer_upper"] = None
     metrics["asnorm"]["min_cllr"] = None
@@ -345,9 +354,11 @@ def compute_metrics(utt2embd_enroll, utt2embd_trial, enroll_spk2utt, trials_file
         matedScores = as_norm_enroll_test_scores[tar].numpy().astype(numpy.float64)
         nonMatedScores = as_norm_enroll_test_scores[nontar].numpy().astype(numpy.float64)
 
+        dsys, _, _, _ = scoring.linkability(matedScores, nonMatedScores)
         cmin, matedScores, nonMatedScores = scoring.min_cllr(matedScores, nonMatedScores, return_opt=True) # return optimally calibrated scores (PAV)
         feer, ci_lower, ci_upper, bootstrapped_eers, threshold = scoring.feerci(nonMatedScores, matedScores, is_sorted=False, return_threshold=True)
 
+        metrics["asnorm"]["linkability"] = dsys
         metrics["asnorm"]["eer"] = feer*100
         metrics["asnorm"]["eer_lower"] = ci_lower*100
         metrics["asnorm"]["eer_upper"] = ci_upper*100

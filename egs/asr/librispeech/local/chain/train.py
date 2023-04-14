@@ -409,7 +409,6 @@ def train():
 
     for test_set in str(cfg_decode.test_set).split(","):
         test_set = Path(test_set)
-        final_iter = num_iters - 1
         data_name = os.path.basename(test_set)
         decode_iter = args.decode_iter.replace(".pt", "") if args.decode_iter != "_" else cfg_decode.decode_iter
         decode_suff = "_iter{}{}".format(decode_iter, cfg_decode.suffix)

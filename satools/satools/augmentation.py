@@ -280,10 +280,13 @@ class SpecAugment(torch.nn.Module):
         self.num_f = 0
         self.T = 0
         self.num_t = 0
-        self.enable = True
+        self._enable = True
 
-    def disable():
-        self.enable = False
+    def disable(self):
+        self._enable = False
+
+    def enable(self):
+        self._enable = True
 
     def forward(self, inputs):
         """
@@ -291,7 +294,7 @@ class SpecAugment(torch.nn.Module):
         """
         assert len(inputs.shape) == 3
 
-        if not self.training and self.enable: return inputs
+        if not self.training or not self._enable: return inputs
 
         if self.p_f > 0. or self.p_t > 0.:
             if not self.init:

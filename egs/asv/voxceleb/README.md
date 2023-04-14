@@ -35,5 +35,5 @@ waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPE
 model = torch.jit.load("__Exp_Path__/final.jit")
 model = model.eval()
 
-x_vector = model(waveform)
+_, x_vector = model(waveform)
 ```

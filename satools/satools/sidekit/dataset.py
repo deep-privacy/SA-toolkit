@@ -257,7 +257,6 @@ class SideSet(torch.utils.data.Dataset):
         self.len = len(self.sessions)
         self.initial_len = len(tmp_sessions)
 
-        self.augmentation = augmentation
         self.use_augmentation = False
         if self.augmentation and len(self.augmentation["pipeline"]) > 0 and self.augmentation["aug_number"] > 0:
             self.use_augmentation = True

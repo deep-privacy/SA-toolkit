@@ -2,6 +2,8 @@
 
 link_files () {
         ln -s $KALDI_ROOT/egs/wsj/s5/{utils,steps} .
+        [ -d ./local/score.sh ] && yes | rm ./local/score.sh
+        ln -r -s $KALDI_ROOT/egs/librispeech/s5/local/score.sh local/
 }
 
 if [ $# -lt 1 ]; then

@@ -16,7 +16,7 @@ num_worker_dataloader = 20
 logging_interval = 200
 checkpoint_interval = 1
 
-training_epochs = 50
+training_epochs = 25
 patience = 20
 minibatch_size = 256
 examples_per_speaker_in_batch = "batch_size/16"
@@ -28,13 +28,12 @@ optim = {
     "opts": {"lr": 0.001}
   },
   "scheduler": {
-    "type": "torch.optim.lr_scheduler.CyclicLR",
+    "type": "satools.lr_scheduler.OneCycleLR",
     "opts": {
-      "mode": "triangular2",
-      "cycle_momentum": false,
-      "base_lr": 1.0e-10,
       "max_lr": 0.001,
-      "step_size_up": 4000,
+      "total_steps": 50000,
+      "div_factor": 5,
+      "final_div_factor": 1e6,
     }
   }
   }
@@ -42,9 +41,10 @@ optim = {
 # resume training from:
 # train_epoch = 8
 train_epoch = last
+# train_epoch = best
 
 model_file = ./local/tuning/ecapa_tdnn.py
-dirname = asv_eval_vox1_ecapa_tdnn_v3
+dirname = asv_eval_vox1_ecapa_tdnn
 # dirname = asv_eval_half_resnet_vox1_dev
 model_args = []
 

@@ -16,38 +16,36 @@ num_worker_dataloader = 20
 logging_interval = 200
 checkpoint_interval = 1
 
-training_epochs = 20
+training_epochs = 10
 patience = 20
-minibatch_size = 256
-examples_per_speaker_in_batch = "batch_size/16"
+minibatch_size = 128
+examples_per_speaker_in_batch = "batch_size/32"
 samples_per_speaker_in_epoch = 70
-segment_size = 48000
+segment_size = 96000
 optim = {
   "optimizer": {
     "type": "torch.optim.AdamW",
-    "opts": {"lr": 0.001}
+    "opts": {"lr": 1.0e-7}
   },
   "scheduler": {
-    "type": "satools.lr_scheduler.OneCycleLR",
+    "type": "torch.optim.lr_scheduler.ExponentialLR",
     "opts": {
-      "max_lr": 0.001,
-      "total_steps": 40000,
-      "div_factor": 5,
-      "final_div_factor": 1e8,
+      "gamma": 0.2
     }
   }
   }
 
 # resume training from:
 # train_epoch = 8
-train_epoch = last
+# train_epoch = last
+# train_epoch = best
 
-model_file = ./local/tuning/resnet.py
-dirname = asv_eval_vox1_resnet
+model_file = ./local/tuning/ecapa_tdnn.py
+dirname = asv_eval_vox1_ecapa_tdnn_ft
 # dirname = asv_eval_half_resnet_vox1_dev
-model_args = []
+model_args = ["--fine-tune", "true"]
 
-# init_weight_model = "exp/.../best.pt"
+init_weight_model = "exp/asv_eval_vox1_ecapa_tdnn/best.pt"
 
 # see ../../../share/dataprep_aug.py
 augmentation = {

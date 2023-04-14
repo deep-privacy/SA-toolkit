@@ -53,6 +53,8 @@ class TrainingMonitor:
         self.is_best = True
         self.sw = None
 
+        self.lr_step = 0
+
     def add_tensorboard(self, path):
         self.sw = SummaryWriter(path)
         layout = {
@@ -67,11 +69,11 @@ class TrainingMonitor:
                 ],
                 "test min_cllr": [
                     "Multiline",
-                    ["test/min_cllr", "test/min_cllr_asnorm"],
+                    ["test/min_cllr_m", "test/min_cllr_asnorm_m"],
                 ],
                 "test EER": [
                     "Multiline",
-                    ["test/eer", "test/eer_asnorm"],
+                    ["test/eer_m", "test/eer_asnorm_m"],
                 ],
             },
             "Train metrics": {
@@ -118,7 +120,7 @@ class TrainingMonitor:
             self.sw.add_scalar("validation/loss", self.val_loss[-1], len(self.val_loss))
 
         logging.info(
-            f"`***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}***`"
+            f"`***Validation metrics - Accuracy: {round(self.val_acc[-1], 3)}, EER: {round(self.val_eer[-1], 3)}, Loss: {round(self.val_loss[-1], 3)}***`  "
         )
         if self.compute_test_eer:
             metrics = self.test_metric[-1]
@@ -131,12 +133,14 @@ class TrainingMonitor:
 
             if add_to_tensorboard and self.sw:
                 self.sw.add_scalar("test/eer", metrics['eer'], len(self.test_eer))
+                self.sw.add_scalar("test/eer_m", metrics['eer'], len(self.test_eer))
                 if metrics['eer_upper'] < 10:
                     self.sw.add_scalar("test/eer_upper", metrics['eer_upper'], len(self.test_eer))
                 else:
                     self.sw.add_scalar("test/eer_upper", metrics['eer']+eer_std, len(self.test_eer))
                 self.sw.add_scalar("test/eer_lower", metrics['eer_lower'], len(self.test_eer))
                 self.sw.add_scalar("test/min_cllr", metrics['min_cllr'], len(self.test_eer))
+                self.sw.add_scalar("test/min_cllr_m", metrics['min_cllr'], len(self.test_eer))
 
             if 'asnorm' in metrics:
                 asnorm = metrics['asnorm']
@@ -149,17 +153,19 @@ class TrainingMonitor:
 
                 if add_to_tensorboard and self.sw:
                     self.sw.add_scalar("test/eer_asnorm", metrics["asnorm"]['eer'], len(self.test_eer))
+                    self.sw.add_scalar("test/eer_asnorm_m", metrics["asnorm"]['eer'], len(self.test_eer))
                     if asnorm['eer_upper'] < 10:
                         self.sw.add_scalar("test/eer_upper_asnorm", metrics["asnorm"]['eer_upper'], len(self.test_eer))
                     else:
                         self.sw.add_scalar("test/eer_upper_asnorm", asnorm['eer']+asnorm_eer_std, len(self.test_eer))
                     self.sw.add_scalar("test/eer_lower_asnorm", metrics["asnorm"]['eer_lower'], len(self.test_eer))
                     self.sw.add_scalar("test/min_cllr_asnorm", metrics["asnorm"]['min_cllr'], len(self.test_eer))
+                    self.sw.add_scalar("test/min_cllr_asnorm_m", metrics["asnorm"]['min_cllr'], len(self.test_eer))
 
-                logging.info(f"`***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr} // as-norm - EER: {asnorm_eer_mean} ± {asnorm_eer_std}, min_cllr: {asnorm_min_cllr}***`")
+                logging.info(f"`***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr} // as-norm - EER: {asnorm_eer_mean} ± {asnorm_eer_std}, min_cllr: {asnorm_min_cllr}***`  ")
 
             else:
-                logging.info(f"`***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr}***`")
+                logging.info(f"`***Test metrics - EER: {eer_mean} ± {eer_std}, min_cllr: {min_cllr}***`  ")
 
     def display_final(self):
         """
@@ -211,7 +217,8 @@ class TrainingMonitor:
             self.test_metric.append(test_metric)
 
         if lr is not None:
-            if self.sw: self.sw.add_scalar("train/lr", lr, len(self.training_loss))
+            if self.sw: self.sw.add_scalar("train/lr", lr, self.lr_step)
+            self.lr_step += 1
 
         # remember best accuracy and save checkpoint
         if self.compute_test_eer and test_eer is not None:

@@ -10,11 +10,12 @@ import time
 import datetime
 from dataclasses import dataclass, fields
 from pathlib import Path
+import json
 from sklearn.model_selection import train_test_split
 
 import torch
 import torch.nn.functional as F
-from torch.distributed import init_process_group
+from torch.distributed import init_process_group, destroy_process_group
 from torch.utils.tensorboard import SummaryWriter
 
 from .. import script_utils
@@ -29,6 +30,15 @@ logging.getLogger("geocoder").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 @dataclass
+class DecodeOpts:
+    use_gpu: bool = False
+    enrolls_wav_scp: str = "./path/wav.scp"
+    trails_wav_scp: str = "./path/wav.scp"
+    enroll_utt2spk: str = "./path/utt2spk" # for x-vector mean before scoring
+    trials: str = "./path/trails"
+    decode_output: str = ""
+
+@dataclass
 class DataloadingOpts:
     minibatch_size: int = 32
     overlap: int = -1
@@ -38,7 +48,7 @@ class DataloadingOpts:
     rank: int = 0
 
 @dataclass
-class ModelOpts(DataloadingOpts):
+class ModelOpts(DataloadingOpts, DecodeOpts):
     mode: str = ""
     base_model: str = ""
     base_model_args: str = "{}"
@@ -114,21 +124,31 @@ class SidekitModel():
             self.init()
         elif self.opts.mode == "jit_save":
             self.jit_save()
+        elif self.opts.mode in ["decode", "infer", "eval"]:
+            self.infer()
         elif self.opts.mode in ["train", "training"]:
             self.train()
         else:
             logging.critical(f"Mode '{self.opts.mode}' not defined")
 
     def reset_num_speakers(self):
+        self.num_speakers = 1
         train_csv = os.path.join(self.opts.dirname, "train.csv")
-        with open(train_csv) as csvfile:
-            read = csv.DictReader(csvfile, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL)
-            total_speaker_idx = set()
-            for i, row in enumerate(read):
-                spk_id = int(row["speaker_idx"])
-                total_speaker_idx.add(spk_id)
-            assert max(total_speaker_idx)+1 == len(total_speaker_idx), f"{max(total_speaker_idx)+1} != {len(total_speaker_idx)}"
-        self.num_speakers = max(total_speaker_idx)+1
+        if os.path.exists(train_csv):
+            with open(train_csv) as csvfile:
+                read = csv.DictReader(csvfile, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+                total_speaker_idx = set()
+                for i, row in enumerate(read):
+                    spk_id = int(row["speaker_idx"])
+                    total_speaker_idx.add(spk_id)
+                assert max(total_speaker_idx)+1 == len(total_speaker_idx), f"{max(total_speaker_idx)+1} != {len(total_speaker_idx)}"
+            self.num_speakers = max(total_speaker_idx)+1
+        else:
+            self.num_speakers = torch.load(self.opts.base_model)["base_model_params"]["num_speakers"]
+
+        if self.num_speakers == 1:
+            logging.critical(f"Could not find file {train_csv} or key 'base_model_params' in model file to know the number of speaker of the model")
+            sys.exit(1)
 
     def load_state_model(self, file):
         m = torch.load(file)
@@ -185,6 +205,40 @@ class SidekitModel():
 
         self.save_model(model, self.opts.base_model)
 
+
+    @torch.no_grad()
+    def infer(self):
+        device = torch.device("cpu")
+        if self.opts.use_gpu:
+            device = torch.device("cuda")
+            logging.info("Using GPU")
+
+        xtractor = self.Net(num_speakers=self.num_speakers)
+        xtractor.load_state_dict(self.load_state_model(self.opts.base_model))
+        xtractor = xtractor.to(device)
+
+        os.makedirs(self.opts.dirname, exist_ok=True) # for tqdm
+        tqdm_file = open(self.opts.dirname+ "/log/tqdm", "w")
+
+        os.makedirs(self.opts.decode_output, exist_ok=True)
+        metrics = objf.test(
+            xtractor,
+            device,
+            self.opts.enrolls_wav_scp,
+            self.opts.trails_wav_scp,
+            self.opts.enroll_utt2spk,
+            self.opts.trials,
+            self.opts.decode_output,
+            self.opts.mixed_precision.lower()=="true",
+            tqdm_file=tqdm_file,
+        )
+        del metrics["score"]
+
+        tqdm_file.seek(0)
+        tqdm_file.truncate()
+        with open(self.opts.decode_output + "/metric.json", 'w+') as out:
+            json.dump(metrics, out)
+
     def init_cuda_model_distributed(self):
         device = torch.device("cuda")
         if self.opts.num_gpus > 1:
@@ -222,7 +276,7 @@ class SidekitModel():
         last_epoch = -1
         scheduler_epoch = -1
 
-        f = os.path.dirname(self.opts.base_model) + "/" + "trainer_" + os.path.basename(self.opts.base_model)
+        f = os.path.dirname(self.opts.base_model) + "/" + "trainer_" + os.path.basename(os.path.realpath(self.opts.base_model))
         if Path(f).is_file():
             logging.info(f"Loading trainer from: {f}")
             sd = torch.load(f)
@@ -238,6 +292,8 @@ class SidekitModel():
             handler = utils.LogHandlerSummaryWriter(sw)
             handler.setFormatter(logging.Formatter("`" + logging.root.handlers[0].formatter._fmt + "`"))
             logging.getLogger().addHandler(handler)
+            logging.info(sys.argv)
+
 
         if last_epoch != -1:
             logging.info(f"Loaded last metrics from trainer:")
@@ -386,8 +442,12 @@ class SidekitModel():
                     self.opts.mixed_precision.lower()=="true",
                 )
 
-                test_eer, norm_eer = None, None
-                if self.opts.compute_test_set_eer.lower()=="true":
+                if self.opts.compute_test_set_eer.lower()=="false":
+                    monitor.update(val_eer=val_eer,
+                                   val_loss=val_loss,
+                                   val_acc=val_acc)
+                    monitor.display()
+                else:
                     metrics = objf.test(
                         xtractor,
                         device,
@@ -399,7 +459,7 @@ class SidekitModel():
                         self.opts.mixed_precision.lower()=="true",
                     )
 
-                    monitor.update(test_eer=metrics["eer"],
+                    monitor.update(test_eer=min(metrics["eer"], metrics["asnorm"]["eer"]),
                                    test_metric=metrics,
                                    val_eer=val_eer,
                                    val_loss=val_loss,
@@ -430,4 +490,5 @@ class SidekitModel():
 
         monitor.display_final()
         logging.info("Finished training")
+        destroy_process_group()
 

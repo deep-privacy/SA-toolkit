@@ -79,16 +79,14 @@ def build(args):
             return (speaker_loss, s_layer), x_vector
 
 
-        def new_epoch_hook(self, monitor, dataset, scheduler):
-            for_last = 30
-            from_epoch = 15
-            accuracy_tr = 99.0
-            if monitor.current_epoch > from_epoch and not self.margin_update_fine_tune and len(monitor.training_acc[for_last:]) != 0 and min(monitor.training_acc[for_last:]) > accuracy_tr:
-                logging.info("Updating AAM margin loss (will use 2x more vram)")
-                dataset.change_params(segment_size=dataset.segment_size*2, set_type="fine-tune train")
-                self.after_speaker_embedding.change_params(m=0.4)
-                self.margin_update_fine_tune = True
-                scheduler.last_epoch = scheduler.last_epoch//2
+        #  def new_epoch_hook(self, monitor, dataset, scheduler):
+            #  from_epoch = 20
+            #  if monitor.current_epoch >= from_epoch:
+                #  logging.info("Updating AAM margin loss (will use 2x more vram)")
+                #  dataset.change_params(segment_size=dataset.segment_size*2, augmentation=None, set_type="fine-tune train")
+                #  self.after_speaker_embedding.change_params(m=0.4)
+                #  self.margin_update_fine_tune = True
+                #  scheduler.last_epoch = scheduler.last_epoch//2
 
         
         def set_lr_weight_decay_layers_for_optim(self, _optimizer, _options):

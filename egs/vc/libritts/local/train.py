@@ -89,29 +89,8 @@ class Opts:
         return self
 
 
-def cuda_env(cfg_cmd, cfg_exp, job_id):
-    """
-    for parallel training
-    """
-    if "run.pl" not in cfg_cmd.cuda_cmd:
-        return []
-    cuda_device = job_id - 1
-    cuda_device %= cfg_exp.max_concurrent_jobs
-    cuda_device %= torch.cuda.device_count()
-    return ["env", "CUDA_VISIBLE_DEVICES=" + str(cuda_device)]
-
-
-def run_job(cmd):
-    """
-    sub a single run job and let ThreadPoolExecutor monitor its progress
-    """
-    #  print(cmd, flush=True) # DEBUG
-    process_out = subprocess.run(cmd)
-    return process_out.returncode
-
-
 def train():
-    parser = argparse.ArgumentParser(description="Acoustic model training script")
+    parser = argparse.ArgumentParser(description="Hifigan model training script")
     parser.add_argument("--stage", default=0, type=int)
     parser.add_argument("--config", default="configs/default")
     parser.add_argument("--final-model", default="")

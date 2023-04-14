@@ -28,9 +28,10 @@ def build(args):
                                                                      hop_length=160,
                                                                      n_mels=n_mels)
             # No dropout in network
-            #  self.spec_augment = satools.augmentation.SpecAugment(
-                #  frequency=0.1, frame=0.1, rows=2, cols=2, random_rows=True, random_cols=True
-            #  )
+            self.spec_augment = satools.augmentation.SpecAugment(
+                frequency=0.10, frame=0.10, rows=2, cols=2, random_rows=True, random_cols=True
+            )
+            #  self.spec_augment.disable()
 
             self.sequence_network = sidekit.archi.PreEcapaTDNN(in_feature=n_mels, channels=512)
 
@@ -69,7 +70,7 @@ def build(args):
             """
 
             x = self.preprocessor(x)
-            #  x = self.spec_augment(x)
+            x = self.spec_augment(x)
             x = self.sequence_network(x)
             x = self.stat_pooling(x)
 
@@ -81,16 +82,12 @@ def build(args):
 
 
         def new_epoch_hook(self, monitor, dataset, scheduler):
-            for_last = 30
-            from_epoch = 15
-            accuracy_tr = 98.0
-            if monitor.current_epoch > from_epoch and not self.margin_update_fine_tune and len(monitor.training_acc[for_last:]) != 0 and min(monitor.training_acc[for_last:]) > accuracy_tr:
-                logging.info("Updating AAM margin loss (will use 2x more vram)")
-                dataset.change_params(segment_size=dataset.segment_size*2, set_type="fine-tune train")
-                #  self.spec_augment.disable()
-                self.after_speaker_embedding.change_params(m=0.4)
+            if args.fine_tune.lower() == "true" and not self.margin_update_fine_tune:
+                logging.info("Updating AAM margin loss")
+                self.after_speaker_embedding.change_params(m=0.45)
+                logging.info("Disable spec_aug")
+                self.spec_augment.disable()
                 self.margin_update_fine_tune = True
-                scheduler.last_epoch = scheduler.last_epoch//2
 
         
         def set_lr_weight_decay_layers_for_optim(self, _optimizer, _options):
@@ -117,6 +114,7 @@ def build(args):
 
 if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
+    parser.add("--fine-tune", default="false", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     sidekit.SidekitModel(build(args), cmd_line=True)

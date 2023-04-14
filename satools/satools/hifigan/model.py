@@ -238,7 +238,7 @@ class HifiGanModel():
         best_val_err = 9999999
         last_epoch = -1
 
-        f = self.opts.base_model.replace("g_", "trainer_")
+        f = os.path.realpath(self.opts.base_model).replace("g_", "trainer_")
         if Path(f).is_file():
             logging.info(f"Loading trainer from: {f}")
             sd = torch.load(f)

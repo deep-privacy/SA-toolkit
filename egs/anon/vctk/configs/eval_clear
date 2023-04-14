@@ -1,0 +1,33 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[var]
+asr_egs = ../../asr/librispeech
+asv_egs = ../../asv/voxceleb
+
+[exp]
+
+dirname = eval_clear
+
+## ASR
+
+asr_test_set = data/vctk_test
+
+asr_model = ${:asr_egs}/exp/chain/asr_eval_tdnnf_360h_aug/final.pt
+
+asr_num_jobs = 10
+asr_graph_dir = ${:asr_egs}/exp/chain/e2e_train_clean_360/e2e_biphone_tree/graph_tgsmall
+asr_lang_lp_tgsmall = ${:asr_egs}/data/lang_lp_test_tgsmall
+asr_lang_lp_fg_large = ${:asr_egs}/data/lang_lp_test_fglarge
+
+
+## ASV
+
+asv_test_enrolls_set = data/vctk_test_enrolls
+asv_test_trials_set  = data/vctk_test_trials_all
+
+asv_model = ${:asv_egs}/exp/asv_eval_vox1_ecapa_tdnn/final.pt
+
+
+# vim:set et sw=2 ts=2 ft=toml:

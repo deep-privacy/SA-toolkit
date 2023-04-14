@@ -5,6 +5,7 @@ import sys
 import io
 from dataclasses import dataclass, fields
 import pickle
+import time
 
 import kaldiio
 import torch
@@ -44,7 +45,7 @@ class TrainerOpts:
 
 @dataclass
 class DecodeOpts:
-    use_gpu: bool = True
+    use_gpu: bool = False
     gpu_id: int = 0
     decode_feats: str = "data/test/wav.scp"
     decode_output: str = "-"
@@ -306,6 +307,7 @@ class ChainModel(nn.Module):
         )
 
         if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
+            os.makedirs(self.chain_opts.dir + "/log", exist_ok=True) # for tqdm
             tqdm_file = open(self.chain_opts.dir + "/log/tqdm", "w")
             dataloader = tqdm(dataloader, file=tqdm_file)
 
@@ -321,6 +323,10 @@ class ChainModel(nn.Module):
             logging.info("Wrote {}".format(key))
         close()
         if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
+            if chain_opts.gpu_id == 1:
+                dataloader.set_description("Decoding job 0 finished, waiting for the other jobs")
+                dataloader.display()
+                time.sleep(5)
             tqdm_file.seek(0)
             tqdm_file.truncate()
 
@@ -337,8 +343,6 @@ class ChainModel(nn.Module):
         if self.chain_opts.output_dim == 1:
             logging.critical(f"Could not find file {num_pdfs_filename} or key 'base_model_params' in model file to know the number of pdfs outputs of the model")
             sys.exit(1)
-
-
 
     @torch.no_grad()
     def combine_final_model(self):
