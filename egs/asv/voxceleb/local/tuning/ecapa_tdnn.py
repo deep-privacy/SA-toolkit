@@ -84,7 +84,7 @@ def build(args):
         def new_epoch_hook(self, monitor, dataset, scheduler):
             if args.fine_tune.lower() == "true" and not self.margin_update_fine_tune:
                 logging.info("Updating AAM margin loss")
-                self.after_speaker_embedding.change_params(m=0.45)
+                self.after_speaker_embedding.change_params(m=0.4)
                 logging.info("Disable spec_aug")
                 self.spec_augment.disable()
                 self.margin_update_fine_tune = True
