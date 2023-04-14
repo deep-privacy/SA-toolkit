@@ -1,6 +1,6 @@
 <div align="center">
 <h1 align='center'>SA-toolkit</h1>
-<img src="TODO.png" width="21%">
+<img src="https://user-images.githubusercontent.com/7476655/232167135-d6e82df7-5a3e-4d6b-b624-3503e0fafc79.png" width="17%">
 <h2 align='center'>SA-toolkit: Speaker speech anonymization toolkit in python</h2>
 </div>
 
@@ -11,12 +11,12 @@ Features include:
 - ASR training with a pytorch [kaldi](https://github.com/kaldi-asr/kaldi) [LF-MMI wrapper](https://github.com/idiap/pkwrap) (evaluation, and VC linguistic feature)
 - VC HiFi-GAN training with on-the-fly feature caching (anonymization)
 - ASV training (evaluation)
-- Clear and simplified egs directories 
+- Clear and simplified egs directories
 - Unified trainer/configs
 - On the fly _only_ feature extraction
 - 100% JIT-compatible network
 
-_All `data` structure is formatted with kaldi-like wav.scp, spk2utt, text, etc. Kaldi is necessary, but most of the actual logic is performed in python; it should bother you ;)_
+_All `data` structure is formatted with kaldi-like wav.scp, spk2utt, text, etc. Kaldi is necessary, but most of the actual logic is performed in python; it should not bother you ;)_
 
 
 ## Installation
@@ -41,7 +41,7 @@ Checkout the READMEs of _[egs/asr/librispeech](egs/asr/librispeech)_ / _[egs/asv
 
 ## Citation
 
-This library is the result of the work of Pierre Champion's thesis.  
+This library is the result of the work of Pierre Champion's thesis.
 If you found this library useful in academic research, please cite [(arXiv link)](https://arxiv.org/abs/???).
 
 ```bibtex
@@ -65,8 +65,7 @@ If you found this library useful in academic research, please cite [(arXiv link)
 Most of the software is distributed under Apache 2.0 License (http://www.apache.org/licenses/LICENSE-2.0), the parts of the software that is distributed under other licenses is indicated by a `LICENSE` file in the relatated direcotry.
 
 ## Evaluation choices
-As discussed in the thesis, one key element to proper privacy evaluation is selecting the target identities for voice conversion.  
-We want to push the community to use any-to-one voice conversion because it is the type of VC with the most guaranty regarding unlinkable speech generation and proper training of a white-box asv evaluation model.  
-In addition, it is simple to understand (everyone should sounds-like one identity) and allows using one-hot encoding as the target identity representation, which is more straightforward than x-vectors while having good utility.  
-Also discussed in the thesis, the current utility evaluation has a limitation, the use of subjective listening to asses the mispronunciation that the vc system produce is the best option in our opinion.
-
+_As discussed in the thesis, one key element to proper privacy evaluation is selecting the target identities for voice conversion.
+We want to push the community to use any-to-one voice conversion because it is the type of VC with the most guaranty regarding unlinkable speech generation and proper training of a white-box asv evaluation model.
+In addition, it is simple to understand (everyone should sounds-like one identity) and allows using one-hot encoding as the target identity representation, which is more straightforward than x-vectors while having good utility.
+Also discussed in the thesis, the current utility evaluation has a limitation, the use of subjective listening to asses the mispronunciation that the vc system produce is the best option in our opinion._
