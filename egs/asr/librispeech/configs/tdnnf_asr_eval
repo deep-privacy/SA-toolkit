@@ -33,12 +33,13 @@ final_combination_n_model = 5
 train_stage = last
 
 model_file = local/chain/tuning/tdnnf.py
-dirname = asr_eval_tdnnf_360h_aug
+dirname = asr_eval_tdnnf_360h
+# dirname = asr_eval_tdnnf_360h_aug # and increase augmentation->aug_number to 1
 
 # see ../../../share/dataprep_aug.py
 augmentation = {
   "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
-  "aug_number": 1,
+  "aug_number": 0,
   "add_noise": {
       # "babble_noise": "true",
       "noise_db_csv": "../../data/musan.csv",

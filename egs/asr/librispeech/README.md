@@ -18,6 +18,8 @@ To run the recipe:
 local/chain/train.py --conf configs/...
 ```
 
+_Up to 5 gpus can be used for training, you can use `ssh.pl` to distribute training on multiple node or max_concurrent_jobs config[exp] option to sequence the training, (using natural gradient and parameter averaging)_
+
 
 ### Results train-clean-100 (fbanks)
 ```sh
@@ -52,6 +54,7 @@ Test    Clean   Other    Exp                         Config
 ```sh
 Test    Clean   Other    Exp                             Config
 %WER     4.85   14.89    exp/asr_eval_tdnnf_360h_aug     configs/tdnnf_asr_eval
+%WER     4.93   15.52    exp/asr_eval_tdnnf_360h         configs/tdnnf_asr_eval
 ```
 
 

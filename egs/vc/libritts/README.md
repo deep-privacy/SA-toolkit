@@ -21,7 +21,7 @@ asrbn_model=bn_tdnnf_100h_vq_64 local/train.py --conf configs/hifigan --stage 10
 ```
 
 ### Todo
-The model performs f0 normalization over the utterance for each utterance, it would be much better to do it on a per speaker basis.  
+The model performs f0 normalization over the utterance for each utterance, it would be much better to do it on a per speaker basis.
 Adapt the code of: [link](https://github.com/deep-privacy/SA-toolkit/blob/482055bdb61f285e77115fb73e4a2af337ab9e89/pkwrap/egs/LJSpeech/local/get_f0_stats_hifi_gan_w2w2_libriTTS.py#L26) to new jit yaapt extractor and adapt the model / CMVN function.
 
 
@@ -39,9 +39,12 @@ model = model.eval()
 wav_conv = model.convert(waveform, target="1069")
 torchaudio.save(f"/tmp/anon_{speaker}-{chapter}-{str(utterance)}.wav", wav_conv, 16000)
 
-# or to modify some feature (like the F0 which can be usefull for better anonymization on some models)
+# Modify some feature (like the F0 which can be useful for better anonymization on some models)
 f0, asrbn, spk_id = model.extract_features(waveform, target="1069")
 f0[f0 != 0] += torch.randn(f0[f0 != 0].size()) * 20 # you may want to use something else ;)
 wav_convv = model._forward(f0, asrbn, spk_id).squeeze(0)
 torchaudio.save(f"/tmp/anon2_{speaker}-{chapter}-{str(utterance)}.wav", wav_convv, 16000)
+
+# list the possible targets:
+target_s = set(model.utt2spk.values())
 ```

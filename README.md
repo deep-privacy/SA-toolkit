@@ -16,7 +16,8 @@ Features include:
 - On the fly _only_ feature extraction
 - 100% JIT-compatible network
 
-_All `data` structure is formatted with kaldi-like wav.scp, spk2utt, text, etc. Kaldi is necessary, but most of the actual logic is performed in python; it should not bother you ;)_
+_All `data` structure is formatted with kaldi-like wav.scp, spk2utt, text, etc._
+_Kaldi is necessary, but most of the actual logic is performed in python; you won't have to deal with it ;)_
 
 
 ## Installation
@@ -26,6 +27,22 @@ The best way to install the toolkit is through the `install.sh`, which setup a m
 git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
 ```
+
+## Quick anonymization example
+
+```python
+import torch
+import torchaudio
+waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPEECH("/tmp", "dev-clean", download=True)[1]
+torchaudio.save(f"/tmp/clear_{speaker}-{chapter}-{str(utterance)}.wav", waveform, 16000)
+model = torch.jit.load("__Exp_Path__/final.jit")
+model = model.eval()
+
+wav_conv = model.convert(waveform, target="1069")
+torchaudio.save(f"/tmp/anon_{speaker}-{chapter}-{str(utterance)}.wav", wav_conv, 16000)
+```
+Ensure you have the [downloaded](https://github.com/deep-privacy/SA-toolkit/releases).
+Check the [egs/vc](egs/vc) directory for more detail.
 
 ## Quick evaluation example
 
@@ -65,5 +82,5 @@ If you found this library useful in academic research, please cite [(arXiv link)
 Most of the software is distributed under Apache 2.0 License (http://www.apache.org/licenses/LICENSE-2.0); the parts distributed under other licenses are indicated by a `LICENSE` file in related directories.
 
 ## Evaluation choices
-_As outlined in the thesis, selecting the appropriate target identities for voice conversion is crucial for privacy evaluation. We strongly encourage the use of any-to-one voice conversion as it provides the greatest level of assurance regarding unlinkable speech generation and facilitates proper training of a white-box ASV evaluation model. Additionally, this approach is easy to comprehend (ensuring that everyone sounds like a single identity) and enables using one-hot encoding for target identity representation, which is simpler than x-vectors but still highly effective.
+_As outlined in the thesis, selecting the appropriate target identities for voice conversion is crucial for privacy evaluation. We strongly encourage the use of any-to-one voice conversion as it provides the greatest level of guarantee regarding unlinkable speech generation and facilitates proper training of a white-box ASV evaluation model. Additionally, this approach is easy to comprehend (everyone should sounds like a single identity) and enables using one-hot encoding for target identity representation, which is simpler than x-vectors while still highly effective for utility preservation.
 Furthermore, the thesis identifies a limitation in the current utility evaluation process. We believe that the best solution for proper assessment of utility is through subjective listening, which allows for accurate evaluation of any mispronunciations produced by the VC system._

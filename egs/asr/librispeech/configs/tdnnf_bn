@@ -9,7 +9,7 @@ cuda_cmd = ./utils/run.pl
 # ssh gpu20 ~ CUDA_VISIBLE_DEVICES=1
 # ssh gpu06 ~ CUDA_VISIBLE_DEVICES=0
 # ssh gpu06 ~ CUDA_VISIBLE_DEVICES=1
-# srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 @ CUDA_VISIBLE_DEVICES=1
+# srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 ~ CUDA_VISIBLE_DEVICES=1
 
 [exp]
 train_set = data/train_clean_100_sp

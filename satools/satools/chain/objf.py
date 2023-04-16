@@ -319,7 +319,7 @@ def train_lfmmi_one_iter(
         dataset,
         **add_param,
         collate_fn=EgsCollectFn,
-        num_workers=10,
+        num_workers=5,
     )
 
     #  for mb_id, data in enumerate(dataloader):
@@ -427,7 +427,7 @@ def compute_chain_objf(
         dataset,
         batch_sampler=batch_sampler,
         collate_fn=EgsCollectFn,
-        num_workers=9,
+        num_workers=5,
     )
 
     for mb_id, data in enumerate(dataloader):

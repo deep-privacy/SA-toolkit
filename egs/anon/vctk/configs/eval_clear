@@ -4,7 +4,7 @@ cuda_cmd = ./utils/run.pl
 
 [var]
 asr_egs = ../../asr/librispeech
-asr_exp = asr_eval_tdnnf_360h_aug
+asr_exp = asr_eval_tdnnf_360h
 
 asv_egs = ../../asv/voxceleb
 # asv_exp = asv_eval_vox1_ecapa_tdnn

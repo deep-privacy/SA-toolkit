@@ -481,6 +481,11 @@ class ChainE2EModel(ChainModel):
 
         kaldi.InstantiateKaldiCuda()
 
+        # https://pytorch.org/docs/master/multiprocessing.html?highlight=sharing%20strategy#sharing-strategies
+        # Avoid error: OSError: [Errno 24] Too many open files
+        import torch.multiprocessing
+        torch.multiprocessing.set_sharing_strategy('file_system')
+
         chain_opts = self.chain_opts
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
