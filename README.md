@@ -1,6 +1,6 @@
 <div align="center">
 <h1 align='center'>SA-toolkit</h1>
-<img src="https://user-images.githubusercontent.com/7476655/232167135-d6e82df7-5a3e-4d6b-b624-3503e0fafc79.png" width="25%">
+<img src="https://user-images.githubusercontent.com/7476655/232308795-90cef60d-08dd-4964-96cd-2afb4a6c03b0.jpg" width="25%">
 <h2 align='center'>SA-toolkit: Speaker speech anonymization toolkit in python</h2>
 </div>
 
