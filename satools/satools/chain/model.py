@@ -175,7 +175,7 @@ class ChainModel(nn.Module):
 
     @torch.no_grad()
     def validate(self):
-        from _satools import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free import)
 
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
@@ -259,8 +259,8 @@ class ChainModel(nn.Module):
         model.eval()
         def _forward(waveform):
             with torch.no_grad():
-                post, xent_output = model(waveform)
-                return post, model
+                loglike, xent_output = model(waveform)
+                return loglike, model
 
         if get_model_module:
             return _forward, model
@@ -282,7 +282,7 @@ class ChainModel(nn.Module):
 
         write_with_kaldi = True
         try:
-            from _satools import kaldi  # lazy import (kaldi-free decoding)
+            from _satools import kaldi  # lazy import (kaldi-free import)
         except ImportError as error:
             # shutil/decode/latgen-faster-mapped.sh compatible but slower
             logging.critical(" -- Failed to import kaldi for feat writing --")
@@ -317,9 +317,9 @@ class ChainModel(nn.Module):
             key = wavinfo[0].name
             if chain_opts.use_gpu:
                 feats = feats.to(device)
-            post, _ = model(feats)
-            post = post.squeeze(0).cpu()
-            writer(key, tensor_to_writer(post))
+            loglike, _ = model(feats)
+            loglike = loglike.squeeze(0).cpu()
+            writer(key, tensor_to_writer(loglike))
             logging.info("Wrote {}".format(key))
         close()
         if chain_opts.gpu_id == 0 or chain_opts.gpu_id == 1:
@@ -347,7 +347,7 @@ class ChainModel(nn.Module):
     @torch.no_grad()
     def combine_final_model(self):
         """Implements Kaldi-style model ensembling"""
-        from _satools import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free import)
 
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
@@ -451,6 +451,60 @@ class ChainModel(nn.Module):
                     "base_model_args": satools.utils.fix_json(self.chain_opts.base_model_args),
                     }, file)
 
+    @staticmethod
+    def kaldi_decode(loglikes,
+                     trans_model,
+                     HCLG,
+                     words_txt,
+                     opts={
+                         "beam":15.0,
+                         "max_active":7000,
+                         "min_active":200,
+                         "lattice_beam":8.0, # Beam we use in lattice generation.
+                     },
+                     acoustic_scale=1.0,
+                     allow_partial=True
+                     ):
+        """
+        Decode loglikes from a tensor, no lm rescoding is done
+
+        Example:
+        import torch
+        import torchaudio
+        import satools
+
+        net = satools.infer_helper.load_model("/lium/scratch/pchampi/SA/egs/asr/librispeech/exp/chain/asr_eval_tdnnf_360h/final.pt")
+        wav, _ = torchaudio.load("/lium/scratch/pchampi/SA/egs/anon/vctk/data/vctk_test/wav/p225/p225_001_mic2.wav")
+        net = net.cuda()
+        loglike, _ = net(wav.cuda())
+        loglike = loglike.squeeze(0).cpu()
+
+        print(wav.shape, loglike.shape)
+
+        a = satools.chain.ChainModel.kaldi_decode(loglike,
+                                              trans_model="/lium/scratch/pchampi/SA/egs/asr/librispeech/exp/chain/asr_eval_tdnnf_360h/0.trans_mdl",
+                                              HCLG="/lium/scratch/pchampi/SA/egs/asr/librispeech/exp/chain/e2e_train_clean_360/e2e_biphone_tree/graph_tgsmall/HCLG.fst",
+                                              words_txt="/lium/scratch/pchampi/SA/egs/asr/librispeech/exp/chain/e2e_train_clean_360/e2e_biphone_tree/graph_tgsmall/words.txt",
+                                              )
+
+        print(a)
+        """
+
+        from _satools import kaldi
+
+        conf = kaldi.decoder.CreateLatticeFasterDecoderConfig(opts["beam"], opts["max_active"], opts["min_active"], opts["lattice_beam"])
+
+        s = kaldi.decoder.MappedLatticeFasterRecognizer(
+            kaldi.matrix.TensorToKaldiMatrix(loglikes),
+            conf,
+            trans_model,
+            HCLG,
+            words_txt,
+            acoustic_scale,
+            allow_partial,
+        )
+        return s
+
 
 class ChainE2EModel(ChainModel):
     """Extension of ChainModel to handle Chain E2E training"""
@@ -477,7 +531,7 @@ class ChainE2EModel(ChainModel):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
-        from _satools import kaldi  # lazy import (kaldi-free decoding)
+        from _satools import kaldi  # lazy import (kaldi-free import)
 
         kaldi.InstantiateKaldiCuda()
 

@@ -424,7 +424,7 @@ def train():
 
             feats_scp = f"{test_set}/split{num_jobs}/JOB/wav.scp"
 
-            tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
+            tqdm = subprocess.Popen(f"exec tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
 
             satools.script_utils.run([
                     cfg_cmd.cpu_cmd if bool(cfg_decode.gpu) else cfg_cmd.cpu_cmd,

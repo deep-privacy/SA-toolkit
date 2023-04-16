@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 beam=15.0
-frames_per_chunk=50
 max_active=7000
 min_active=200
 lattice_beam=8.0 # Beam we use in lattice generation.
@@ -31,7 +30,7 @@ thread_string="-parallel --num-threads=10"
 cat /dev/stdin | \
     latgen-faster-mapped$thread_string --minimize=$minimize \
         --max-active=$max_active \
-        --min-active=$min_active --beam=$beam --lattice-beam=8.0 \
+        --min-active=$min_active --beam=$beam --lattice-beam=$lattice_beam \
         --acoustic-scale=1.0 --allow-partial=true --word-symbol-table=$words \
         $trans_mdl \
         $graph ark:- "ark:|lattice-scale --acoustic-scale=10.0 ark:- ark:- | gzip -c >$output"

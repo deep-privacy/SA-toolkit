@@ -10,3 +10,4 @@ from . import utils
 from . import cmvn
 from . import kaldifeature as kaldifeat
 from . import augmentation
+from . import infer_helper

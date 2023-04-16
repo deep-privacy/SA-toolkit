@@ -15,7 +15,7 @@ from .. import augmentation
 from .. import utils
 
 try:
-    from _satools import kaldi  # lazy import (kaldi-free decoding)
+    from _satools import kaldi  # lazy import (kaldi-free import)
 except ImportError as error:
     pass
 

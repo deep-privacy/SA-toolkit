@@ -58,7 +58,7 @@ Test    Clean   Other    Exp                             Config
 ```
 
 
-### JIT model (extract_bn or posterior with forward)
+### JIT model (extract_bn or acoustic likelihoods with forward)
 
 ```python3
 import torch
@@ -67,6 +67,6 @@ waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPE
 model = torch.jit.load("__Exp_Path__/final.jit")
 model = model.eval()
 
-model.extract_bn(waveform) # asrbn feature (BATCH, SEQ, FEAT)
-post,_ = model(waveform)   # asr posterior (BATCH, SEQ, NbClass) NbClass = 3280 for left-biphone
+model.extract_bn(waveform)     # asrbn feature (BATCH, SEQ, FEAT)
+loglikes,_ = model(waveform)   # asr loglikes (BATCH, SEQ, NbClass) NbClass = 3280 for left-biphone
 ```

@@ -6,6 +6,7 @@
 #include "nnet3.h"
 #include "fst.h"
 #include "hmm.h"
+#include "decoder.h"
 
 // #include <torch/script.h>
 
@@ -134,11 +135,23 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("SaveSupervision", &SaveSupervision);
     chain.def("FindMinimumLengthPathFromFst", &FindMinimumLengthPathFromFst);
 
+
+    // decoder
+    auto decoder = kaldi_module.def_submodule("decoder");
+    py::class_<kaldi::LatticeFasterDecoderConfig>(decoder, "LatticeFasterDecoderConfig")
+        .def_readwrite("beam", &kaldi::LatticeFasterDecoderConfig::beam)
+        .def_readwrite("min_active", &kaldi::LatticeFasterDecoderConfig::min_active)
+        .def_readwrite("max_active", &kaldi::LatticeFasterDecoderConfig::max_active)
+        .def_readwrite("determinize_lattice", &kaldi::LatticeFasterDecoderConfig::determinize_lattice)
+        .def_readwrite("lattice_beam", &kaldi::LatticeFasterDecoderConfig::lattice_beam);
+    // custom functions
+    decoder.def("MappedLatticeFasterRecognizer", &MappedLatticeFasterRecognizer);
+    decoder.def("CreateLatticeFasterDecoderConfig", &CreateLatticeFasterDecoderConfig);
+
     auto fst = kaldi_module.def_submodule("fst");
     py::class_<fst::StdVectorFst >(fst, "StdVectorFst")
         .def(py::init<>());
     fst.def("ReadFstKaldi", &ReadFstKaldi);
-    /* fst.def("ReadFstKaldiFromScpLine", &ReadFstKaldiFromScpLine); */
 }
 
 #endif

@@ -178,7 +178,7 @@ def train():
         f = f"{cfg_exp.dir}/log/train.log"
         if os.path.exists(f):
             a = open(f, "w");a.seek(0);a.truncate()
-        tail = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
+        tail = subprocess.Popen(f"exec tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
         satools.script_utils.run([
             cfg_cmd.cuda_cmd,
             f"{cfg_exp.dir}/log/train.log",

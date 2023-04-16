@@ -59,14 +59,15 @@ Checkout the READMEs of _[egs/asr/librispeech](egs/asr/librispeech)_ / _[egs/asv
 ## Citation
 
 This library is the result of the work of Pierre Champion's thesis.
-If you found this library useful in academic research, please cite [(arXiv link)](https://arxiv.org/abs/???).
+If you found this library useful in academic research, please cite:.
 
 ```bibtex
 @phdthesis{champion2023,
-    title={{A}nonymizing {S}peech: {E}valuating and {D}esigning {S}peaker {A}nonymization {T}echniques},
+    title={Anonymizing Speech: Evaluating and Designing Speaker Anonymization Techniques},
     author={Pierre Champion},
     year={2023},
-    school={Université de Lorraine},
+    school={Université de Lorraine - INRIA Nancy},
+    type={Thesis},
 }
 ```
 

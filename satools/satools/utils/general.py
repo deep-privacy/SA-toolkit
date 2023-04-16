@@ -49,3 +49,9 @@ def fix_json(json_str):
     
     # load the fixed JSON object
     return json.loads(json_str)
+
+def split_array(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
+
+

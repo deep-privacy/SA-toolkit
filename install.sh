@@ -84,7 +84,7 @@ if [ ! -f $mark ]; then
 
   echo "Installing conda dependencies"
   yes | conda install -c conda-forge \
-    sshpass sox libflac inotify-tools git-lfs ffmpeg wget mkl mkl-include cmake ncurses
+    sshpass sox libflac inotify-tools git-lfs ffmpeg wget mkl mkl-include cmake ncurses ninja
 
   touch $mark
 fi
@@ -198,7 +198,7 @@ mark=.done-python-requirements
 if [ ! -f $mark ]; then
   echo " == Installing python libraries =="
 
-  pip install Cython
+  pip3 install Cython
 
   \rm requirements.txt || true
   echo 'scikit-learn>=0.24.2' >> requirements.txt
@@ -276,9 +276,6 @@ export KALDI_ROOT=$home/kaldi
 mark=.done-satools
 if [ ! -f $mark ]; then
   echo " == Building satools src =="
-  if test -f .in_colab_kaggle; then
-    export PKWRAP_CPP_EXT=no
-  fi
   cd satools
   make cleanly
   cd $home

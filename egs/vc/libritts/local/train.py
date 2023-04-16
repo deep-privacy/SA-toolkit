@@ -175,7 +175,7 @@ def train():
             python_cmd = ["OMP_NUM_THREADS=1", "torchrun", "--standalone", "--nnodes=1", "--nproc_per_node", f"{cfg_exp.n_gpu}"]
 
         a = open(f"{cfg_exp.dir}/log/train.log", "w");a.seek(0);a.truncate()
-        tail = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
+        tail = subprocess.Popen(f"exec tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
         satools.script_utils.run([
                 cfg_cmd.cuda_cmd,
                 f"{cfg_exp.dir}/log/train.log",

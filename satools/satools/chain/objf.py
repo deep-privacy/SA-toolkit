@@ -11,7 +11,7 @@ from .dataset import (
 )
 
 try:
-    from _satools import kaldi  # lazy import (kaldi-free decoding)
+    from _satools import kaldi  # lazy import (kaldi-free import)
 except ImportError as error:
     pass
 

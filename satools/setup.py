@@ -1,4 +1,4 @@
-# Welcome to pkwrap
+# Welcome to pkwrap/satools install setup
 # This tool allows to train acoustic models with Pytorch using Kaldi's LF-MMI
 # cost function.
 # Run python setup.py install to build and install the library.
@@ -9,9 +9,6 @@ import sys
 import torch
 from setuptools import setup, find_packages
 from torch.utils import cpp_extension
-
-PYTORCH_VERSION = torch.__version__
-PYTORCH_MAJOR_VER, PYTORCH_MIN_VER = list(map(int, PYTORCH_VERSION.split(".")[:2]))
 
 PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT")
 
@@ -30,6 +27,7 @@ EXTENSION_NAME = "_satools"
 SRC_FILES = [
     "csrc/pkwrap-main.cc",
     "csrc/matrix.cc",
+    "csrc/decoder.cc",
     "csrc/chain.cc",
     "csrc/nnet3.cc",
     "csrc/fst.cc",
@@ -78,7 +76,7 @@ if MKL_ROOT:
     LIBRARIES += ["mkl_intel_lp64", "mkl_core", "mkl_sequential"]
 
 LICENSE = "Apache 2.0"
-VERSION = "0.2.31.6"
+VERSION = "1.0"
 
 if PKWRAP_CPP_EXT == "no":
     setup(

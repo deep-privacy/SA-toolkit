@@ -560,7 +560,7 @@ def train():
         feats_scp = "{}/split{}/JOB/wav.scp".format(data_dir, num_jobs)
 
         tqdm = subprocess.Popen(
-            f"tail -F {dirname}/log/tqdm 2> /dev/null", shell=True
+            f"exec tail -F {dirname}/log/tqdm 2> /dev/null", shell=True
         )
 
         satools.script_utils.run(
@@ -585,7 +585,7 @@ def train():
                 os.path.join(out_dir, "lat.JOB.gz"),
             ]
         )
-        tqdm.terminate()
+        tqdm.kill()
         logging.info("")
         opf = open(os.path.join(out_dir, "num_jobs"), "w")
         opf.write("{}".format(num_jobs))

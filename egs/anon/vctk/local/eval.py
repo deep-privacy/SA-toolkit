@@ -120,7 +120,7 @@ def eval():
             config_path = asr_model_state["install_path"] + "/" + asr_model_state["task_path"] + "/" + asr_model_state["base_model_path"]
             logging.info(f"Loading {config_path} with args \"{str(asr_model_state['base_model_args'])}\" and params \"{str(asr_model_state['base_model_params'])}\"" )
 
-            tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
+            tqdm = subprocess.Popen(f"exec tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
             satools.script_utils.run([
                     cfg_cmd.cpu_cmd if bool(cfg_exp.gpu) else cfg_cmd.cpu_cmd,
                     f"JOB=1:{num_jobs}",
@@ -191,7 +191,7 @@ def eval():
         decode_suff = "_{}_iter{}".format(os.path.basename(os.path.dirname(cfg_exp.asv_model))+"_"+os.path.basename(cfg_exp.asv_model).replace(".pt", ""), cfg_exp.asv_suffix)
         out_dir = cfg_exp.dir / f"asv_decode_{data_name}{decode_suff}"
 
-        tqdm = subprocess.Popen(f"tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
+        tqdm = subprocess.Popen(f"exec tail -F {cfg_exp.dir}/log/tqdm", stderr=subprocess.PIPE, shell=True)
         satools.script_utils.run([
                 cfg_cmd.cpu_cmd if bool(cfg_exp.gpu) else cfg_cmd.cpu_cmd,
                 f"{out_dir}/log/asv.log",
