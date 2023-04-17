@@ -5,4 +5,9 @@
 
 void ReadFstKaldi(std::string rxfilename, fst::StdVectorFst &fst);
 
+void Project(
+        fst::StdVectorFst &fst,
+        bool project_output
+        );
+
 #endif

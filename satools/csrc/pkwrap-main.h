@@ -144,14 +144,21 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def_readwrite("max_active", &kaldi::LatticeFasterDecoderConfig::max_active)
         .def_readwrite("determinize_lattice", &kaldi::LatticeFasterDecoderConfig::determinize_lattice)
         .def_readwrite("lattice_beam", &kaldi::LatticeFasterDecoderConfig::lattice_beam);
+    py::class_<kaldi::CompactLattice>(decoder, "CompactLattice");
     // custom functions
     decoder.def("MappedLatticeFasterRecognizer", &MappedLatticeFasterRecognizer);
     decoder.def("CreateLatticeFasterDecoderConfig", &CreateLatticeFasterDecoderConfig);
+    decoder.def("LatticeLmrescore", &LatticeLmrescore);
+    decoder.def("LatticeLmrescoreConstArpa", &LatticeLmrescoreConstArpa);
+    decoder.def("LatticeBestPath", &LatticeBestPath);
+    decoder.def("LatticeAlignWordsLexicon", &LatticeAlignWordsLexicon);
+    decoder.def("NbestToCTM", &NbestToCTM);
 
     auto fst = kaldi_module.def_submodule("fst");
     py::class_<fst::StdVectorFst >(fst, "StdVectorFst")
         .def(py::init<>());
     fst.def("ReadFstKaldi", &ReadFstKaldi);
+    fst.def("Project", &Project);
 }
 
 #endif

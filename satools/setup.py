@@ -26,8 +26,8 @@ PACKAGE_NAME = "satools"
 EXTENSION_NAME = "_satools"
 SRC_FILES = [
     "csrc/pkwrap-main.cc",
-    "csrc/matrix.cc",
     "csrc/decoder.cc",
+    "csrc/matrix.cc",
     "csrc/chain.cc",
     "csrc/nnet3.cc",
     "csrc/fst.cc",
@@ -65,6 +65,7 @@ LIBRARIES = [
     "kaldi-chain",
     "kaldi-fstext",
     "kaldi-nnet3",
+    "kaldi-lm",
 ]
 LIBRARY_DIRS = [KALDI_LIB_DIR]
 MKL_ROOT = os.getenv("MKL_ROOT")

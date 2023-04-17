@@ -35,9 +35,8 @@ import torch
 import torchaudio
 waveform, _, text_gt, speaker, chapter, utterance = torchaudio.datasets.LIBRISPEECH("/tmp", "dev-clean", download=True)[1]
 torchaudio.save(f"/tmp/clear_{speaker}-{chapter}-{str(utterance)}.wav", waveform, 16000)
-model = torch.jit.load("__Exp_Path__/final.jit")
-model = model.eval()
 
+model = torch.jit.load("__Exp_Path__/final.jit").eval()
 wav_conv = model.convert(waveform, target="1069")
 torchaudio.save(f"/tmp/anon_{speaker}-{chapter}-{str(utterance)}.wav", wav_conv, 16000)
 ```

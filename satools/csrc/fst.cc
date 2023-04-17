@@ -9,3 +9,11 @@ void ReadFstKaldi(std::string rxfilename, fst::StdVectorFst &fst) {
     }
     return;
 }
+
+void Project(
+        fst::StdVectorFst &fst,
+        bool project_output
+        ) {
+    fst::Project(&fst, project_output ? fst::PROJECT_OUTPUT : fst::PROJECT_INPUT);
+}
+
