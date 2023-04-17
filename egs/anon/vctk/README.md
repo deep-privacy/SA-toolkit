@@ -18,7 +18,7 @@ To run the recipe:
 
 To get access to evaluation datasets and models, please send an email to organisers@lists.voiceprivacychallenge.org with “VoicePrivacy-2022 registration" as the subject line.  
 The mail body should include:
-```log
+```markdown
 * (i) the contact person;
 * (ii) affiliation;
 * (iii) country;
@@ -27,7 +27,7 @@ The mail body should include:
 
 ## Results clear speech (non-anonymized)
 
-```log
+```cfg
 # Config
 ./local/eval.py --config configs/eval_clear
 

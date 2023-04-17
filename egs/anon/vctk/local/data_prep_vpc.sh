@@ -15,12 +15,11 @@ for dset in $eval_sets ; do
   for suff in $eval_subsets; do
     if [ ! -f ./data/${dset}_${suff}/wav.scp ]; then
         if [ -z $password ]; then
-          echo "Enter getdata@voiceprivacychallenge.univ-avignon.fr password : "
+          echo "Enter password provided by the organisers (check README.md registration):"
           read -s password
           echo
         fi
-        echo $password
-        printf "${GREEN}\n Downloading ${dset}_${suff} set...${NC}\n"
+        printf "Downloading ${dset}_${suff} set...\n"
         local/download_data.sh ${dset}_${suff} ${password} || exit 1
     fi
   done

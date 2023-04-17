@@ -70,3 +70,26 @@ model = model.eval()
 model.extract_bn(waveform)     # asrbn feature (BATCH, SEQ, FEAT)
 loglikes,_ = model(waveform)   # asr loglikes (BATCH, SEQ, NbClass) NbClass = 3280 for left-biphone
 ```
+
+### Decode loglikes with kaldi in python
+
+The `transition`, `HCLG`, `words_txt`, ... files are also available in the model [releases](https://github.com/deep-privacy/SA-toolkit/releases).
+
+```python3
+import satools
+
+txt, words, alignment, latt = satools.chain.decoder.kaldi_decode(
+  loglikes,
+  trans_model="exp/chain/asr_eval_tdnnf_360h/0.trans_mdl",
+  HCLG="exp/chain/e2e_train_clean_360/e2e_biphone_tree/graph_tgsmall/HCLG.fst",
+  words_txt="exp/chain/e2e_train_clean_360/e2e_biphone_tree/graph_tgsmall/words.txt")
+print("Decoded text:", txt)
+
+txt, words, alignment, latt_res = satools.chain.decoder.kaldi_lm_rescoring(
+  latt,
+  trans_model = "exp/chain/asr_eval_tdnnf_360h/0.trans_mdl",
+  G_old = "data/lang_lp_test_tgsmall/G.fst",
+  G_new = "data/lang_lp_test_fglarge/G.carpa",
+  words_txt = "exp/chain/e2e_train_clean_360/e2e_biphone_tree/graph_tgsmall/words.txt")
+print("LM rescored text:", txt)
+```

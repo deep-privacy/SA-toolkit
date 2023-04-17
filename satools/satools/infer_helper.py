@@ -8,7 +8,10 @@ from types import SimpleNamespace
 import satools
 
 def load_model(file, load_weight=True):
-    model_state = torch.load(file)
+    if file.startswith("http"):
+        model_state = torch.hub.load_state_dict_from_url(file)
+    else:
+        model_state = torch.load(file)
 
     install_path = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
     if model_state["install_path"] != install_path:
