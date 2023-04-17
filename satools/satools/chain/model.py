@@ -467,6 +467,7 @@ class ChainModel(nn.Module):
                      ):
         """
         Decode loglikes from a tensor, no lm rescoding is done
+        This and the following function are nice for few-utterances decoding, but for more, use kaldi with shutil/decode/latgen-faster-mapped.sh
 
         Example:
             import torch
