@@ -8,3 +8,4 @@ from .objf import (
     compute_chain_objf,
 )
 from .model import ChainE2EModel
+from . import decoder
