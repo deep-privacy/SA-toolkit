@@ -1,7 +1,7 @@
 # Optional list of dependencies required by the package
 dependencies = ['torch', 'torchaudio', 'numpy']
 
-from satools.infer_helper import load_model
+from satools.satools.infer_helper import load_model
 
 def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', device='cpu'):
     """Loads an anonymization model
