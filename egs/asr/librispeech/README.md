@@ -18,7 +18,7 @@ To run the recipe:
 local/chain/train.py --conf configs/...
 ```
 
-_Up to 5 gpus can be used for training, you can use `ssh.pl` to distribute training on multiple node or max_concurrent_jobs config[exp] option to sequence the training, (using natural gradient and parameter averaging)_
+_Up to 5 gpus can be used for training, you can use `ssh.pl` to distribute training on multiple node or max_concurrent_jobs config[exp] option to sequence the training, (using natural gradient and parameter averaging)._
 
 
 ### Results train-clean-100 (fbanks)

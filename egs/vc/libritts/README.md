@@ -20,7 +20,7 @@ asrbn_model=bn_tdnnf_100h_vq_64 local/train.py --conf configs/hifigan
 asrbn_model=bn_tdnnf_100h_vq_64 local/train.py --conf configs/hifigan --stage 10 --final-model ./exp/bn_tdnnf_100h_vq_64/g_00111000.pt
 ```
 
-### Todo
+### TODO
 The model performs f0 normalization over the utterance for each utterance, it would be much better to do it on a per speaker basis.
 Adapt the code of: [link](https://github.com/deep-privacy/SA-toolkit/blob/482055bdb61f285e77115fb73e4a2af337ab9e89/pkwrap/egs/LJSpeech/local/get_f0_stats_hifi_gan_w2w2_libriTTS.py#L26) to new jit yaapt extractor and adapt the model / CMVN function.
 

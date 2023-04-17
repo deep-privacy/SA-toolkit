@@ -12,6 +12,8 @@ except ImportError as error:
 import math
 import re
 import os
+import requests
+from urllib.parse import quote
 import subprocess
 import sys
 
@@ -296,3 +298,105 @@ def vartoml(item):
                 r = re.sub(RE_VAR, _var_replace, value)
                 out[key][_k] = r
     return out
+
+
+def get_github_repo():
+    ''' Retrieve the repo part of the git URL '''
+    cmd = ['git', 'remote', 'get-url', 'origin']
+    repo = subprocess.check_output(cmd).decode('utf-8').strip()
+    repo = re.search(r'github.com.(.+?)\.git$', repo).group(1)
+    return repo
+
+def get_github_token():
+    try:
+        GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
+    except KeyError:
+        sys.stderr.write('ERROR: This utility requires a Github '
+                         'token for accessing the Github release API.\n')
+        sys.stderr.write('       The variable should be held in an '
+                         'environment variable named GITHUB_TOKEN.\n')
+        sys.exit(1)
+    return GITHUB_TOKEN
+
+
+def get_release(tag_name):
+    ''' Retrieve the upload URL for the given tag '''
+    res = requests.get(
+        'https://api.github.com/repos/{}/releases/tags/{}'.format(get_github_repo(), tag_name),
+        headers=dict(Authorization='token {}'.format(get_github_token()),
+                     Accept='application/vnd.github.v3+json'))
+
+    if res.status_code == 401:
+        raise RuntimeError('Github API error: {}'.format(res.json()["message"]))
+    if res.status_code < 400:
+        return res.json()
+
+    target_commitish = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
+
+    # If the tag name does not exist, create a new release
+    res = requests.post(
+        'https://api.github.com/repos/{}/releases'.format(get_github_repo()),
+        headers=dict(Authorization='token {}'.format(get_github_token()),
+                     Accept='application/vnd.github.v3+json'),
+        json=dict(tag_name=tag_name, target_commitish=target_commitish))
+
+    res = requests.get(
+        'https://api.github.com/repos/{}/releases/tags/{}'.format(get_github_repo(), tag_name),
+        headers=dict(Authorization='token {}'.format(get_github_token()),
+                     Accept='application/vnd.github.v3+json'))
+
+    if res.status_code == 401:
+        raise RuntimeError('Github API error: {}'.format(res.json()["message"]))
+    if res.status_code < 400:
+        return res.json()
+
+    raise RuntimeError('Could not locate tag name: {}, error: {}'.format(tag_name, str(res.json())))
+
+
+def upload_asset(url, filename, _as=None):
+    '''
+    Upload an asset to a release
+
+    POST :server/repos/:owner/:repo/releases/:release_id/assets?name=:asset_filename
+
+    '''
+    upload_url = url + '?name={}'.format(quote(os.path.split(filename)[-1]))
+    if _as:
+        upload_url = url + '?name={}'.format(quote(_as))
+    with open(filename, 'rb') as asset_file:
+        requests.post(
+            upload_url,
+            headers={'Authorization': 'token {}'.format(get_github_token()),
+                     'Accept': 'application/vnd.github.v3+json',
+                     'Content-Type': 'application/octet-stream'},
+            data=asset_file
+        )
+
+def delete_asset(asset_id):
+    ''' Delete the resource at the given ID '''
+    requests.delete(
+        'https://api.github.com/repos/{}/releases/assets/{}'.format(get_github_repo(), asset_id),
+        headers=dict(Authorization='token {}'.format(get_github_token()),
+                     Accept='application/vnd.github.v3+json'),
+        json=dict(asset_id=asset_id))
+
+def push_github_model(tag_name, up_assets, up_as_name={}, force=True):
+    release = get_release(tag_name)
+    upload_url = release['upload_url'].split('{')[0]
+    gh_assets = {x['name']: x for x in release['assets']}
+    #  print(gh_assets)
+    #  delete_asset(104119915)
+
+    for asset in up_assets:
+        filename = os.path.split(asset)[-1]
+        if filename in gh_assets:
+            if force or asset in up_as_name:
+                delete_asset(gh_assets[filename]['id'])
+            else:
+                sys.stderr.write('WARNING: Asset already exists: {}\n'.format(asset))
+                continue
+
+        if asset in up_as_name:
+            upload_asset(upload_url, asset, _as=up_as_name[asset])
+        else:
+            upload_asset(upload_url, asset)

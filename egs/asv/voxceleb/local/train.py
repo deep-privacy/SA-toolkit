@@ -90,6 +90,7 @@ def train():
     parser = argparse.ArgumentParser(description="ASV model training script")
     parser.add_argument("--stage", default=0, type=int)
     parser.add_argument("--config", default="configs/default")
+    parser.add_argument("--upload", default="no")
     args = parser.parse_args()
 
     logging.info("Reading config")
@@ -226,8 +227,20 @@ def train():
             *cfg_exp.get_forcmd("dir"),
             "--new-model", cfg_exp.dir / f"final.jit",
             cfg_exp.dir / f"final.pt",
-        ]
-                                 )
+        ])
+        if args.upload != "no":
+            logging.info(f"Upload model to a github release")
+            up_as = {}
+            up_as[args.config] = "cfg."+args.config
+            satools.script_utils.push_github_model(
+                tag_name=args.upload,
+                up_assets=[
+                    cfg_exp.dir / f"final.pt",
+                    cfg_exp.dir / f"final.jit",
+                    args.config,
+                ], up_as_name=up_as, force=False
+            )
+
 
 
 if __name__ == "__main__":

@@ -28,6 +28,9 @@ EER / min cllr      2.089 ± 0.408 / 0.105    exp/asv_eval_vox1_ecapa_tdnn_ft   
 EER / min cllr      2.413 ± 0.101 / 0.101    exp/asv_eval_vox1_resnet           configs/resnet
 ```
 
+_Note: On VCTK, the resnet model seems to be better._  
+_Note: ecapa_tdnn converges faster._
+
 ### JIT model
 
 ```python3
