@@ -24,7 +24,9 @@ _Kaldi is necessary for training the ASR models and the handy `run.pl`/`ssh.pl`/
 
 ## Installation
 
-The best way to install the toolkit is through the `install.sh`, which setup a miniconda environment, and kaldi.
+The best way to install the toolkit is with the `install.sh` script, which setup a miniconda environment, and kaldi.
+Take a look at the script and adapt it to your cluster configuration, or leave it do it's magic.
+
 ```sh
 git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
@@ -34,11 +36,12 @@ git clone https://github.com/deep-privacy/SA-toolkit
 
 This locally installs satools, the required pip dependencies are: `torch`, `torchaudio`, `soundfile` and `configargparse`.  
 This version gives access to the python/torch model for inference/testing, but training use `install.sh`.
+You can modify `tag_version` accordingly to the available model tag [here](https://github.com/deep-privacy/SA-toolkit/releases).
 
 ```python
 import torch
 
-model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version=" hifigan_bn_tdnnf_wav2vec2_vq_48_v1", trust_repo=True)
+model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_wav2vec2_vq_48_v1", trust_repo=True)
 wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
 ```
 
