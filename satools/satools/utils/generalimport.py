@@ -188,7 +188,7 @@ class FakeModule:
     __aenter__ = __aexit__ = __aiter__ = __anext__ = __await__ = error_func
 
     # Version
-    __version__ = "1.0"
+    __version__ = "99.0"
 
 
     non_called_dunders = (
