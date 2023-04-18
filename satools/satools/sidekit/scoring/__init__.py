@@ -2,7 +2,7 @@ from .metric import *
 from scipy.spatial.distance import cosine
 import torch
 
-from feerci import *
+from feerci import feerci
 
 def asnorm(enroll_test_scores, enroll_xv, test_xv, cohort_xv):
     """
