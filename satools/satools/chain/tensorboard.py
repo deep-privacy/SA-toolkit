@@ -1,6 +1,5 @@
 import os
 
-from torch.utils.tensorboard import SummaryWriter
 
 from .. import script_utils
 from .. import utils
@@ -8,6 +7,8 @@ from .. import utils
 class ChainTensorBoard():
 
     def __init__(otherself, self):
+        from torch.utils.tensorboard import SummaryWriter
+
         if "valid" in self.chain_opts.egs:
             otherself.tensorboard = SummaryWriter(log_dir=self.chain_opts.dir + "/runs/" + "valid_"
                                                   + str(utils.creation_date_file(os.path.join(self.chain_opts.dir, "0.pt"))))

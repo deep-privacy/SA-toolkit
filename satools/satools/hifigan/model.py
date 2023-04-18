@@ -11,7 +11,6 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch.distributed import init_process_group
-from torch.utils.tensorboard import SummaryWriter
 
 from . import dataset
 from . import nn
@@ -307,6 +306,7 @@ class HifiGanModel():
                 collate_fn=dataset.model_collate(generator, self.opts),
                 persistent_workers=True,
             )
+            from torch.utils.tensorboard import SummaryWriter
             sw = SummaryWriter(os.path.join(self.opts.dirname, "runs"))
             handler = utils.LogHandlerSummaryWriter(sw)
             handler.setFormatter(logging.Formatter("`" + logging.root.handlers[0].formatter._fmt + "`"))

@@ -8,8 +8,6 @@ import generalimport
 generalimport.generalimport("feerci",
               "kaldiio",
               "librosa",
-              "tensorboard",
-              "google",
               "matplotlib",
               "pandas",
               "scikit_learn",

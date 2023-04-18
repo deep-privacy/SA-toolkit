@@ -5,7 +5,6 @@ Copyright 2014-2023 Anthony Larcher, Pierre Champion
 
 import logging
 import numpy
-from torch.utils.tensorboard import SummaryWriter
 
 
 class TrainingMonitor:
@@ -56,6 +55,7 @@ class TrainingMonitor:
         self.lr_step = 0
 
     def add_tensorboard(self, path):
+        from torch.utils.tensorboard import SummaryWriter
         self.sw = SummaryWriter(path)
         layout = {
             "Test metrics": {

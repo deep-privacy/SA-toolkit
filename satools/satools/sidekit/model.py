@@ -16,7 +16,6 @@ from sklearn.model_selection import train_test_split
 import torch
 import torch.nn.functional as F
 from torch.distributed import init_process_group, destroy_process_group
-from torch.utils.tensorboard import SummaryWriter
 
 from .. import script_utils
 from .. import utils

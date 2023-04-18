@@ -2,8 +2,6 @@ import logging
 import datetime
 import os
 
-from torch.utils.tensorboard import SummaryWriter
-
 
 class LogHandlerSummaryWriter(logging.Handler):
 
