@@ -1,8 +1,22 @@
+
+# Optional import, not necessary when using torch.hub inference, but required for training/testing
+from .utils.generalimport import generalimport
+generalimport("feerci")
+generalimport("kaldiio")
+generalimport("librosa")
+generalimport("matplotlib")
+generalimport("pandas")
+generalimport("scikit_learn")
+generalimport("scipy")
+generalimport("seaborn")
+generalimport("tqdm")
+
 import os
 import torch
 import logging
 import importlib
 from types import SimpleNamespace
+
 import satools
 
 def load_model(file, load_weight=True, from_file=None):
