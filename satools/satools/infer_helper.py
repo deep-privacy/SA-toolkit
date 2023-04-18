@@ -1,15 +1,14 @@
 
 # Optional import, not necessary when using torch.hub inference, but required for training/testing
 from .utils.generalimport import generalimport
-generalimport("feerci")
-generalimport("kaldiio")
-generalimport("librosa")
-generalimport("matplotlib")
-generalimport("pandas")
-generalimport("scikit_learn")
-generalimport("scipy")
-generalimport("seaborn")
-generalimport("tqdm")
+generalimport("feerci",
+              "kaldiio",
+              "librosa",
+              "matplotlib",
+              "pandas",
+              "scikit_learn",
+              "scipy",
+              "tqdm")._scope =None
 
 import os
 import torch
