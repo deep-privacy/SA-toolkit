@@ -29,7 +29,18 @@ git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
 ```
 
-## Quick anonymization example
+## Quick Torch HUB anonymization example
+
+Will locally install satools, with access to the torch model, but kaldi/kaldi wrapper not installed.
+
+```python
+import torch
+
+model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_100h_vq_256_v1")
+wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
+```
+
+## Quick JIT anonymization example
 
 ```python
 import torch

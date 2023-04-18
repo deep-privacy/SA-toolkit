@@ -17,6 +17,7 @@ def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_
         torch.nn.model
     """
 
+    os.environ["SA_JIT_TWEAK"] = "true"
     
     local_hub_dir = torch.hub.get_dir()
     dir_list = os.listdir(local_hub_dir)
