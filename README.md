@@ -23,7 +23,7 @@ _Kaldi is necessary, but most of the actual logic is performed in python; you wo
 
 ## Installation
 
-The best way to install the toolkit is through the `install.sh`, which setup a miniconda environment.
+The best way to install the toolkit is through the `install.sh`, which setup a miniconda environment, and kaldi.
 ```sh
 git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
@@ -36,7 +36,7 @@ Will locally install satools, with access to the torch model, but kaldi/kaldi wr
 ```python
 import torch
 
-model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_100h_vq_256_v1")
+model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_100h_vq_256_v1", trust_repo=True)
 wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
 ```
 

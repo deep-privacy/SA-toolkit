@@ -2,7 +2,7 @@ import os
 import sys
 import torch
 # Optional list of dependencies required by the package
-dependencies = ['torch', 'torchaudio', 'numpy']
+dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
 
