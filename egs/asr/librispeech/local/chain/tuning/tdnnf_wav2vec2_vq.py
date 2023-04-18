@@ -267,7 +267,7 @@ def build(args):
 
         @torch.no_grad()
         def validate_model(self):
-            self.train()
+            self.eval()
             N = 2
             C = 16000*2
             x = torch.arange(N * C).reshape(N, C).float()
@@ -276,11 +276,6 @@ def build(args):
                 nnet_output.shape[1] == 66
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
 
-            self.eval()
-            nnet_output, xent_output = self.forward(x)
-            assert (
-                nnet_output.shape[1] == 66
-            ), f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
         def pad_input(self, x, pad_amount:int=0):

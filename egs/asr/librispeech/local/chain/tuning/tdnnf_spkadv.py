@@ -241,6 +241,7 @@ def build(args):
 
         @torch.no_grad()
         def validate_model(self):
+            self.eval()
             N = 2
             C = (10 * self.frame_subsampling_factor) * 274
             x = torch.arange(N * C).reshape(N, C).float()
@@ -248,15 +249,9 @@ def build(args):
             assert (
                 nnet_output.shape[1] == 17
             ), f"{nnet_output.shape[1]} != expected frame subsampling"
-
-            self.eval()
-            nnet_output, xent_output = self.forward(x)
-            assert (
-                nnet_output.shape[1] == 17
-            ), f"{nnet_output.shape[1]} != expected frame subsampling"
             self.train()
 
-            self.asi(self.bottleneck_out.permute(0, 2, 1).contiguous())
+            #  self.asi(self.bottleneck_out.permute(0, 2, 1).contiguous())
 
         def pad_input(self, x):
             if self.padding > 0:

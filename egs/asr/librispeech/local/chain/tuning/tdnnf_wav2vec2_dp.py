@@ -207,17 +207,12 @@ def build(args):
 
         @torch.no_grad()
         def validate_model(self):
+            self.eval()
             N = 2
             C = (
                 10 * self.frame_subsampling_factor * 320
             )  # 320 been the wav2vec2 subsampling factor
             x = torch.arange(N * C).reshape(N, C).float()
-            nnet_output, xent_output = self.forward(x)
-            assert (
-                nnet_output.shape[1] == 10
-            ), f"{nnet_output.shape[1]} != expected frame subsampling"
-
-            self.eval()
             nnet_output, xent_output = self.forward(x)
             assert (
                 nnet_output.shape[1] == 10

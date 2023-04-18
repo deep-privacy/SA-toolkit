@@ -18,12 +18,12 @@ def build(args):
     class Net(nn.Module):
         def init(self):
             logging.info("Init epoch 0")
-            self.bn_extractor = satools.infer_helper.load_model(self.bn_extractor_model)
+            self.bn_extractor = satools.infer_helper.load_model(self.bn_extractor_model, from_file=__file__)
 
         def __init__(self, utt2spk):
             super().__init__()
             self.bn_extractor_model = args.asrbn_model
-            self.bn_extractor = satools.infer_helper.load_model(self.bn_extractor_model, load_weight=False)
+            self.bn_extractor = satools.infer_helper.load_model(self.bn_extractor_model, from_file=__file__, load_weight=False)
             self.bn_extractor.eval()
 
             self.f0_yaapt_opts = {
