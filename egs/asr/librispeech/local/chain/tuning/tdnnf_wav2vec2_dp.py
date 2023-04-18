@@ -173,14 +173,14 @@ def build(args):
         ):
             if args.freeze_encoder == "True":
                 self.preprocessor.eval()
-                logging.info("Freezing encoder!")
+                logging.debug("Freezing encoder!")
 
                 switch_require_grad = False
                 for name, param in self.named_parameters():
                     if name == "tdnnfs.0.tdnn.linearB.weight":
                         switch_require_grad = True
                     param.requires_grad = switch_require_grad
-                    logging.info(name + f" - requires_grad={param.requires_grad}")
+                    logging.debug(name + f" - requires_grad={param.requires_grad}")
 
             around_vq = []
             other = []

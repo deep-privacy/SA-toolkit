@@ -174,7 +174,7 @@ def build(args):
 
 
             if args.freeze_encoder == "True":
-                logging.info("Freezing encoder!")
+                logging.debug("Freezing encoder!")
                 self.preprocessor.eval()
 
                 switch_require_grad = False
@@ -182,7 +182,7 @@ def build(args):
                     if name.startswith("tdnn1"):
                         switch_require_grad = True
                     param.requires_grad = switch_require_grad
-                    logging.info(name + f" - requires_grad={param.requires_grad}")
+                    logging.debug(name + f" - requires_grad={param.requires_grad}")
 
             self.validate_model()
 
