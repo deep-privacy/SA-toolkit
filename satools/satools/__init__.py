@@ -1,9 +1,11 @@
 import torch
 import os
+import sys
 
 # Optional imports packages, nice when using torch.hub inference, but required for training/evaluation
-from .utils.generalimport import generalimport
-generalimport("feerci",
+sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
+import generalimport
+generalimport.generalimport("feerci",
               "kaldiio",
               "librosa",
               "matplotlib",
