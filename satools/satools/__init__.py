@@ -1,5 +1,17 @@
 import torch
 import os
+
+# Optional imports packages, nice when using torch.hub inference, but required for training/evaluation
+from .utils.generalimport import generalimport
+generalimport("feerci",
+              "kaldiio",
+              "librosa",
+              "matplotlib",
+              "pandas",
+              "scikit_learn",
+              "scipy",
+              "tqdm")._scope=None
+
 from . import infer_helper
 from . import script_utils
 from . import nn
