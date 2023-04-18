@@ -11,14 +11,15 @@ Features include:
 - ASR training with a pytorch [kaldi](https://github.com/kaldi-asr/kaldi) [LF-MMI wrapper](https://github.com/idiap/pkwrap) (evaluation, and VC linguistic feature)
 - VC HiFi-GAN training with on-the-fly feature caching (anonymization)
 - ASV training (evaluation)
+- WER Utility and EER/Linkability/Cllr Privacy evaluations
 - Clear and simplified egs directories
 - Unified trainer/configs
-- TorchScript YAAPT, TorchScript kaldi.fbank (with batch processing!)
+- TorchScript YAAPT & TorchScript kaldi.fbank (with batch processing!)
 - On the fly _only_ feature extraction
-- 100% TorchScript JIT-compatible network
+- 100% TorchScript JIT-compatible network models
 
 _All `data` are formatted with kaldi-like wav.scp, spk2utt, text, etc._  
-_Kaldi is necessary, but most of the actual logic is performed in python; you won't have to deal with it ;)_
+_Kaldi is necessary for training the ASR models and the handy `run.pl`/`ssh.pl`/`data_split`.. scripts, but most of the actual logic is performed in python; you won't have to deal kaldi ;)_
 
 
 ## Installation
@@ -31,16 +32,19 @@ git clone https://github.com/deep-privacy/SA-toolkit
 
 ## Quick Torch HUB anonymization example
 
-Will locally install satools, with access to the torch model, but kaldi/kaldi wrapper not installed.
+This locally installs satools, the required pip dependencies are: `torch`, `torchaudio`, `soundfile` and `configargparse`.  
+This version gives access to the python/torch model for inference/testing, but training use `install.sh`.
 
 ```python
 import torch
 
-model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_100h_vq_256_v1", trust_repo=True)
+model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version=" hifigan_bn_tdnnf_wav2vec2_vq_48_v1", trust_repo=True)
 wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
 ```
 
 ## Quick JIT anonymization example
+
+This version does not rely on any dependencies using [TorchScript](https://pytorch.org/docs/stable/jit.html).
 
 ```python
 import torch
