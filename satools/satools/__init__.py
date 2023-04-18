@@ -10,7 +10,7 @@ generalimport.generalimport("feerci",
               "librosa",
               "matplotlib",
               "pandas",
-              "scikit_learn",
+              "sklearn",
               "scipy",
               "tqdm")._scope=None
 
