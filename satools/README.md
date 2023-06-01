@@ -10,7 +10,7 @@ References and Citation
 The technical report of pkwrap is now available [here](https://arxiv.org/abs/2010.03466). The report can
 be cited as in the following bibtex example:
 
-```
+```bibtex
 @article{madikeri2020pkwrap,
   title={Pkwrap: a PyTorch Package for LF-MMI Training of Acoustic Models},
   author={Madikeri, Srikanth and Tong, Sibo and Zuluaga-Gomez, Juan and Vyas, Apoorv and Motlicek, Petr and Bourlard, Herv{\'e}},

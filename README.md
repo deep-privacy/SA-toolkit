@@ -34,8 +34,8 @@ git clone https://github.com/deep-privacy/SA-toolkit
 
 ## Quick Torch HUB anonymization example
 
-This locally installs satools, the required pip dependencies are: `torch`, `torchaudio`, `soundfile` and `configargparse`.  
-This version gives access to the python/torch model for inference/testing, but training use `install.sh`.
+This locally installs satools (the required pip dependencies are: `torch`, `torchaudio`, `soundfile` and `configargparse`).  
+This version gives access to the python/torch model for inference/testing, but for training use `install.sh`.
 You can modify `tag_version` accordingly to the available model tag [here](https://github.com/deep-privacy/SA-toolkit/releases).
 
 ```python
