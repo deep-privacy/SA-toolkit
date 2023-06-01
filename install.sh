@@ -245,7 +245,7 @@ if [ ! -f $mark ]; then
   rm -rf kaldi || true
   git clone https://github.com/kaldi-asr/kaldi.git || true
   cd kaldi
-  git checkout e4eb4f6
+  # git checkout e4eb4f6
   echo " === Applying personal patch on kaldi ==="
   git apply ../.kaldi.patch
   cd tools
