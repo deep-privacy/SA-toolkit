@@ -1,0 +1,53 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+# Can be modified through venv: e.g.: vq=128 local/chain/train.py ...
+[var]
+vq = 48
+
+[exp]
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
+egs_dir = exp/chain/e2e_train_clean_100/fst_egs
+
+# train params
+num_epochs = 2
+num_jobs_initial = 2
+num_jobs_final = 5
+lr_initial = 0.0001
+lr_final =   0.00001
+diagnostics_interval = 10
+checkpoint_interval = 20
+minibatch_size = 16
+# grad_acc_steps = 48
+# train_stage = 30
+
+xent_regularize = 0.02
+weight_decay_l2_regularize_factor = 0.01
+
+final_combination_n_model = 1
+
+
+model_file = local/chain/tuning/tdnnf_wav2vec2_vq.py
+dirname = bn_tdnnf_wav2vec2_vq_${:vq}
+model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
+init_weight_model = "./exp/chain/bn_tdnnf_wav2vec2_100h_aug/final.pt"
+
+# a=bn_tdnnf_wav2vec2_vq_; tail $a_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
+
+
+[test]
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+
+# test_set = data/test_clean
+test_set = data/test_clean,data/test_other
+# test_set = data/test_other
+# test_set = data/dev_other
+# test_set = data/dev_clean
+
+# decode on gpus
+num_jobs = 4
+gpu = True
+
+# vim:set et sw=2 ts=2 ft=toml:

@@ -1,0 +1,16 @@
+# Model description
+
+speaker_number: 1417
+
+loss:
+    type: aam
+    aam_margin: 0.2
+    aam_s: 30
+
+# Initialize model from file, reset and freeze parts of it
+initial_model_name:
+# initial_model_name: exp/spk/adv/tmp_model_custom.pt
+reset_parts: []
+freeze_parts: []
+
+model_type: local/spk/config/model_adv.py

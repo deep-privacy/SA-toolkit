@@ -1,0 +1,54 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+# cuda_cmd = ./utils/run.pl
+
+cuda_cmd = ./utils/ssh.pl
+# example of ssh.pl config file (in .queue/machines)
+# ssh localhost ~ CUDA_VISIBLE_DEVICES=0
+# ssh gpu20 ~ CUDA_VISIBLE_DEVICES=0
+# ssh gpu20 ~ CUDA_VISIBLE_DEVICES=1
+# ssh gpu06 ~ CUDA_VISIBLE_DEVICES=0
+# ssh gpu06 ~ CUDA_VISIBLE_DEVICES=1
+# srun -p gpu -c 32 --gres gpu:1 -N 1 --mem 30G  --time 30:00:00 ~ CUDA_VISIBLE_DEVICES=1
+
+# Can be modified through venv: e.g.: vq=128 local/chain/train.py ...
+[var]
+vq = 64
+
+[exp]
+train_set = data/train_600_sp
+tree_dir = exp/chain/e2e_train_600/e2e_biphone_tree
+egs_dir = exp/chain/e2e_train_600/fst_egs
+
+# train params
+num_epochs = 2
+num_jobs_initial = 2
+num_jobs_final = 5
+lr_initial = 0.0001
+lr_final =   0.00001
+diagnostics_interval = 10
+checkpoint_interval = 20
+minibatch_size = 16
+ # merge weight, last epcho usualy best model -> also to not break the vq prototypes
+final_combination_n_model = 1
+
+model_file = local/chain/tuning/tdnnf_vq.py
+dirname = bn_tdnnf_600h_vq_${:vq}
+model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
+init_weight_model = "./exp/chain/bn_tdnnf_600h_aug/final.pt"
+
+[test]
+graph_dir = exp/chain/e2e_train_600/e2e_biphone_tree/graph_tgsmall
+
+# test_set = data/test_clean
+test_set = data/test_clean,data/test_other
+# test_set = data/test_other
+# test_set = data/dev_other
+# test_set = data/dev_clean
+
+# suffix = _final_2
+# decode on gpus
+gpu = True
+num_jobs = 9
+
+# vim:set et sw=2 ts=2 ft=toml:

@@ -1,0 +1,73 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[exp]
+train_set = data/voxceleb1
+# == 0: train on full (dev -> 0.02 part of train)
+dev_ratio = 0.00
+
+test_set = data/voxceleb1_test/voxceleb1-O
+compute_test_set_eer = true
+
+
+n_gpu = 2
+num_worker_dataloader = 20
+logging_interval = 200
+checkpoint_interval = 1
+
+training_epochs = 25
+patience = 20
+minibatch_size = 256
+examples_per_speaker_in_batch = "batch_size/16"
+samples_per_speaker_in_epoch = 70
+segment_size = 48000
+optim = {
+  "optimizer": {
+    "type": "torch.optim.AdamW",
+    "opts": {"lr": 0.001}
+  },
+  "scheduler": {
+    "type": "satools.lr_scheduler.OneCycleLR",
+    "opts": {
+      "max_lr": 0.001,
+      "total_steps": 50000,
+      "div_factor": 5,
+      "final_div_factor": 1e6,
+    }
+  }
+  }
+
+# resume training from:
+# train_epoch = 8
+train_epoch = last
+# train_epoch = best
+
+model_file = ./local/tuning/ecapa_tdnn.py
+dirname = asv_eval_vox1_ecapa_tdnn
+# dirname = asv_eval_half_resnet_vox1_dev
+model_args = []
+
+# init_weight_model = "exp/.../best.pt"
+
+# see ../../../share/dataprep_aug.py
+augmentation = {
+  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
+  "aug_number": 1,
+  "add_noise": {
+      # "babble_noise": "true",
+      "noise_db_csv": "../../data/musan.csv",
+      "data_path": "/"
+    },
+  "add_reverb": {
+      "rir_db_csv": "../../data/reverb.csv",
+      "data_path": "/"
+    },
+  "sanity_check_path" : "/tmp/sanity_test",
+  "sanity_check_samples" : 2
+  }
+
+# for jit
+final_model = best.pt
+
+# vim:set et sw=2 ts=2 ft=toml:

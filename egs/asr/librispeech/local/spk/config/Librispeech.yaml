@@ -1,0 +1,56 @@
+# Dataset description
+
+
+# General options
+data_path: /
+data_file_extension: .flac
+dataset_csv: ../../../../sidekit/egs/librispeech/list/libri_train.csv
+
+sample_rate: 16000
+
+validation_ratio: 0.02
+batch_size: 700
+
+# Training set
+train:
+    duration: 3.
+    chunk_per_segment: -1
+    overlap: 3.
+
+    sampler:
+        examples_per_speaker: 1
+        samples_per_speaker: 700
+        augmentation_replica: 1
+
+    transform_number: 0
+
+    transformation:
+        pipeline: # no transformation
+        # pipeline: add_reverb,add_noise,filtering,phone_filtering,codec
+
+        add_noise:
+            noise_db_csv: list/musan.csv
+            data_path: /
+
+        add_reverb:
+            rir_db_csv: list/reverb.csv
+            data_path: /
+
+# Validation set
+valid:
+    duration: 3.
+
+    transformation:
+        pipeline: # no transformation
+
+        add_noise:
+            noise_db_csv: list/musan.csv
+            data_path: /
+
+# Test set
+test:
+    idmap: ../../../../sidekit/egs/librispeech/list/asv_test_libri/libri_test_idmap.h5
+    ndx: ../../../../sidekit/egs/librispeech/list/asv_test_libri/libri_test_ndx.h5
+    key: ../../../../sidekit/egs/librispeech/list/asv_test_libri/libri_test_key.h5
+    data_path: ../../../../sidekit/egs/librispeech/
+    id2wav: ../../../../sidekit/egs/librispeech//data/asv_test_libri/libri_test.id2wav

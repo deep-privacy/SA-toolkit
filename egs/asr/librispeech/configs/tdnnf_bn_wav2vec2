@@ -1,0 +1,62 @@
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[exp]
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
+egs_dir = exp/chain/e2e_train_clean_100/fst_egs
+
+# train params
+num_epochs = 2
+num_jobs_initial = 1
+num_jobs_final = 1
+lr_initial = 3e-04
+lr_final =   1e-05
+diagnostics_interval = 20
+checkpoint_interval =  20
+# fits on ~35 GB VRAM
+minibatch_size = 8
+grad_acc_steps = 16
+# train_stage = 57
+train_stage = last
+
+xent_regularize = 0.01
+weight_decay_l2_regularize_factor = 0.002
+
+final_combination_n_model = 1
+
+model_file = local/chain/tuning/tdnnf_wav2vec2.py
+dirname = bn_tdnnf_wav2vec2_100h_aug
+
+# see ../../../share/dataprep_aug.py
+augmentation = {
+  "pipeline": ["add_reverb", "add_noise", "phone_filtering", "codec"],
+  "aug_number": 1,
+  "add_noise": {
+      # "babble_noise": "true",
+      "noise_db_csv": "../../data/musan.csv",
+      "data_path": "/"
+    },
+  "add_reverb": {
+      "rir_db_csv": "../../data/reverb.csv",
+      "data_path": "/"
+    },
+  "sanity_check_path" : "/tmp/sanity_test",
+  "sanity_check_samples" : 2
+  }
+
+[test]
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+
+# test_set = data/test_clean
+test_set = data/test_clean,data/test_other
+# test_set = data/test_other
+# test_set = data/dev_other
+# test_set = data/dev_clean
+
+# decode on gpus
+num_jobs = 9
+gpu = True
+
+# vim:set et sw=2 ts=2 ft=toml:

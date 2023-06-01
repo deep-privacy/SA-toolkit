@@ -1,0 +1,54 @@
+###########
+# TODO FIX THIS to match vq impl
+###########
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[exp]
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
+egs_dir = exp/chain/e2e_train_clean_100/fst_egs
+
+# train params
+num_epochs = 1
+num_jobs_initial = 2
+num_jobs_final = 5
+lr_initial = 0.00020
+lr_final =   0.000001
+diagnostics_interval = 10
+checkpoint_interval =  20
+minibatch_size = 16
+# grad_acc_steps = 10
+# train_stage = 25
+
+xent_regularize = 0.02
+# xent_regularize = 0
+
+final_combination_n_model = 5
+
+
+model_file = local/chain/tuning/tdnnf_wav2vec2_dp.py
+dirname = bn_tdnnf_wav2vec2_dp_110000
+model_args = ["--freeze-encoder", "True", "--epsilon", "110000"]
+init_weight_model = "./exp/chain/e2e_tdnnf_wav2vec2/final.pt"
+
+# tail e2e_tdnnf_wav2vec2_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_wav2vec2_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k6,6 -n -t"_"
+# tail e2e_tdnnf_wav2vec2_vq_*/decode_test_other*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_wav2vec2_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k6,6 -n -t"_"
+
+
+[test]
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+# test_set = data/test_clean
+test_set = data/test_clean
+# test_set = data/dev_other
+# test_set = data/dev_clean
+# test_set = data/dev_clean
+# suffix = baseline
+# decode on gpus
+num_jobs = 2
+gpu = True
+# iter = 428
+
+
+# vim:set et sw=2 ts=2 ft=toml:

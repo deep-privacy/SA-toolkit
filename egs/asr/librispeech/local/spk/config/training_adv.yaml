@@ -1,0 +1,40 @@
+# Training description
+
+# General options
+log_file: exp/spk/adv/log/train.log
+torch_seed: 42
+numpy_seed: 42
+random_seed: 42
+deterministic: false
+
+epochs: 2000
+lr: 0.001
+patience: 100
+
+multi_gpu: true
+num_cpu: 16
+
+mixed_precision: true
+clipping: false
+
+# Optimizer and scheduler options
+optimizer:
+    type: adam
+    options:
+
+scheduler:
+    type: CyclicLR
+    mode: triangular2
+    base_lr: 1.0e-05
+    step_size_up: 40000
+
+
+# Evaluation options
+compute_test_eer: true
+log_interval: 20
+validation_frequency: 1
+
+# Save options
+tmp_model_name: exp/spk/adv/tmp_model_custom.pt
+best_model_name: exp/spk/adv/best_model_custom.pt
+checkpoint_frequency:

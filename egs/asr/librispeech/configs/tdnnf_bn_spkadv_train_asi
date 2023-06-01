@@ -1,0 +1,52 @@
+###########
+# TODO FIX THIS TO NEW SATOOLS WITH INTERNAL sidekit package
+###########
+[cmd]
+cpu_cmd = ./utils/run.pl
+cuda_cmd = ./utils/run.pl
+
+[exp]
+train_set = data/train_clean_100_sp
+tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
+egs_dir = exp/chain/e2e_train_clean_100/fst_egs
+
+# train params
+num_epochs = 15
+num_jobs_initial = 1
+# No Parameter Averaging (Natural Gradient)
+num_jobs_final = 1
+# add some random in the sampler such that the adv does not train the sampler generator
+sampler = BucketBatchSuffleAllowSomePadding
+
+lr_initial = 0.0005
+lr_final = 0.00001
+diagnostics_interval = 3
+checkpoint_interval = 20
+# Higher batch_size for x-vector training than ASR training
+minibatch_size = 64
+final_combination_n_model = 1
+train_stage = 4
+# train_stage = 200
+# train_stage = last
+
+model_file = local/chain/tuning/tdnnf_spkadv.py
+dirname = e2e_tdnnf_train_adv
+model_args = ["--freeze-encoder", "True", "--adversarial-training", "False", "--spk2id", "./data/spk2id"]
+init_weight_model = "./exp/chain/e2e_tdnnf/final.pt"
+
+# sed -i -E "/^dirname|^model_args/s/[0-9]{2,}/256/" configs/tdnnf_e2e_vq
+# tail e2e_tdnnf_vq_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep -E "*e2e_tdnnf_vq_[0-9]{2,}" | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
+
+[test]
+graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+# test_set = data/test_clean
+# test_set = data/test_other
+# test_set = data/dev_other
+# test_set = data/dev_clean
+test_set = data/dev_clean
+suffix = _final
+# decode on gpus
+num_jobs = 3
+gpu = True
+
+# vim:set et sw=2 ts=2 ft=toml:

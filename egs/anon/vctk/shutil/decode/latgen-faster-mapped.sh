@@ -1,0 +1,1 @@
+../../../../asr/librispeech/shutil/decode/latgen-faster-mapped.sh
