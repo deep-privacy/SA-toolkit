@@ -8,7 +8,7 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/deep-privacy/SA-toolkit/blob/master/SA-colab.ipynb)
 [![Gradio demo](https://img.shields.io/website-up-down-yellow-red/https/hf.space/gradioiframe/Champion/SA-toolkit/+.svg?label=🤗%20Hugging%20Face-Spaces%20demo)](https://huggingface.co/spaces/Champion/SA-toolkit)
 
-SA-toolkit is a [pytorch](https://pytorch.org/)-based library providing evaluation pipelines and basic building blocs for evaluating and designing speaker anonymization techniques.
+SA-toolkit is a [pytorch](https://pytorch.org/)-based library providing pipelines and basic building blocs for evaluating and designing speaker anonymization techniques.
 
 Features include:
 
