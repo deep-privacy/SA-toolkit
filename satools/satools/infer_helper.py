@@ -1,4 +1,5 @@
 import os
+import os
 import torch
 import logging
 import importlib
@@ -8,7 +9,8 @@ import satools
 
 def load_model(file, load_weight=True, from_file=None):
     if file.startswith("http"):
-        model_state = torch.hub.load_state_dict_from_url(file)
+        model_dir = os.path.join(torch.hub.get_dir(), 'checkpoints', os.path.basename(os.path.dirname(file)))
+        data = torch.hub.load_state_dict_from_url(file, model_dir=model_dir)
     else:
         if from_file:
             if file.startswith("../../"):
