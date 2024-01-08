@@ -73,7 +73,7 @@ def build(args):
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
 
-            spk_id_inter = F.interpolate(spk_id, x.shape[-1])
+            spk_id_inter = F.interpolate(spk_id, x.shape[-1]).to(x.device)
             x = torch.cat([x, spk_id_inter], dim=1)
 
             with torch.cuda.amp.autocast(enabled=True):
