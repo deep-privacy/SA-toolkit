@@ -794,6 +794,9 @@ def refine(time_pitch1, time_merit1, time_pitch2, time_merit2, spec_pitch,
 @torch.jit.script
 def yaapt(_in:torch.Tensor, kwargs:Dict[str, float]):
 
+    device = _in.device
+    _in = _in.to("cpu")
+
     # Rename the YAAPT v4.0 parameter "frame_lengtht" to "tda_frame_length"
     # (if provided).
     if 'frame_lengtht' in kwargs:
@@ -933,6 +936,7 @@ def yaapt(_in:torch.Tensor, kwargs:Dict[str, float]):
     # Use dyanamic programming to determine the final pitch.
     #---------------------------------------------------------------
     final_pitch = dynamic(ref_pitch, ref_merit, pitch, parameters)
+    final_pitch = final_pitch.to(device)
 
     pitch.set_values(final_pitch)
 
