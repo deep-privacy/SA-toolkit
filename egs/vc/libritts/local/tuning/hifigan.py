@@ -37,6 +37,7 @@ def build(args):
             self.utt2spk = utt2spk
             self.spk = sorted(set([v for v in utt2spk.values()]))
             self.target = ""
+            self.f0 = None # hack to compute the F0 on CPU
 
 
             self.hifigan = (hifigan.archi.CoreHifiGan(
@@ -90,8 +91,15 @@ def build(args):
         def get_bn(self, wavinfo: satools.utils.WavInfo):
             return self.bn_extractor.extract_bn(wavinfo.wav.detach().clone()).permute(0, 2, 1)
 
+        def set_f0(self, f0):
+            self.f0 = f0
+
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: satools.utils.WavInfo):
+            if self.f0 != None:
+                f0 = self.f0
+                self.f0 = None
+                return f0
             return hifigan.yaapt.yaapt(wavinfo.wav.detach().clone(), self.f0_yaapt_opts)
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
