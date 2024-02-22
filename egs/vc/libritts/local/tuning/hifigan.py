@@ -67,13 +67,13 @@ def build(args):
             return self._forward(f0, bn, spk_id).squeeze(0)
 
         def _forward(self, f0, bn, spk_id):
-            f0 = self.f0_norm(f0)
-            f0 = f0.unsqueeze(1)
+            f0 = self.f0_norm(f0).permute(1, 0, 2)
             spk_id = spk_id.unsqueeze(2).to(torch.float32)
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
 
             spk_id_inter = F.interpolate(spk_id, x.shape[-1]).to(x.device)
+            spk_id_inter = spk_id_inter.expand(x.shape[0], -1, -1)
             x = torch.cat([x, spk_id_inter], dim=1)
 
             with torch.cuda.amp.autocast(enabled=True):
@@ -92,7 +92,7 @@ def build(args):
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: satools.utils.WavInfo):
-            return hifigan.yaapt.yaapt(wavinfo.wav.detach().clone(), self.f0_yaapt_opts).samp_values
+            return hifigan.yaapt.yaapt(wavinfo.wav.detach().clone(), self.f0_yaapt_opts)
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
         def get_spk_id(self, wavinfo: satools.utils.WavInfo):
