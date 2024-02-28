@@ -53,7 +53,7 @@ def check_new_commit_github():
         return False
 
     local_hub_dir = torch.hub.get_dir()
-    latest_commit_info = os.path.join(local_hub_dir, hub_repo_name+"_latest_commit")
+    latest_commit_info = os.path.join(local_hub_dir, "latest_commit_"+hub_repo_name)
     cache_commit = github_sha
     if os.path.exists(latest_commit_info):
         with open(latest_commit_info) as ipf:
