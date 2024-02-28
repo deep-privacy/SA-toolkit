@@ -384,19 +384,21 @@ def push_github_model(tag_name, up_assets, up_as_name={}, force=True):
     release = get_release(tag_name)
     upload_url = release['upload_url'].split('{')[0]
     gh_assets = {x['name']: x for x in release['assets']}
-    #  print(gh_assets)
-    #  delete_asset(104119915)
 
     for asset in up_assets:
         filename = os.path.split(asset)[-1]
+        if asset in up_as_name:
+            filename = up_as_name[asset]
         if filename in gh_assets:
-            if force or asset in up_as_name:
+            if force: #  or asset in up_as_name
                 delete_asset(gh_assets[filename]['id'])
             else:
-                sys.stderr.write('WARNING: Asset already exists: {}\n'.format(asset))
+                sys.stderr.write("Github WARNING: Asset already exists: {}\n".format(asset))
                 continue
 
         if asset in up_as_name:
+            sys.stderr.write("Github UPLOADING: {}\n".format(up_as_name[asset]))
             upload_asset(upload_url, asset, _as=up_as_name[asset])
         else:
+            sys.stderr.write("Github UPLOADING: {}\n".format(asset))
             upload_asset(upload_url, asset)

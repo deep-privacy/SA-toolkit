@@ -147,6 +147,14 @@ class HifiGanModel():
                     "base_model_args": utils.fix_json(self.opts.base_model_args),
                     }, file)
 
+        torch.save({
+                    "task_path": os.getcwd().replace(install_path, ""),
+                    "install_path": install_path,
+                    "base_model_path": sys.argv[0],
+                    "base_model_params": {"utt2spk": self.utt2spk},
+                    "base_model_args": utils.fix_json(self.opts.base_model_args),
+                    }, os.path.join(self.opts.dirname, "conf.pt"))
+
     def jit_save(self):
         logging.info("Creating a JIT model for easy sharing")
         file = self.opts.new_model
