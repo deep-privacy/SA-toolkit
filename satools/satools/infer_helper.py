@@ -13,16 +13,18 @@ def load_model(file, load_weight=True, version="v1", from_file=None):
         model_dir = os.path.join(torch.hub.get_dir(), 'checkpoints', os.path.basename(os.path.dirname(file)))
         model_state = torch.hub.load_state_dict_from_url(file, model_dir=model_dir)
     else:
+        if not load_weight:
+                file = os.path.join(os.path.dirname(file), "conf.pt")
         if from_file:
             if file.startswith("../../"):
                 file = os.path.dirname(__file__) + "/../../egs/PLACE/PLACE/" + file
                 file = os.path.normpath(file)
         if not os.path.exists(file):
-            logging.warning(f"File {file} does not exsist, attempting to downloading it from github releases..")
             url = f"https://github.com/deep-privacy/SA-toolkit/releases/download/{os.path.basename(os.path.dirname(file))}_{version}/final.pt"
-            if not load_model:
+            if not load_weight:
                 url = f"https://github.com/deep-privacy/SA-toolkit/releases/download/{os.path.basename(os.path.dirname(file))}_{version}/conf.pt"
             os.makedirs(os.path.dirname(file), exist_ok=True)
+            logging.warning(f"File {file} does not exsist, attempting to downloading it from github releases..")
             torch.hub.download_url_to_file(url, file, hash_prefix="")
         model_state = torch.load(file)
 
