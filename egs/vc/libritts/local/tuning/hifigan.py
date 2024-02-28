@@ -59,7 +59,7 @@ def build(args):
             f0 = self.get_f0(x).unsqueeze(0)
             bn = self.get_bn(x)
             self.target = target
-            spk_id = self.get_spk_id(x).unsqueeze(0)
+            spk_id = self.get_spk_id(x)
             return (f0, bn, spk_id)
 
         @torch.jit.export
@@ -74,7 +74,7 @@ def build(args):
             x = torch.cat([bn, f0_inter], dim=1)
 
             spk_id_inter = F.interpolate(spk_id, x.shape[-1]).to(x.device)
-            spk_id_inter = spk_id_inter.expand(x.shape[0], -1, -1)
+            assert x.shape[0] == spk_id_inter.shape[0], "len(target) != len(input_wav), check if the waveform batch size == target=len(['6081','4214'])"
             x = torch.cat([x, spk_id_inter], dim=1)
 
             with torch.cuda.amp.autocast(enabled=True):
@@ -104,14 +104,20 @@ def build(args):
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
         def get_spk_id(self, wavinfo: satools.utils.WavInfo):
+            if isinstance(self.target, list):
+                indexs = []
+                for t in self.target:
+                    indexs.append(self.spk.index(t))
+                return F.one_hot(torch.tensor(indexs), num_classes=len(self.spk))
+
             if self.target == "":
-                if not self.training: # testing
+                if not self.training: # testing model in dev
                     target = "6081"
                 else:
                     target = self.utt2spk[wavinfo.name]
             else:
                 target = self.target
-            index_spk = self.spk.index(target)
+            index_spk = [self.spk.index(target)]
             return F.one_hot(torch.tensor(index_spk), num_classes=len(self.spk))
 
 
