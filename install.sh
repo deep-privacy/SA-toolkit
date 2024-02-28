@@ -16,8 +16,9 @@ conda_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 conda_url=https://repo.anaconda.com/miniconda/Miniconda3-py39_22.11.1-1-Linux-x86_64.sh
 
 CUDAROOT=/usr/local/cuda
-torch_version=2.0.0
+torch_version=2.0.1
 nightly='nightly/'
+nightly=''
 
 # Cluster dependent installs #
 
@@ -101,15 +102,16 @@ if [ "$(id -g --name)" == "lium" ]; then # LIUM Cluster
   # Cuda setup
   mark=.done-cuda
   if [ ! -f $mark ]; then
-    yes | conda install -c "nvidia/label/cuda-11.7.0" cuda-toolkit
+    yes | conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
     #yes | conda install -c conda-forge cudnn=8.4.1.50 --no-deps
     touch $mark
   fi
 
   # conf
   CUDAROOT=$venv_dir
-  torch_version=2.0.0
+  torch_version=2.0.1
   nightly='nightly/'
+  nightly=''
 
 ## Grid5000 ##
 elif [ "$(id -n -g)" == "g5k-users" ]; then
@@ -120,16 +122,18 @@ elif [ "$(id -n -g)" == "g5k-users" ]; then
 
   # conf
   CUDAROOT=$(which nvcc | head -n1 | xargs | sed 's/\/bin\/nvcc//g')
-  torch_version=2.0.0
+  torch_version=2.0.1
   nightly='nightly/'
+  nightly=''
 
 ## colab ##
 elif test -f .in_colab_kaggle; then
 
   # CUDA version
   CUDAROOT=/usr/local/cuda
-  torch_version=2.0.0
+  torch_version=2.0.1
   nightly='nightly/'
+  nightly=''
 
 
 ## Add your config! ##
@@ -142,15 +146,16 @@ else
   # Cuda setup
   mark=.done-cuda
   if [ ! -f $mark ]; then
-    yes | conda install -c "nvidia/label/cuda-11.7.0" cuda-toolkit
+    yes | conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
     #yes | conda install -c conda-forge cudnn=8.4.1.50 --no-deps
     touch $mark
   fi
 
   # conf
   CUDAROOT=$venv_dir
-  torch_version=2.0.0
+  torch_version=2.0.1
   nightly='nightly/'
+  nightly=''
 
 fi
 
@@ -240,7 +245,7 @@ if [ ! -f $mark ]; then
   rm -rf kaldi || true
   git clone https://github.com/kaldi-asr/kaldi.git || true
   cd kaldi
-  git checkout e4eb4f6
+  # git checkout e4eb4f6
   echo " === Applying personal patch on kaldi ==="
   git apply ../.kaldi.patch
   cd tools
