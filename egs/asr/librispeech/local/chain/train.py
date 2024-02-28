@@ -500,23 +500,30 @@ def train():
         if args.upload != "no":
             logging.info(f"Upload model to a github release")
 
+            parsed_cfg_file = cfg_exp.dir / f"parsed_cfg.configs.{os.path.basename(args.config).replace('.', '')}"
+            if "var" in cfg_parse:
+                del cfg_parse["var"]
+            satools.script_utils.write_single_param_file(cfg_parse, parsed_cfg_file)
+
             score = []
             up_as = []
             for test_set in str(cfg_decode.test_set).split(","):
                 score.append(cfg_exp.dir / f"decode_{os.path.basename(test_set)}{decode_suff}_fg/best_wer")
                 up_as.append(f"decode_{os.path.basename(test_set)}{decode_suff}_fg_best_wer.txt")
             up_as = {k:v for k, v in zip(score, up_as)}
-            up_as[args.config] = "cfg."+args.config
+            up_as[args.config] = "default_cfg."+args.config
 
             satools.script_utils.push_github_model(
                 tag_name=args.upload,
                 up_assets=[
                     *score,
+                    cfg_exp.dir / f"conf.pt",
                     cfg_exp.dir / f"{decode_iter}.pt", cfg_exp.dir / f"{decode_iter}.jit",
                     cfg_decode.lang_lp_tgsmall+"/G.fst", cfg_decode.lang_lp_fg_large+"/G.carpa",
                     cfg_decode.graph_dir / "words.txt",
                     cfg_exp.dir / "0.trans_mdl",
                     f"{cfg_decode.graph_dir}/HCLG.fst",
+                    parsed_cfg_file,
                     args.config,
                 ], up_as_name=up_as, force=False
             )

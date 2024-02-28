@@ -451,6 +451,14 @@ class ChainModel(nn.Module):
                     "base_model_args": satools.utils.fix_json(self.chain_opts.base_model_args),
                     }, file)
 
+        torch.save({
+                    "task_path": os.getcwd().replace(install_path, ""),
+                    "install_path": install_path,
+                    "base_model_path": sys.argv[0],
+                    "base_model_params": {"output_dim": self.chain_opts.output_dim},
+                    "base_model_args": satools.utils.fix_json(self.chain_opts.base_model_args),
+                    }, os.path.join(self.chain_opts.dir, "conf.pt"))
+
 
 class ChainE2EModel(ChainModel):
     """Extension of ChainModel to handle Chain E2E training"""
