@@ -1,7 +1,9 @@
 import os
 import sys
 import torch
-# Optional list of dependencies required by the package
+import http.client
+import json
+# List of dependencies required by the package
 dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy', 'configargparse']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
@@ -18,7 +20,12 @@ def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_
     """
 
     os.environ["SA_JIT_TWEAK"] = "true"
-    
+
+    if check_new_commit_github():
+        print("!!!!!!")
+        print(f"A new commit is available for 'deep-privacy/SA-toolkit'\nPlease use 'torch.hub.load' with force_reload=True to get the latest version!")
+        print("!!!!!!")
+
     local_hub_dir = torch.hub.get_dir()
     dir_list = os.listdir(local_hub_dir)
     matching_dirs = [d for d in dir_list if d.startswith(hub_repo_name)]
@@ -34,3 +41,25 @@ def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_
 
     weight_url = f"https://github.com/deep-privacy/SA-toolkit/releases/download/{tag_version}/final.pt"
     return load_model(weight_url)
+
+def check_new_commit_github():
+    conn = http.client.HTTPSConnection("api.github.com")
+    try:
+        conn.request("GET", "/repos/deep-privacy/SA-toolkit/branches/master", headers={"User-Agent": "python/torch_hub_info"})
+        resp = conn.getresponse()
+        body = resp.read()
+        github_sha = json.loads(body)["commit"]["sha"]
+    except:
+        return False
+
+    local_hub_dir = torch.hub.get_dir()
+    latest_commit_info = os.path.join(local_hub_dir, hub_repo_name+"_latest_commit")
+    cache_commit = github_sha
+    if os.path.exists(latest_commit_info):
+        with open(latest_commit_info) as ipf:
+            cache_commit = ipf.readline().strip()
+
+    with open(latest_commit_info, "w") as opf:
+        opf.write("{}".format(github_sha))
+
+    return cache_commit != github_sha
