@@ -8,7 +8,7 @@ dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy', 'configargparse']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
 
-def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', device='cpu'):
+def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', device='cpu', exit_if_new_version=True):
     """Loads an anonymization model
 
     Arguments:
@@ -21,10 +21,9 @@ def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_
 
     os.environ["SA_JIT_TWEAK"] = "true"
 
-    if check_new_commit_github():
-        print("!!!!!!")
-        print(f"A new commit is available for 'deep-privacy/SA-toolkit'\nPlease use 'torch.hub.load' with force_reload=True to get the latest version!")
-        print("!!!!!!")
+    if check_new_commit_github(save_sha=not exit_if_new_version) and exit_if_new_version:
+        print(f"'torch.hub.load' called with 'exit_if_new_version' enabled, existing..", file=sys.stderr)
+        sys.exit(1)
 
     local_hub_dir = torch.hub.get_dir()
     dir_list = os.listdir(local_hub_dir)
@@ -42,7 +41,7 @@ def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_
     weight_url = f"https://github.com/deep-privacy/SA-toolkit/releases/download/{tag_version}/final.pt"
     return load_model(weight_url)
 
-def check_new_commit_github():
+def check_new_commit_github(save_sha):
     conn = http.client.HTTPSConnection("api.github.com")
     try:
         conn.request("GET", "/repos/deep-privacy/SA-toolkit/branches/master", headers={"User-Agent": "python/torch_hub_info"})
@@ -59,7 +58,13 @@ def check_new_commit_github():
         with open(latest_commit_info) as ipf:
             cache_commit = ipf.readline().strip()
 
-    with open(latest_commit_info, "w") as opf:
-        opf.write("{}".format(github_sha))
+    if (save_sha or not os.path.exists(latest_commit_info)) and cache_commit == github_sha:
+        with open(latest_commit_info, "w") as opf:
+            opf.write("{}".format(github_sha))
 
+    if cache_commit != github_sha:
+        print("!!!!!!", file=sys.stderr)
+        print(f"A new commit is available for 'deep-privacy/SA-toolkit'\nPlease use 'torch.hub.load' with 'force_reload=True' to get the latest version!", file=sys.stderr)
+        print("!!!!!!", file=sys.stderr)
     return cache_commit != github_sha
+
