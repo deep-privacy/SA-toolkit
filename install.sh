@@ -224,7 +224,7 @@ if [ ! -f $mark ]; then
   echo 'tqdm' >> requirements.txt
 
   # sidekit additional req
-  echo 'git+https://github.com/feerci/feerci@dev' >> requirements.txt
+  echo 'git+https://github.com/deep-privacy/feerci@dev' >> requirements.txt
   echo 'pandas>=1.0.5' >> requirements.txt
 
   # demo req
