@@ -45,7 +45,7 @@ parser.add_argument(
     "--convert", dest="convert", action="store_true", help="Convert voxceleb 2 from m4a to wav"
 )
 parser.add_argument(
-    "--with-vox2", dest="vox2", action="store_true", help="Convert voxceleb 2 from m4a to wav", default=False,
+    "--with-vox2", dest="vox2", action="store_true", help="add voxceleb 2 in the computation", default=False,
 )
 parser.add_argument(
     "--make-train-data",
@@ -262,6 +262,10 @@ def make_test(args):
             name = "veri_test2.txt"
         if task == "voxceleb1-E-clean":
             name = "list_test_all2.txt"
+        if task == "voxceleb1-E":
+            name = "list_test_all.txt"
+        if task == "voxceleb1-H":
+            name = "list_test_hard.txt"
         if task == "voxceleb1-H-clean":
             name = "list_test_hard2.txt"
 
@@ -272,6 +276,7 @@ def make_test(args):
         #  Download trials files  #
         ###########################
 
+        print(f"http://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/{name}", args.save_path)
         if not os.path.exists("%s/%s" % (args.save_path, name)):
             out = subprocess.call(
                 "wget --no-check-certificate %s -O %s/%s"
@@ -428,7 +433,10 @@ if __name__ == "__main__":
 
         data_dir = "%s/voxceleb1" % (args.save_path)
         if args.vox2:
-            data_dir = "%s/voxceleb12" % (args.save_path)
+            if "voxceleb2" in args.filter_dataset and "voxceleb1" not in args.filter_dataset:
+                data_dir = "%s/voxceleb2" % (args.save_path)
+            else:
+                data_dir = "%s/voxceleb12" % (args.save_path)
             os.makedirs(data_dir, exist_ok=True)
 
         make_train_data(
@@ -514,11 +522,18 @@ https://thor.robots.ox.ac.uk/~vgg/data/voxceleb/vox1a/vox1_test_wav.zip 185fdc63
         convert(args, files)
 
     if args.make_test:
-        args.save_path += "/voxceleb1_test"
-        os.makedirs(args.save_path, exist_ok=True)
+        sp = args.save_path
         if args.filter_dataset == "voxceleb1/,voxceleb2/":
+            args.save_path = sp + "/voxceleb1_test"
+            os.makedirs(args.save_path, exist_ok=True)
             args.filter_dataset = "voxceleb1_test/"
+            make_test(args)
         if args.vox2:
-            args.save_path += "/voxceleb2_test"
+            args.save_path = sp + "/voxceleb2_test"
+            os.makedirs(args.save_path, exist_ok=True)
             args.filter_dataset = "voxceleb1/,voxceleb1_test/"
-        make_test(args)
+            make_test(args)
+            args.save_path = sp + "/voxceleb12_test"
+            os.makedirs(args.save_path, exist_ok=True)
+            args.filter_dataset = "voxceleb1/,voxceleb1_test/"
+            make_test(args)

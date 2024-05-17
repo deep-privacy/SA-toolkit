@@ -67,4 +67,3 @@ def check_new_commit_github(save_sha):
         print(f"A new commit is available for 'deep-privacy/SA-toolkit'\nPlease use 'torch.hub.load' with 'force_reload=True' to get the latest version!", file=sys.stderr)
         print("!!!!!!", file=sys.stderr)
     return cache_commit != github_sha
-

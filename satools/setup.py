@@ -15,7 +15,9 @@ PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT")
 KALDI_ROOT = os.getenv("KALDI_ROOT")
 if not KALDI_ROOT and PKWRAP_CPP_EXT != "no":
     sys.stderr.write("ERROR: KALDI_ROOT variable is not defined or empty")
-    quit(1)
+    sys.stderr.write("Installing without KALDI bindings (ASR training)")
+    PKWRAP_CPP_EXT = "no"
+    # quit(1)
 
 if PKWRAP_CPP_EXT == "no":
     KALDI_LIB_DIR = "/tmp/fake"

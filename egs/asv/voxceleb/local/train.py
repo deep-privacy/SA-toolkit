@@ -230,13 +230,20 @@ def train():
         ])
         if args.upload != "no":
             logging.info(f"Upload model to a github release")
+
+            parsed_cfg_file = cfg_exp.dir / f"parsed_cfg.configs.{os.path.basename(args.config).replace('.', '')}"
+            if "var" in cfg_parse:
+                del cfg_parse["var"]
+            satools.script_utils.write_single_param_file(cfg_parse, parsed_cfg_file)
+
             up_as = {}
-            up_as[args.config] = "cfg."+args.config
+            up_as[args.config] = "default_cfg."+args.config
             satools.script_utils.push_github_model(
                 tag_name=args.upload,
                 up_assets=[
                     cfg_exp.dir / f"final.pt",
                     cfg_exp.dir / f"final.jit",
+                    parsed_cfg_file,
                     args.config,
                 ], up_as_name=up_as, force=False
             )

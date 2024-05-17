@@ -2,16 +2,20 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
+# Can be modified through venv: e.g.: vq=128 local/chain/train.py ...
+[var]
+dset = voxceleb1
+
 [exp]
-train_set = data/voxceleb1
+train_set = data/${:dset}
 # == 0: train on full (dev -> 0.02 part of train)
 dev_ratio = 0.00
 
-test_set = data/voxceleb1_test/voxceleb1-O
+test_set = data/${:dset}_test/voxceleb1-O
 compute_test_set_eer = true
 
 
-n_gpu = 2
+n_gpu = 1
 num_worker_dataloader = 20
 logging_interval = 200
 checkpoint_interval = 1
@@ -44,8 +48,7 @@ train_epoch = last
 # train_epoch = best
 
 model_file = ./local/tuning/ecapa_tdnn.py
-dirname = asv_eval_vox1_ecapa_tdnn
-# dirname = asv_eval_half_resnet_vox1_dev
+dirname = asv_eval_${:dset}_ecapa_tdnn
 model_args = []
 
 # init_weight_model = "exp/.../best.pt"
