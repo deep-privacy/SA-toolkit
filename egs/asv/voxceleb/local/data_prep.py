@@ -45,7 +45,7 @@ parser.add_argument(
     "--convert", dest="convert", action="store_true", help="Convert voxceleb 2 from m4a to wav"
 )
 parser.add_argument(
-    "--with-vox2", dest="vox2", action="store_true", help="Convert voxceleb 2 from m4a to wav", default=False,
+    "--with-vox2", dest="vox2", action="store_true", help="add voxceleb 2 in the computation", default=False,
 )
 parser.add_argument(
     "--make-train-data",
@@ -75,15 +75,6 @@ parser.add_argument(
     default="voxceleb1/,voxceleb2/",
     help="List of dirs of process. Default: 'voxceleb1/,voxceleb2/' (delimited with ',')",
 )
-
-parser.add_argument(
-    "--tasks",
-    type=str,
-    default="voxceleb1-O voxceleb1-O-clean voxceleb1-E voxceleb1-E-clean voxceleb1-H voxceleb1-H-clean",
-    help="The Dataset splits for identification",
-)
-
-
 
 ## ========== ===========
 ## MD5SUM
@@ -250,11 +241,9 @@ def calculate_duration(file_path):
     return duration
 
 
-def make_test(args):
-    if not args.vox2:
-        args.tasks = "voxceleb1-O voxceleb1-O-clean"
+def make_test(args, task="voxceleb1-O voxceleb1-O-clean voxceleb1-E voxceleb1-E-clean voxceleb1-H voxceleb1-H-clean"):
 
-    for task in args.tasks.split():
+    for task in tasks.split():
         name = ""
         if task == "voxceleb1-O":
             name = "veri_test.txt"
@@ -262,6 +251,10 @@ def make_test(args):
             name = "veri_test2.txt"
         if task == "voxceleb1-E-clean":
             name = "list_test_all2.txt"
+        if task == "voxceleb1-E":
+            name = "list_test_all.txt"
+        if task == "voxceleb1-H":
+            name = "list_test_hard.txt"
         if task == "voxceleb1-H-clean":
             name = "list_test_hard2.txt"
 
@@ -272,6 +265,7 @@ def make_test(args):
         #  Download trials files  #
         ###########################
 
+        print(f"http://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/{name}", args.save_path)
         if not os.path.exists("%s/%s" % (args.save_path, name)):
             out = subprocess.call(
                 "wget --no-check-certificate %s -O %s/%s"
@@ -336,7 +330,7 @@ def make_test(args):
     #  Create wav.scp files from indexed wavs and kaldi trials files  #
     ###################################################################
 
-    for task in args.tasks.split():
+    for task in tasks.split():
         os.makedirs(args.save_path + "/" + task, exist_ok=True)
         _trial = args.save_path + "/" + task + ".trials"
         task_trial = args.save_path + "/" + task + "/trials"
@@ -428,7 +422,10 @@ if __name__ == "__main__":
 
         data_dir = "%s/voxceleb1" % (args.save_path)
         if args.vox2:
-            data_dir = "%s/voxceleb12" % (args.save_path)
+            if "voxceleb2" in args.filter_dataset and "voxceleb1" not in args.filter_dataset:
+                data_dir = "%s/voxceleb2" % (args.save_path)
+            else:
+                data_dir = "%s/voxceleb12" % (args.save_path)
             os.makedirs(data_dir, exist_ok=True)
 
         make_train_data(
@@ -514,11 +511,21 @@ https://thor.robots.ox.ac.uk/~vgg/data/voxceleb/vox1a/vox1_test_wav.zip 185fdc63
         convert(args, files)
 
     if args.make_test:
-        args.save_path += "/voxceleb1_test"
-        os.makedirs(args.save_path, exist_ok=True)
+        sp = args.save_path
         if args.filter_dataset == "voxceleb1/,voxceleb2/":
+            args.save_path = sp + "/voxceleb1_test"
+            os.makedirs(args.save_path, exist_ok=True)
             args.filter_dataset = "voxceleb1_test/"
+            tasks = "voxceleb1-O voxceleb1-O-clean"
+            make_test(args, tasks)
         if args.vox2:
-            args.save_path += "/voxceleb2_test"
+            args.save_path = sp + "/voxceleb2_test"
+            os.makedirs(args.save_path, exist_ok=True)
             args.filter_dataset = "voxceleb1/,voxceleb1_test/"
-        make_test(args)
+            tasks = "voxceleb1-O voxceleb1-O-clean voxceleb1-E voxceleb1-E-clean voxceleb1-H voxceleb1-H-clean"
+            make_test(args, tasks)
+            args.save_path = sp + "/voxceleb12_test"
+            os.makedirs(args.save_path, exist_ok=True)
+            args.filter_dataset = "voxceleb1/,voxceleb1_test/"
+            tasks = "voxceleb1-O voxceleb1-O-clean"
+            make_test(args, tasks)

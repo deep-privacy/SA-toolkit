@@ -4,7 +4,7 @@ cuda_cmd = ./utils/run.pl
 
 [exp]
 train_set = data/voxceleb1
-# == 0: train on full (dev -> 0.02 part of train)
+# == 0: train on full (dev -> 0.005 part of train)
 dev_ratio = 0.00
 
 test_set = data/voxceleb1_test/voxceleb1-O

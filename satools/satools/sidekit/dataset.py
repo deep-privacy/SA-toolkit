@@ -80,7 +80,7 @@ class SideSampler(torch.utils.data.Sampler):
             ldlist = numpy.array(ldlist)
             self.labels_to_indices[idx] = ldlist[torch.randperm(ldlist.shape[0], generator=g).numpy()]
 
-        self.segment_cursors = numpy.zeros((len(self.labels_to_indices),), dtype=numpy.int)
+        self.segment_cursors = numpy.zeros((len(self.labels_to_indices),), dtype=numpy.int32)
 
     def __iter__(self):
         """
@@ -93,7 +93,7 @@ class SideSampler(torch.utils.data.Sampler):
 
         # Generate batches per speaker
         straight = numpy.arange(self.spk_count)
-        indices = numpy.ones((self.samples_per_speaker, self.spk_count), dtype=numpy.int) * straight
+        indices = numpy.ones((self.samples_per_speaker, self.spk_count), dtype=numpy.int32) * straight
         batch_cursor = 0
         # each line of "indices" represents all speaker indexes (shuffled in a different way)
         for idx in range(self.samples_per_speaker):
@@ -108,7 +108,7 @@ class SideSampler(torch.utils.data.Sampler):
                 indices[idx, :self.batch_size - batch_cursor] = numpy.random.choice(self.spk_count, self.batch_size - batch_cursor, replace=False, p=probs)
                 probs = numpy.ones_like(straight)
                 probs[indices[idx, :self.batch_size - batch_cursor]] = 0
-                to_pick = numpy.sum(probs).astype(numpy.int)
+                to_pick = numpy.sum(probs).astype(numpy.int32)
                 probs = probs/numpy.sum(probs)
                 indices[idx, self.batch_size - batch_cursor:] = numpy.random.choice(self.spk_count, to_pick, replace=False, p=probs)
 

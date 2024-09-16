@@ -6,17 +6,13 @@ description = """
 """
 
 import argparse
-import concurrent
 import configparser
-import datetime
 import glob
 import logging
 import os
-import sys
 import shutil
 import subprocess
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import torch
 
@@ -135,11 +131,6 @@ def train():
             "--out-csv", cfg_exp.dir / "train.csv"
         ])
 
-        os.makedirs(cfg_exp.dir / os.path.basename(cfg_exp.test_set), exist_ok=True)
-        satools.script_utils.run([
-            "cp", f"{cfg_exp.test_set}/trials", f"{cfg_exp.test_set}/trials.wav.scp", f"{cfg_exp.test_set}/enroll.wav.scp", f"{cfg_exp.test_set}/enroll.utt2spk", cfg_exp.dir / os.path.basename(cfg_exp.test_set),
-        ])
-
     carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
     carbonTracker.epoch_start()
 
@@ -168,6 +159,12 @@ def train():
             logging.error(f"Training requires a gpus, if you are on a gid you can use queue.pl, slurm.pl or ssh.pl cmd job unified interfaces")
             logging.error(f"Or connect yourself to a node before running this file (run.pl)")
             quit(1)
+
+
+        os.makedirs(cfg_exp.dir / os.path.basename(cfg_exp.test_set), exist_ok=True)
+        satools.script_utils.run([
+            "cp", f"{cfg_exp.test_set}/trials", f"{cfg_exp.test_set}/trials.wav.scp", f"{cfg_exp.test_set}/enroll.wav.scp", f"{cfg_exp.test_set}/enroll.utt2spk", cfg_exp.dir / os.path.basename(cfg_exp.test_set),
+        ])
 
         logging.info(f"Starting training from iter={cfg_exp.train_epoch}")
 
@@ -230,13 +227,20 @@ def train():
         ])
         if args.upload != "no":
             logging.info(f"Upload model to a github release")
+
+            parsed_cfg_file = cfg_exp.dir / f"parsed_cfg.configs.{os.path.basename(args.config).replace('.', '')}"
+            if "var" in cfg_parse:
+                del cfg_parse["var"]
+            satools.script_utils.write_single_param_file(cfg_parse, parsed_cfg_file)
+
             up_as = {}
-            up_as[args.config] = "cfg."+args.config
+            up_as[args.config] = "default_cfg."+args.config
             satools.script_utils.push_github_model(
                 tag_name=args.upload,
                 up_assets=[
                     cfg_exp.dir / f"final.pt",
                     cfg_exp.dir / f"final.jit",
+                    parsed_cfg_file,
                     args.config,
                 ], up_as_name=up_as, force=False
             )
