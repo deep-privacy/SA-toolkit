@@ -296,6 +296,7 @@ def calculate_duration(file_path):
         duration = audio_info.num_frames / audio_info.sample_rate
     except Exception:
         print("failed to load info of:", file_path)
+        sys.exit(1)
         duration = 0
 
     return duration

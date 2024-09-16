@@ -45,7 +45,8 @@ class OneCycleLR(torch.optim.lr_scheduler.OneCycleLR):
         step_num = self.last_epoch
 
         if step_num >= self.total_steps:
-            return self._last_lr
+            if hasattr(self, "_last_lr"):
+                return self._last_lr
             #  print("Usually raise here", flush=True)
 
         lrs = super().get_lr()

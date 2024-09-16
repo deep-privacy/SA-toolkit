@@ -150,7 +150,8 @@ if [ ! -f $mark ]; then
 
 
   if [ ! $INSTALL_KALDI = true ]; then
-    echo " == No futher installation of kaldi =="
+    echo " == No futher installation of kaldi ==" # still need utils/local dirs from kaldi
+    cd $home
     touch .done-kaldi-tools
     touch .done-kaldi-src
   else
@@ -167,9 +168,10 @@ if [ ! -f $mark ]; then
     sed -i -e "s|env.sh|$home/env.sh|g" install_srilm.sh
     # Running installation with fake arguments to bypass argument checking
     ./install_srilm.sh x x x
+
+    cd $home
+    touch $mark
   fi
-  cd $home
-  touch $mark
 fi
 
 mark=.done-kaldi-src
@@ -191,7 +193,7 @@ if [ ! -f $mark ]; then
   echo " == Building satools src =="
   cd satools
   if [ ! $INSTALL_KALDI = true ]; then
-    echo " == Not installing the kaldi binding for lf-mmi ASR training =="
+    echo " == Not installing the kaldi binding for LF-MMI ASR training =="
     export PKWRAP_CPP_EXT=no
   fi
   make cleanly

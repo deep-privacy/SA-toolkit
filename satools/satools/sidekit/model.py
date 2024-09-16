@@ -56,7 +56,7 @@ class ModelOpts(DataloadingOpts, DecodeOpts):
 
     dirname: str = ""
     train_set: str = "./data/part"
-    dev_ratio: float = 0.02
+    dev_ratio: float = 0.005
 
     test_set: str = "./data/part"
     compute_test_set_eer: str = "false"
@@ -329,7 +329,7 @@ class SidekitModel():
 
         df = pandas.read_csv(os.path.join(self.opts.dirname, "train.csv"))
         numpy.random.seed(42)
-        training_df, validation_df = train_test_split(df, test_size=self.opts.dev_ratio if self.opts.dev_ratio != 0 else 0.02)
+        training_df, validation_df = train_test_split(df, test_size=self.opts.dev_ratio if self.opts.dev_ratio != 0 else 0.005)
 
          # In case validation_ratio equals to zero, we sample validation from the train set
         if self.opts.dev_ratio == 0:
@@ -489,5 +489,6 @@ class SidekitModel():
 
         monitor.display_final()
         logging.info("Finished training")
-        destroy_process_group()
+        if self.opts.num_gpus > 1:
+            destroy_process_group()
 

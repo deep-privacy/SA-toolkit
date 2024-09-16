@@ -8,10 +8,10 @@ dset = voxceleb1
 
 [exp]
 train_set = data/${:dset}
-# == 0: train on full (dev -> 0.02 part of train)
+# == 0: train on full (dev -> 0.005 part of train)
 dev_ratio = 0.00
 
-test_set = data/${:dset}_test/voxceleb1-O
+test_set = data/${:dset}_test/voxceleb1-O-clean
 compute_test_set_eer = true
 
 
@@ -46,10 +46,9 @@ optim = {
 
 model_file = ./local/tuning/ecapa_tdnn.py
 dirname = asv_eval_${:dset}_ecapa_tdnn_ft
-# dirname = asv_eval_half_resnet_vox1_dev
 model_args = ["--fine-tune", "true"]
 
-init_weight_model = "exp/asv_eval_vox1_ecapa_tdnn/best.pt"
+init_weight_model = "exp/asv_eval_${:dset}_ecapa_tdnn/best.pt"
 
 # see ../../../share/dataprep_aug.py
 augmentation = {
