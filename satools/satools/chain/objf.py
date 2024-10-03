@@ -32,7 +32,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
+    @torch.amp.custom_fwd(cast_inputs=torch.float32, device_type='cuda')
     def forward(ctx, opts, den_graph, supervision, nnet_output_tensor, xent_out_tensor):
         """This function computes the loss for a single minibatch.
 
@@ -123,7 +123,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         return objf
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.custom_bwd(device_type='cuda')
     def backward(ctx, dummy):
         """returns the derivatives"""
         if len(ctx.saved_tensors) == 3:
@@ -154,7 +154,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
     """
 
     @staticmethod
-    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
+    @torch.amp.custom_fwd(cast_inputs=torch.float32, device_type='cuda')
     def forward(ctx, x, weight, bias, in_state, out_state):
         """Forward pass for NG-SGD layer
 
@@ -177,7 +177,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
 
     @staticmethod
     @torch.no_grad()
-    @torch.cuda.amp.custom_bwd
+    @torch.amp.custom_bwd(device_type='cuda')
     def backward(ctx, grad_output):
         """Backward pass for NG-SGD layer
 
@@ -274,7 +274,7 @@ def train_lfmmi_one_iter(
     if optimizer is None:
         optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0.0, requires_grad=False)
-    #  scaler = torch.cuda.amp.GradScaler()
+    #  scaler = torch.GradScaler("cuda")
 
     _model = model
 

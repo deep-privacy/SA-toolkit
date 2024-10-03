@@ -129,7 +129,7 @@ class iSTFTNet(torch.nn.Module):
 
         return torch.abs(forward_transform), torch.angle(forward_transform)
 
-    @torch.cuda.amp.autocast(enabled=False)
+    @torch.autocast(device_type="cuda", enabled=False)
     def inverse(self, magnitude, phase):
         inverse_transform = torch.istft(
             magnitude * torch.exp(phase * 1j),

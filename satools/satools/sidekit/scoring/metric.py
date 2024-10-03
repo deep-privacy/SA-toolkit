@@ -1,6 +1,6 @@
 # FROM https://gitlab.inria.fr/magnet/anonymization_metrics.git, see LICENSE.txt
 import numpy as np
-from numpy import infty, isinf, zeros, exp, log, hstack, vstack, finfo, array, inf, argwhere, isscalar
+from numpy import isinf, zeros, exp, log, hstack, vstack, finfo, array, inf, argwhere, isscalar
 from numpy import linspace, minimum, maximum, repeat, flipud, abs
 import pandas as pd
 import copy
