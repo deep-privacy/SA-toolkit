@@ -1,5 +1,5 @@
 from . import kaldi
-from .wav_scp_dataset import WavScpDataset, WavInfo
+from .wav_scp_dataset import WavScpDataset, WavInfo, parse_wavinfo_wav
 from .fs import (
     split_data,
     num_lines,

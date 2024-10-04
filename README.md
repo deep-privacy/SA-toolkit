@@ -47,6 +47,7 @@ import torch
 
 model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_wav2vec2_vq_48_v1", trust_repo=True)
 wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
+asr_bn = model.get_bn(torch.rand((1, 77040))) # (ASR-BN extraction for disentangled linguistic features (best with hifigan_bn_tdnnf_wav2vec2_vq_48_v1))
 ```
 
 ## Quick JIT anonymization example

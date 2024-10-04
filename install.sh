@@ -58,6 +58,7 @@ echo "eval \"\$($mamba_bin shell hook --shell=bash)\"" >> env.sh
 echo "micromamba activate $venv_dir" >> env.sh
 echo "export LD_LIBRARY_PATH=$venv_dir/lib/:$LD_LIBRARY_PATH" >> env.sh
 echo "alias conda=micromamba" >> env.sh
+echo "export PIP_CACHE_DIR=$MAMBA_ROOT_PREFIX/pip_cache" >> env.sh
 echo "export PIP_REQUIRE_VIRTUALENV=false" >> env.sh
 source ./env.sh
 
@@ -193,7 +194,7 @@ if [ ! -f $mark ]; then
   echo " == Building satools src =="
   cd satools
   if [ ! $INSTALL_KALDI = true ]; then
-    echo " == Not installing the kaldi binding for LF-MMI ASR training =="
+    echo " == Not installing the kaldi binding for LF-MMI ASR (ASR-BN) training =="
     export PKWRAP_CPP_EXT=no
   fi
   make cleanly

@@ -2,6 +2,7 @@ import torch
 import torchaudio
 from . import kaldi
 
+from typing import Union
 
 class WavInfo(object):
     def __init__(self, wav:torch.Tensor, name:str, filename:str):
@@ -44,4 +45,11 @@ class WavScpDataset(torch.utils.data.Dataset):
         filename = self.wavs_path[idx]
         waveform, sr = self.load(filename)
         return WavInfo(waveform, self.wavs_idx[idx], filename)
+
+def parse_wavinfo_wav(wavinfo: Union[WavInfo, torch.Tensor]):
+    if torch.jit.isinstance(wavinfo, torch.Tensor):
+        wav = wavinfo.detach().clone()
+    else:
+        wav = wavinfo.wav.detach().clone()
+    return wav
 

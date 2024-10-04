@@ -10,6 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm, remove_weight_norm
 
+from typing import Union
+
 from satools import hifigan
 import satools
 import satools.infer_helper
@@ -82,14 +84,16 @@ def build(args):
             x = x.to(torch.float32)
             return x
 
+
         def forward(self, egs_with_feat: hifigan.dataset.Egs):
             return self._forward(egs_with_feat["get_f0"],
                                  egs_with_feat["get_bn"],
                                  egs_with_feat["get_spk_id"])
 
         @satools.utils.register_feature_extractor(compute_device="cuda", scp_cache=True)
-        def get_bn(self, wavinfo: satools.utils.WavInfo):
-            return self.bn_extractor.extract_bn(wavinfo.wav.detach().clone()).permute(0, 2, 1)
+        def get_bn(self, wavinfo: Union[satools.utils.WavInfo, torch.Tensor]):
+            wav = satools.utils.parse_wavinfo_wav(wavinfo)
+            return self.bn_extractor.extract_bn(wav).permute(0, 2, 1)
 
         def set_f0(self, f0):
             self.f0 = f0
@@ -100,7 +104,8 @@ def build(args):
                 f0 = self.f0
                 self.f0 = None
                 return f0
-            return hifigan.yaapt.yaapt(wavinfo.wav.detach().clone(), self.f0_yaapt_opts)
+            wav = satools.utils.parse_wavinfo_wav(wavinfo)
+            return hifigan.yaapt.yaapt(wav, self.f0_yaapt_opts)
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
         def get_spk_id(self, wavinfo: satools.utils.WavInfo):

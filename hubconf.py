@@ -3,21 +3,14 @@ import sys
 import torch
 import http.client
 import json
+
 # List of dependencies required by the package
 dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy', 'configargparse']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
 
-def anonymization(tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', exit_if_new_version=False):
-    """Loads an anonymization model
 
-    Arguments:
-        tag_version (str): the tag/release from github corresponding to a model type (check: https://github.com/deep-privacy/SA-toolkit/releases)
-        exit_if_new_version (bool): exit if a new version is found on github
-    Returns:
-        torch.nn.model
-    """
-
+def _init(exit_if_new_version):
     os.environ["SA_JIT_TWEAK"] = "true"
 
     if check_new_commit_github(save_sha=not exit_if_new_version) and exit_if_new_version:
@@ -35,10 +28,56 @@ def anonymization(tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', exit_if_new_
     else:
         print(f"No matching {local_hub_dir} + '{hub_repo_name}*' directory found.")
         sys.exit(1)
+
+def _load(tag_version):
     from satools.infer_helper import load_model
 
     weight_url = f"https://github.com/deep-privacy/SA-toolkit/releases/download/{tag_version}/final.pt"
-    return load_model(weight_url)
+    m = load_model(weight_url)
+    return m
+
+def asr_bn_extractor(tag_version='bn_tdnnf_wav2vec2_vq_48_v1', exit_if_new_version=False):
+    """Loads an asr_bn extractor
+
+    Arguments:
+        tag_version (str): The tag/release from github corresponding to a model type (check: https://github.com/deep-privacy/SA-toolkit/releases)
+                           One of: ['bn_tdnnf_wav2vec2_vq_48_v1',
+                                    'bn_tdnnf_wav2vec2_100h_aug_v1',
+                                    'bn_tdnnf_600h_aug_v1',
+                                    'bn_tdnnf_600h_vq_48_v1',
+                                    'bn_tdnnf_100h_vq_64_v1',
+                                    'bn_tdnnf_100h_vq_256_v1',
+                                    'bn_tdnnf_100h_aug_v1']
+        exit_if_new_version (bool): exit if a new version is found on github
+    Returns:
+        torch.nn.model
+    """
+
+    _init(exit_if_new_version)
+    m = _load(tag_version)
+    m.eval()
+    return m
+
+
+def anonymization(tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', exit_if_new_version=False):
+    """Loads an anonymization model
+
+    Arguments:
+        tag_version (str): The tag/release from github corresponding to a model type (check: https://github.com/deep-privacy/SA-toolkit/releases)
+                           One of: ['hifigan_bn_tdnnf_wav2vec2_vq_48_v1',
+                                    'hifigan_bn_tdnnf_wav2vec2_100h_aug_v1',
+                                    'hifigan_bn_tdnnf_600h_aug_v1',
+                                    'hifigan_bn_tdnnf_600h_vq_48_v1',
+                                    'hifigan_bn_tdnnf_100h_vq_64_v1',
+                                    'hifigan_bn_tdnnf_100h_vq_256_v1',
+                                    'hifigan_bn_tdnnf_100h_aug_v1']
+        exit_if_new_version (bool): exit if a new version is found on github
+    Returns:
+        torch.nn.model
+    """
+
+    _init(exit_if_new_version)
+    return _load(tag_version)
 
 def check_new_commit_github(save_sha):
     conn = http.client.HTTPSConnection("api.github.com")
