@@ -8,7 +8,7 @@ dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy', 'configargparse']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
 
-def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', device='cpu', exit_if_new_version=True):
+def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', device='cpu', exit_if_new_version=False):
     """Loads an anonymization model
 
     Arguments:
