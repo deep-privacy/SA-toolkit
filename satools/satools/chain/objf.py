@@ -32,7 +32,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    @torch.amp.custom_fwd(cast_inputs=torch.float32, device_type='cuda')
+    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
     def forward(ctx, opts, den_graph, supervision, nnet_output_tensor, xent_out_tensor):
         """This function computes the loss for a single minibatch.
 
@@ -123,7 +123,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         return objf
 
     @staticmethod
-    @torch.amp.custom_bwd(device_type='cuda')
+    @orch.cuda.amp.custom_bwd()
     def backward(ctx, dummy):
         """returns the derivatives"""
         if len(ctx.saved_tensors) == 3:
@@ -154,7 +154,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
     """
 
     @staticmethod
-    @torch.amp.custom_fwd(cast_inputs=torch.float32, device_type='cuda')
+    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
     def forward(ctx, x, weight, bias, in_state, out_state):
         """Forward pass for NG-SGD layer
 
@@ -177,7 +177,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
 
     @staticmethod
     @torch.no_grad()
-    @torch.amp.custom_bwd(device_type='cuda')
+    @torch.cuda.amp.custom_bwd()
     def backward(ctx, grad_output):
         """Backward pass for NG-SGD layer
 
