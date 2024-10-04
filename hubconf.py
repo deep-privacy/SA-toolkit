@@ -8,13 +8,12 @@ dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy', 'configargparse']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
 
-def anonymization(pretrained=True, tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', device='cpu', exit_if_new_version=False):
+def anonymization(tag_version='hifigan_bn_tdnnf_wav2vec2_vq_48_v1', exit_if_new_version=False):
     """Loads an anonymization model
 
     Arguments:
-        pretrained (bool): load pretrained weights into the model
         tag_version (str): the tag/release from github corresponding to a model type (check: https://github.com/deep-privacy/SA-toolkit/releases)
-        device (str): 'cuda' or 'cpu'
+        exit_if_new_version (bool): exit if a new version is found on github
     Returns:
         torch.nn.model
     """
@@ -58,7 +57,7 @@ def check_new_commit_github(save_sha):
         with open(latest_commit_info) as ipf:
             cache_commit = ipf.readline().strip()
 
-    if (save_sha or not os.path.exists(latest_commit_info)) and cache_commit == github_sha:
+    if (save_sha or not os.path.exists(latest_commit_info)):
         with open(latest_commit_info, "w") as opf:
             opf.write("{}".format(github_sha))
 
