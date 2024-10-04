@@ -17,6 +17,18 @@ def get_padding(kernel_size, dilation=1):
     return int((kernel_size * dilation - dilation) / 2)
 
 
+def quantize_f0(x, num_bins=16):
+    if isinstance(num_bins, str):
+        num_bins = int(''.join(filter(str.isdigit, num_bins)))
+    B = x.size(0)
+    A = x.size(1)
+    x = x.view(-1).clone()
+    uv = (x == 0)
+    x = torch.round(x * (num_bins)) / (num_bins)
+    x[uv] = 0
+    return x.view(B, A, -1)
+
+
 class ResBlock1(torch.nn.Module):
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
         super(ResBlock1, self).__init__()

@@ -32,8 +32,15 @@ def _init(exit_if_new_version):
 def _load(tag_version):
     from satools.infer_helper import load_model
 
+    version_and_option_args = tag_version.split("+")
+    tag_version = version_and_option_args[0]
+    option_args = {}
+    for o in version_and_option_args[1:]:
+        key, value = o.split("=")
+        option_args[key.replace("-", "_")] = value
+
     weight_url = f"https://github.com/deep-privacy/SA-toolkit/releases/download/{tag_version}/final.pt"
-    m = load_model(weight_url)
+    m = load_model(weight_url, option_args=option_args)
     return m
 
 def asr_bn_extractor(tag_version='bn_tdnnf_wav2vec2_vq_48_v1', exit_if_new_version=False):

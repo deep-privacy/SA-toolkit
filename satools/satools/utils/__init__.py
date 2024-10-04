@@ -15,5 +15,6 @@ from .feature_extractor_decorator import (
 from .general import (
     StdFilterOut,
     fix_json,
+    SimpleNamespace,
 )
 from .tensorboard_log import LogHandlerSummaryWriter

@@ -71,6 +71,8 @@ def build(args):
 
         def _forward(self, f0, bn, spk_id):
             f0 = self.f0_norm(f0).permute(1, 0, 2)
+            if args.f0_transformation and args.f0_transformation.startswith("quant"):
+                f0 = hifigan.nn.quantize_f0(f0, num_bins=args.f0_transformation)
             spk_id = spk_id.unsqueeze(2).to(torch.float32)
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
@@ -131,6 +133,7 @@ def build(args):
 if __name__ == "__main__":
     parser = configargparse.ArgumentParser(description="Model config args")
     parser.add("--asrbn-model", default="", type=str)
+    parser.add("--f0-transformation", default="", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     hifigan.HifiGanModel(build(args), cmd_line=True)

@@ -1,6 +1,32 @@
 import sys
 import json
 
+class SimpleNamespace:
+    def __init__(self, /, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def __repr__(self):
+        items = (f"{k}={v!r}" for k, v in self.__dict__.items())
+        return "{}({})".format(type(self).__name__, ", ".join(items))
+
+    def __eq__(self, other):
+        if isinstance(self, SimpleNamespace) and isinstance(other, SimpleNamespace):
+           return self.__dict__ == other.__dict__
+        return NotImplemented
+
+    def __getattr__(self, key):
+        if key not in self.__dict__:
+            return None
+        else:
+            return self.__dict__[key]
+
+    def __getitem__(self, key):
+        if key not in self.__dict__:
+            return None
+        else:
+            return self.__dict__[key]
+
+
 class StdFilterOut:
     """
     usage example:

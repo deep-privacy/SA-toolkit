@@ -4,11 +4,10 @@ import torch
 import logging
 import importlib
 import importlib.util
-from types import SimpleNamespace
 
 import satools
 
-def load_model(file, load_weight=True, version="v1", from_file=None):
+def load_model(file, load_weight=True, version="v1", from_file=None, option_args=None):
     if file.startswith("http"):
         model_dir = os.path.join(torch.hub.get_dir(), 'checkpoints', os.path.basename(os.path.dirname(file)))
         model_state = torch.hub.load_state_dict_from_url(file, model_dir=model_dir)
@@ -41,7 +40,10 @@ def load_model(file, load_weight=True, version="v1", from_file=None):
     spec = importlib.util.spec_from_file_location("config", config_path)
     model_file = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(model_file)
-    args = SimpleNamespace(**model_state['base_model_args'])
+    if option_args:
+        for k, v in option_args.items():
+            model_state['base_model_args'][k] = v
+    args = satools.utils.SimpleNamespace(**model_state['base_model_args'])
     net = model_file.build(args)(**model_state["base_model_params"])
     if load_weight:
         net.load_state_dict(model_state["base_model_state_dict"])
