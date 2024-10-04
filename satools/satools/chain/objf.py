@@ -123,7 +123,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         return objf
 
     @staticmethod
-    @orch.cuda.amp.custom_bwd()
+    @torch.cuda.amp.custom_bwd()
     def backward(ctx, dummy):
         """returns the derivatives"""
         if len(ctx.saved_tensors) == 3:
