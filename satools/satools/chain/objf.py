@@ -123,7 +123,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         return objf
 
     @staticmethod
-    @torch.cuda.amp.custom_bwd()
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, dummy):
         """returns the derivatives"""
         if len(ctx.saved_tensors) == 3:
@@ -177,7 +177,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
 
     @staticmethod
     @torch.no_grad()
-    @torch.cuda.amp.custom_bwd()
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, grad_output):
         """Backward pass for NG-SGD layer
 
