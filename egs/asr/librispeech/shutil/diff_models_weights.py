@@ -6,9 +6,9 @@ import satools
 
 #  python3 ./shutil/diff_models_weights.py ./exp/chain/e2e_tdnnf_vq_sizeco_64/final.pt ./exp/chain/e2e_tdnnf_vq_spkdelta_sizeco_64/final.pt
 
-diffa = torch.load(sys.argv[1])
+diffa = torch.load(sys.argv[1], weights_only=False)
 
-diffb = torch.load(sys.argv[2])
+diffb = torch.load(sys.argv[2], weights_only=False)
 
 diffb_same_keys_as_a, unmatch = satools.utils.torch.match_state_dict(
     diffa,

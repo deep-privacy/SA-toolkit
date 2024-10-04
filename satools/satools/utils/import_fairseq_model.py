@@ -19,7 +19,7 @@ def _load(input_file):
     if input_file.startswith("http"):
         data = torch.hub.load_state_dict_from_url(input_file)
     else:
-        data = torch.load(input_file)
+        data = torch.load(input_file, weights_only=False)
 
     #  print(data["cfg"])
     cfg = data["cfg"]

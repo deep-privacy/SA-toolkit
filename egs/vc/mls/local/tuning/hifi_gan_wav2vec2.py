@@ -109,7 +109,7 @@ def build(args, spkids):
             assert num_pdfs_train == self.bn_asr_output_dim
 
             self.bn_model_state = torch.load(
-                os.path.join(satools_path, exp_path, model_weight), map_location="cpu"
+                os.path.join(satools_path, exp_path, model_weight), map_location="cpu", weights_only=False
             )
             self.bn_asr.load_state_dict(self.bn_model_state)
 
@@ -206,7 +206,7 @@ def build(args, spkids):
             return bn_asr_h
 
         @torch.no_grad()
-        @torch.cuda.amp.autocast(enabled=False)
+        @torch.amp.autocast('cuda', enabled=False)
         def extract_features(self, f0, audio):
             """
             Takes F0 features and the raw audio features

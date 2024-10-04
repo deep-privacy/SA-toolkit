@@ -55,7 +55,7 @@ def train_epoch(model,
         optimizer.zero_grad(set_to_none=True)
 
         if scaler is not None:
-            with torch.cuda.amp.autocast(enabled=mixed_precision):
+            with torch.amp.autocast('cuda', enabled=mixed_precision):
                 output_tuple, _ = model(data, target=target)
                 loss, cce_prediction = output_tuple
             scaler.scale(loss).backward()
@@ -163,7 +163,7 @@ def validation(model, validation_loader, device, mixed_precision=False):
         target = target.to(device)
         batch_size = target.shape[0]
         data = data.squeeze().to(device)
-        with torch.cuda.amp.autocast(enabled=mixed_precision):
+        with torch.amp.autocast('cuda', enabled=mixed_precision):
             (_loss, cce_prediction), batch_embeddings = model(data, target=target)
             accuracy += (torch.argmax(cce_prediction.data, 1) == target).sum().cpu()
             loss += _loss
@@ -233,7 +233,7 @@ def test(model,
 
     def extract(wavinfo):
             data = wavinfo.wav.squeeze().to(device)
-            with torch.cuda.amp.autocast(enabled=mixed_precision):
+            with torch.amp.autocast('cuda', enabled=mixed_precision):
                 _, x_vector = model(data, target=None)
             if x_vector.dim() > 1:
                 x_vector = x_vector.squeeze(0)

@@ -130,7 +130,7 @@ class HifiGanModel():
         self.utt2spk = utt2spk_scp
 
     def load_state_model(self, file):
-        m = torch.load(file)
+        m = torch.load(file, weights_only=False)
         if "base_model_state_dict" in m:
             return m["base_model_state_dict"]
         return m
@@ -199,8 +199,8 @@ class HifiGanModel():
             discriminators = os.path.realpath(self.opts.init_weight_model).replace("g_", "d_")
             if os.path.exists(discriminators):
                 logging.info("Init discriminators from previous model")
-                mpd.load_state_dict(torch.load(discriminators)["mpd"])
-                msd.load_state_dict(torch.load(discriminators)["msd"])
+                mpd.load_state_dict(torch.load(discriminators, weights_only=False)["mpd"])
+                msd.load_state_dict(torch.load(discriminators, weights_only=False)["msd"])
 
         file = self.opts.base_model.replace("g_", "d_")
         torch.save({ "mpd":  mpd.state_dict(), "msd": msd.state_dict() }, file)
@@ -223,10 +223,10 @@ class HifiGanModel():
         generator = generator.to(device)
 
         mpd = nn.MultiPeriodDiscriminator()
-        mpd.load_state_dict(torch.load(self.opts.base_model.replace("g_", "d_"))["mpd"])
+        mpd.load_state_dict(torch.load(self.opts.base_model.replace("g_", "d_"), weights_only=False)["mpd"])
         mpd.to(device)
         msd = nn.MultiScaleDiscriminator()
-        msd.load_state_dict(torch.load(self.opts.base_model.replace("g_", "d_"))["msd"])
+        msd.load_state_dict(torch.load(self.opts.base_model.replace("g_", "d_"), weights_only=False)["msd"])
         msd.to(device)
 
         _networks = [generator, mpd, msd]
@@ -248,7 +248,7 @@ class HifiGanModel():
         f = os.path.realpath(self.opts.base_model).replace("g_", "trainer_")
         if Path(f).is_file():
             logging.info(f"Loading trainer from: {f}")
-            sd = torch.load(f)
+            sd = torch.load(f, weights_only=False)
             optim_g.load_state_dict(sd["optim_g"])
             optim_d.load_state_dict(sd["optim_d"])
             steps = sd["steps"] + 1

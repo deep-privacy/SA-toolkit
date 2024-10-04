@@ -69,7 +69,7 @@ class MfccFrontEnd(torch.nn.Module):
         :return:
         """
         with torch.no_grad():
-            with torch.cuda.amp.autocast(enabled=False):
+            with torch.amp.autocast('cuda', enabled=False):
                 mfcc = self.PreEmphasis(x)
                 mfcc = self.MFCC(mfcc)
                 mfcc = self.CMVN(mfcc)
@@ -223,7 +223,7 @@ class MelSpecFrontEnd(torch.nn.Module):
         :return:
         """
         with torch.no_grad():
-            with torch.cuda.amp.autocast(enabled=False):
+            with torch.amp.autocast('cuda', enabled=False):
                 if x.dim() == 1:
                     x = x.unsqueeze(0)
                 out = self.PreEmphasis(x)

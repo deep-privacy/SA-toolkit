@@ -77,7 +77,7 @@ def build(args):
             assert x.shape[0] == spk_id_inter.shape[0], "len(target) != len(input_wav), check if the waveform batch size == target=len(['6081','4214'])"
             x = torch.cat([x, spk_id_inter], dim=1)
 
-            with torch.cuda.amp.autocast(enabled=True):
+            with torch.amp.autocast('cuda', enabled=True):
                 x, _ = self.hifigan(x)
             x = x.to(torch.float32)
             return x

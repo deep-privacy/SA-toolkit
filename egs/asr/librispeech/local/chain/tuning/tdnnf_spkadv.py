@@ -90,7 +90,7 @@ class XVector(nn.Module):
 
         if os.path.isfile(self.optim_checkpoint):
             logging.info(f"Loading {self.optim_checkpoint}")
-            checkpoint = torch.load(self.optim_checkpoint, map_location=device)
+            checkpoint = torch.load(self.optim_checkpoint, map_location=device, weights_only=False)
             optimizer.load_state_dict(checkpoint["optimizer"])
             scheduler.load_state_dict(checkpoint["scheduler"])
 
@@ -406,7 +406,7 @@ if __name__ == "__main__":
         args.adversarial_training = "True"
         model = build(args)(output_dim=3280).cuda()
 
-        model.load_state_dict(model.init_custom_load(torch.load("./exp/spk/adv/tmp_model_custom.pt")))
+        model.load_state_dict(model.init_custom_load(torch.load("./exp/spk/adv/tmp_model_custom.pt", weights_only=False)))
 
         import torchaudio
         x,_ = torchaudio.load("/lium/raid01_b/pchampi/lab/Voice-Privacy-Challenge-2022/baseline/corpora/LibriSpeech/train-clean-100/196/122150/196-122150-0032.flac")

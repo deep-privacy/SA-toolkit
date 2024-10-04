@@ -60,7 +60,7 @@ def build():
                 aug = self.spec_aug
 
             with torch.no_grad():
-                with torch.cuda.amp.autocast(enabled=False):
+                with torch.amp.autocast('cuda', enabled=False):
                     out_asr, model = self.bn_extractor_func(args, aug)
                     out = model.bottleneck_out.permute(0, 2, 1).contiguous()
 

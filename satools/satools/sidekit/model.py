@@ -143,14 +143,14 @@ class SidekitModel():
                 assert max(total_speaker_idx)+1 == len(total_speaker_idx), f"{max(total_speaker_idx)+1} != {len(total_speaker_idx)}"
             self.num_speakers = max(total_speaker_idx)+1
         else:
-            self.num_speakers = torch.load(self.opts.base_model)["base_model_params"]["num_speakers"]
+            self.num_speakers = torch.load(self.opts.base_model, weights_only=False)["base_model_params"]["num_speakers"]
 
         if self.num_speakers == 1:
             logging.critical(f"Could not find file {train_csv} or key 'base_model_params' in model file to know the number of speaker of the model")
             sys.exit(1)
 
     def load_state_model(self, file):
-        m = torch.load(file)
+        m = torch.load(file, weights_only=False)
         if "base_model_state_dict" in m:
             return m["base_model_state_dict"]
         return m
@@ -278,7 +278,7 @@ class SidekitModel():
         f = os.path.dirname(self.opts.base_model) + "/" + "trainer_" + os.path.basename(os.path.realpath(self.opts.base_model))
         if Path(f).is_file():
             logging.info(f"Loading trainer from: {f}")
-            sd = torch.load(f)
+            sd = torch.load(f, weights_only=False)
             optim.load_state_dict(sd["optim"])
             last_epoch = sd["epoch"]
             scheduler_epoch = sd["scheduler_epoch"]

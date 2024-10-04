@@ -220,7 +220,7 @@ def build(args):
             assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 #  print(x.shape)
                 #  a = x.shape[1]
                 x = self.preprocessor(x, mask=False, features_only=True)["x"]

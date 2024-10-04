@@ -292,7 +292,7 @@ def build(args):
             inputs: a 2-dimensional tensor [N, C]
             return: an 3-dimensional tensor [N, T, C]
             """
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 p_out = self.preprocessor.extract_features(x)
                 x = p_out[0][-1]
                 x = x.transpose(2, 1)
@@ -317,7 +317,7 @@ def build(args):
             #  assert x.ndim == 2
             # input x is of shape: [batch_size, wave] = [N, C]
 
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 p_out = self.preprocessor.extract_features(x)
                 x = p_out[0][-1]
                 x = x.transpose(2, 1)

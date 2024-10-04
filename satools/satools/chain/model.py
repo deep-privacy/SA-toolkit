@@ -338,7 +338,7 @@ class ChainModel(nn.Module):
                 num_pdfs_filename
             )
         else:
-            self.chain_opts.output_dim = torch.load(self.chain_opts.base_model)["base_model_params"]["output_dim"]
+            self.chain_opts.output_dim = torch.load(self.chain_opts.base_model, weights_only=False)["base_model_params"]["output_dim"]
 
         if self.chain_opts.output_dim == 1:
             logging.critical(f"Could not find file {num_pdfs_filename} or key 'base_model_params' in model file to know the number of pdfs outputs of the model")
@@ -434,7 +434,7 @@ class ChainModel(nn.Module):
         return self
 
     def load_state_model(self, file):
-        m = torch.load(file)
+        m = torch.load(file, weights_only=False)
         if "base_model_state_dict" in m:
             return m["base_model_state_dict"]
         return m

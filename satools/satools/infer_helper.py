@@ -26,7 +26,7 @@ def load_model(file, load_weight=True, version="v1", from_file=None):
             os.makedirs(os.path.dirname(file), exist_ok=True)
             logging.warning(f"File {file} does not exsist, attempting to downloading it from github releases..")
             torch.hub.download_url_to_file(url, file, hash_prefix="")
-        model_state = torch.load(file)
+        model_state = torch.load(file, weights_only=False)
 
     install_path = model_state["install_path"]
     install_path_sa = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone

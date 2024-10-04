@@ -137,7 +137,7 @@ def eval():
 
             feats_scp = f"{test_set}/split{num_jobs}/JOB/wav.scp"
 
-            asr_model_state = torch.load(cfg_exp.asr_model)
+            asr_model_state = torch.load(cfg_exp.asr_model, weights_only=False)
             config_path = asr_model_state["install_path"] + "/" + asr_model_state["task_path"] + "/" + asr_model_state["base_model_path"]
             logging.info(f"Loading {config_path} with args \"{str(asr_model_state['base_model_args'])}\" and params \"{str(asr_model_state['base_model_params'])}\"" )
 
@@ -195,7 +195,7 @@ def eval():
 
     if stage <= 3:
 
-        asv_model_state = torch.load(cfg_exp.asv_model)
+        asv_model_state = torch.load(cfg_exp.asv_model, weights_only=False)
         config_path = asv_model_state["install_path"] + "/" + asv_model_state["task_path"] + "/" + asv_model_state["base_model_path"]
         logging.info(f"Loading {config_path} with args \"{str(asv_model_state['base_model_args'])}\" and params \"{str(asv_model_state['base_model_params'])}\"" )
 
