@@ -1,4 +1,5 @@
 .done-*
+.*done-*
 .micromamba
 .in_colab
 Miniconda3-py37_4.10.3-Linux-x86_64.sh
