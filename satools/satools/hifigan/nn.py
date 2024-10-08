@@ -19,6 +19,8 @@ def get_padding(kernel_size, dilation=1):
 
 def quantize_f0(x, num_bins=16):
     if isinstance(num_bins, str):
+        index = num_bins.index("quant")
+        num_bins = num_bins[index:].split("_")[1]
         num_bins = int(''.join(filter(str.isdigit, num_bins)))
     B = x.size(0)
     A = x.size(1)
@@ -27,6 +29,54 @@ def quantize_f0(x, num_bins=16):
     x = torch.round(x * (num_bins)) / (num_bins)
     x[uv] = 0
     return x.view(B, A, -1)
+
+def awgn_f0(pitch, target_noise_db=10):
+    if isinstance(target_noise_db, str):
+        index = target_noise_db.index("awgn")
+        target_noise_db = target_noise_db[index:].split("_")[1]
+        target_noise_db = int(''.join(filter(str.isdigit, target_noise_db)))
+    # Set a target channel noise power to something very noisy
+    # Convert to linear Watt units
+    target_noise_watts = 10 ** (target_noise_db / 10)
+    # Generate noise samples
+    mean_noise = torch.tensor(0.0)
+    noise_volts = torch.normal(
+        mean=mean_noise,
+        std=torch.sqrt(torch.tensor(target_noise_watts)),
+        size=(pitch.shape)
+    )
+
+    ii = pitch == 0
+    pitch = pitch + noise_volts.to(pitch.dtype).to(pitch.device)
+    pitch[ii] = 0
+    return pitch
+
+def moving_average_f0(f0, n=32):
+    """Calculate the moving average of the F0 over n frames using PyTorch."""
+    # f0 shape: (batch_size, num_frames)
+    padding = n // 2
+    print(f0.shape)
+    # Padding the input with constant values
+    f0_padded = F.pad(f0, (padding, padding), mode='constant')
+    # Convolve with a uniform window of size n
+    window = torch.ones(n, device=f0.device) / n
+    f0_avg = F.conv1d(f0_padded.squeeze(1), window.view(1, 1, -1))
+    # Ensure the result matches the original size of f0
+    f0_avg = f0_avg[..., :f0.shape[-1]]
+    return f0_avg
+
+def mean_reverv_f0(f0, alpha=0.5, n=32):
+    """
+    Apply the mean-reversion F0 transformation using PyTorch.
+    """
+    if isinstance(alpha, str):
+        index = alpha.index("mean-reverv")
+        alpha_str = alpha[index:].split("_")[1]
+        alpha = float(''.join(filter(lambda x: str.isdigit(x) or x == ".", alpha_str.split(":")[0])))
+        n = int(''.join(filter(str.isdigit, alpha_str.split(":")[1])))
+    f0_avg = moving_average_f0(f0, n)
+    f0_transformed = (1 - alpha) * f0 + alpha * f0_avg
+    return f0_transformed
 
 
 class ResBlock1(torch.nn.Module):

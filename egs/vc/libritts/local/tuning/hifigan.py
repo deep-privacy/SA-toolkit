@@ -71,8 +71,12 @@ def build(args):
 
         def _forward(self, f0, bn, spk_id):
             f0 = self.f0_norm(f0).permute(1, 0, 2)
-            if args.f0_transformation and args.f0_transformation.startswith("quant"):
+            if args.f0_transformation and "quant" in args.f0_transformation:
                 f0 = hifigan.nn.quantize_f0(f0, num_bins=args.f0_transformation)
+            if args.f0_transformation and "awgn" in args.f0_transformation:
+                f0 = hifigan.nn.awgn_f0(f0, target_noise_db=args.f0_transformation)
+            if args.f0_transformation and "mean-reverv" in args.f0_transformation:
+                f0 = hifigan.nn.mean_reverv_f0(f0, alpha=args.f0_transformation)
             spk_id = spk_id.unsqueeze(2).to(torch.float32)
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
