@@ -25,7 +25,7 @@ GCC_VERSION=12.3.0
 CUDA_VERSION=12.1
 TORCH_VERSION=2.1.2
 
-MAMBA_PACKAGES_TO_INSTALL="sshpass OpenSSH sox libflac tar libacl inotify-tools ocl-icd-system git-lfs ffmpeg wget curl make cmake ncurses ninja python=$PYTHON_VERSION nvtop automake libtool boost gxx=$GCC_VERSION gcc=$GCC_VERSION python-sounddevice pkg-config zip zlib libzlib gfortran"
+MAMBA_PACKAGES_TO_INSTALL="sshpass OpenSSH sox libflac tar libacl inotify-tools ocl-icd-system git-lfs ffmpeg wget curl make cmake ncurses ninja python=$PYTHON_VERSION nvtop automake libtool boost gxx=$GCC_VERSION gcc=$GCC_VERSION python-sounddevice pkg-config zip unzip patch zlib libzlib gfortran"
 
 INSTALL_KALDI=true
 KALDI_SHORT_ID="4a8b7f673" # commit id of kaldi (or empty for master)
@@ -64,6 +64,7 @@ if [ ! -f $mark ]; then
   info "Python version: $($venv_dir/bin/python --version)" || exit 1
   touch $mark
 fi
+# "$mamba_bin" install -y --prefix "$venv_dir" -c conda-forge $MAMBA_PACKAGES_TO_INSTALL || exit 1
 
 if [ -e "$venv_dir" ]; then export PATH="$venv_dir/bin:$PATH"; fi
 
