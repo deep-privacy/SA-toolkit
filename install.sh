@@ -12,8 +12,10 @@ nj=$(nproc)
 venv_name=env.sh
 venv_dir_name=venv
 
-# Local install of micromamba (where the libs/bin will be cached this can be share with other mamba install)
-mamba_root_prefix="$PWD/.micromamba" 
+# Local install of micromamba (where the libs/bin will be cached)
+# This can be share with other mamba install,
+# best to be modified when there is multiple users and installs!
+mamba_root_prefix="$HOME/micromamba"
 
 
 ### VERSIONS ####
@@ -25,7 +27,7 @@ GCC_VERSION=12.3.0
 CUDA_VERSION=12.1
 TORCH_VERSION=2.1.2
 
-MAMBA_PACKAGES_TO_INSTALL="sshpass OpenSSH sox libflac tar libacl inotify-tools ocl-icd-system git-lfs ffmpeg wget curl make cmake ncurses ninja python=$PYTHON_VERSION nvtop automake libtool boost gxx=$GCC_VERSION gcc=$GCC_VERSION python-sounddevice pkg-config zip unzip patch zlib libzlib gfortran"
+MAMBA_PACKAGES_TO_INSTALL="sshpass OpenSSH sox libflac tar libacl inotify-tools ocl-icd-system git-lfs ffmpeg wget curl make cmake ncurses ninja python=$PYTHON_VERSION htop nvtop automake libtool boost gxx=$GCC_VERSION gcc=$GCC_VERSION python-sounddevice pkg-config gzip zip unzip patch zlib libzlib gfortran"
 
 INSTALL_KALDI=true
 KALDI_SHORT_ID="4a8b7f673" # commit id of kaldi (or empty for master)
@@ -36,7 +38,8 @@ home=$PWD
 touch $venv_name
 venv_dir=$PWD/$venv_dir_name
 
-mamba_bin="$mamba_root_prefix/micromamba"
+export MAMBA_ROOT_PREFIX="$mamba_root_prefix" 
+mamba_bin="$MAMBA_ROOT_PREFIX/micromamba"
 
 
 explain() {   printf "\033[0;34m${1}\033[0m\n"; }
@@ -49,7 +52,7 @@ if [ ! -f $mark ]; then
   explain " == Making virtual environment =="
   if [ ! -f "$mamba_bin" ]; then
     info "Downloading micromamba"
-    mkdir -p "$mamba_root_prefix"
+    mkdir -p "$MAMBA_ROOT_PREFIX"
     curl -sS -L "https://github.com/mamba-org/micromamba-releases/releases/download/$MAMBA_VERSION/micromamba-linux-64" > "$mamba_bin"
     chmod +x "$mamba_bin"
   fi
@@ -57,11 +60,14 @@ if [ ! -f $mark ]; then
 
   info "Micromamba version: $($mamba_bin --version)"
 
+  "$mamba_bin" config set always_softlink true
   "$mamba_bin" create -y --prefix "$venv_dir"
 
   info "Installing conda dependencies"
   "$mamba_bin" install -y --prefix "$venv_dir" -c conda-forge $MAMBA_PACKAGES_TO_INSTALL || exit 1
   info "Python version: $($venv_dir/bin/python --version)" || exit 1
+
+  mkdir -p $MAMBA_ROOT_PREFIX/shared-site-packages_torch${TORCH_VERSION}_cu${CUDA_VERSION}
   touch $mark
 fi
 # "$mamba_bin" install -y --prefix "$venv_dir" -c conda-forge $MAMBA_PACKAGES_TO_INSTALL || exit 1
@@ -71,10 +77,14 @@ if [ -e "$venv_dir" ]; then export PATH="$venv_dir/bin:$PATH"; fi
 # Hook Micromamba into the script's subshell (this only lasts for as long as the # script is running)
 echo "eval \"\$($mamba_bin shell hook --shell=bash)\"" >> $venv_name
 echo "micromamba activate $venv_dir" >> $venv_name
-echo "export LD_LIBRARY_PATH=$venv_dir/lib/:$LD_LIBRARY_PATH" >> $venv_name
+echo "export LD_LIBRARY_PATH=$venv_dir/lib/stubs/:$venv_dir/lib/:$LD_LIBRARY_PATH" >> $venv_name
 echo "alias conda=micromamba" >> $venv_name
-echo "export PIP_CACHE_DIR=$mamba_root_prefix/pip_cache" >> $venv_name
+echo "export MAMBA_ROOT_PREFIX=$MAMBA_ROOT_PREFIX" >> $venv_name
+echo "export PIP_CACHE_DIR=$MAMBA_ROOT_PREFIX/pip_cache" >> $venv_name
+echo "export MAMBA_CUSTOM_PY_DEPS=$MAMBA_ROOT_PREFIX/shared-site-packages_torch${TORCH_VERSION}_cu${CUDA_VERSION}" >> env.sh
+echo "export PYTHONPATH=$PYTHONPATH:$MAMBA_ROOT_PREFIX/shared-site-packages_torch${TORCH_VERSION}_cu${CUDA_VERSION}/lib/python$PYTHON_VERSION/site-packages" >> env.sh
 echo "export PIP_REQUIRE_VIRTUALENV=false" >> $venv_name
+echo "alias mminstall=\"'$mamba_bin' install -y --prefix '$venv_dir' -c conda-forge\"" >> $venv_name
 source ./$venv_name
 
 
@@ -101,7 +111,7 @@ if [ ! -f $mark ]; then
   explain " == Installing pytorch $TORCH_VERSION for cuda $CUDA_VERSION =="
   version="==$TORCH_VERSION+cu$cuda_version_without_dot"
   info "Torch install command:\npip3 install torch$version torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/${nightly}cu$cuda_version_without_dot"
-  pip3 install torch$version torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/${nightly}cu$cuda_version_without_dot \
+  python3 -m pip freeze | grep "torch$version" -q || pip3 install --prefix $MAMBA_CUSTOM_PY_DEPS torch$version torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/${nightly}cu$cuda_version_without_dot \
     || { info "Failed to find pytorch $TORCH_VERSION for cuda '$CUDA_VERSION', use specify other torch/cuda versions (with the variables in install.sh script)"  ; exit 1; }
   info "Torch version: $(python3 -c 'import torch; print(torch.__version__)')" || exit 1
   touch $mark
@@ -119,7 +129,7 @@ if [ ! -f $mark ]; then
   \rm requirements.txt || true
   echo 'scikit-learn>=0.24.2' >> requirements.txt
   echo 'tensorboard' >> requirements.txt
-  echo 'carbontracker' >> requirements.txt
+  echo 'carbontracker==2.0.0' >> requirements.txt
   echo 'matplotlib' >> requirements.txt
   echo 'python-dateutil' >> requirements.txt
   echo 'graftr' >> requirements.txt # an interactive shell to view and edit PyTorch checkpoints

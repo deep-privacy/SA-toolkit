@@ -206,10 +206,6 @@ def load_noise_seg(noise_row, speech_shape, sample_rate, data_path):
     if noise_duration * sample_rate > speech_shape[1]:
         noise_seg, noise_sr = torchaudio.load(noise_fn, frame_offset=int(frame_offset), num_frames=int(speech_shape[1]))
     else:
-        print(int(noise_duration * sample_rate))
-        print(noise_duration)
-        print(sample_rate)
-        print("", flush=True)
         noise_seg, noise_sr = torchaudio.load(noise_fn,
                                               frame_offset=int(frame_offset),
                                               num_frames=int(noise_duration * sample_rate))

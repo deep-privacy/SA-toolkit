@@ -22,12 +22,13 @@ import torch
 
 import satools
 
+from dataclasses import dataclass
+from carbontracker.tracker import CarbonTracker
+
 logging.basicConfig(level=logging.INFO, format="satools %(levelname)s: %(message)s")
 logging.getLogger("geocoder").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-from dataclasses import dataclass
-from carbontracker.tracker import CarbonTracker
 
 @dataclass
 class Opts:
@@ -179,8 +180,7 @@ def train():
         pattern = cfg_exp.dir / "*.pt"
         cp_list = glob.glob(str(pattern))
         cp_list = list(map(lambda x: x.split("/")[-1].split(".")[0], cp_list))
-        if "final" in cp_list:
-            cp_list.remove("final")
+        cp_list = list(filter(str.isdigit, cp_list))
         if len(cp_list) == 0 or (len(cp_list) == 1 and cp_list[0] == "0") or int(stage) > 6:
             cfg_exp.train_stage = "0"
         else:
@@ -189,6 +189,7 @@ def train():
             logging.info(f"Last training iter found: {cfg_exp.train_stage}")
     cfg_exp.train_stage = int(cfg_exp.train_stage)
 
+    logging.info(cfg_exp.tree_dir)
     if not os.path.isfile(cfg_exp.dir / "tree"):
         shutil.copy(cfg_exp.tree_dir / "tree", cfg_exp.dir)
 
@@ -227,7 +228,8 @@ def train():
         num_archives * (num_epochs - 1) * cfg_exp.num_archives_multiplier_factor * 2
     ) // (cfg_exp.num_jobs_initial + cfg_exp.num_jobs_final)
 
-    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
+    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=0)
+    carbonTracker.logger.logger_err.setLevel(logging.ERROR)
     carbonTracker.epoch_start()
 
     #   start the training
@@ -259,7 +261,7 @@ def train():
 
         logging.info(f"Iter num_archives_to_process={num_archives_to_process}, num_archives={num_archives}, num_archives_multiplier_factor={cfg_exp.num_archives_multiplier_factor}, num_epochs={num_epochs}")
         logging.info(f"Starting training from iter={cfg_exp.train_stage}")
-        logging.info(f"Watch logs with:\n  tail -F {cfg_exp.dir}/log/train.{{0..{num_iters}}}.{{1..{cfg_exp.num_jobs_final}}}.log {cfg_exp.dir}/log/init.log {cfg_exp.dir}/log/compute_prob_valid.{{1..{num_iters}}}.log | ./shutil/grcat conf.log")
+        logging.info(f"Watch logs with:\n  tail -F {cfg_exp.dir}/log/train.{{0..{num_iters}}}.{{1..{cfg_exp.num_jobs_final}}}.log {cfg_exp.dir}/log/init.log {cfg_exp.dir}/log/compute_prob_valid.{{1..{num_iters}}}.log | ./shutil/grcat ./shutil/conf.log")
         logging.info("Open tensorbord with:\n  tensorboard --logdir_spec $(find $(pwd) -name 'runs' | awk  '{split($NF,a,\"/exp/chain/\"); split(a[2],b,\"/\"); print b[1]\":\"$0}' | tr \"\\n\" \",\" |  sed 's/,$/ /g')")
         logging.info("  configure regex color to: ([0-9]{4}-[0-9]{2}-[0-9]{2} ([0-1]?[0-9]|2[0-3]):[0-5][0-9])")
         num_archives_processed = 0
@@ -303,13 +305,14 @@ def train():
                     lr,
             ))
             with ThreadPoolExecutor(max_workers=cfg_exp.max_concurrent_jobs) as executor:
-                job_pool = []
 
                 if cfg_exp.weight_decay_l2_regularize_factor == "1.0/num_jobs":
                     cfg_exp.weight_decay_l2_regularize_factor = str(1.0/num_jobs)
 
+                job_pool = []
+                job_pool_args = []
                 for job_id in range(1, num_jobs + 1):
-                    p = executor.submit(run_job,[
+                    job_args = [
                         cfg_cmd.cuda_cmd,
                         f"JOB={job_id}",
                         f"{cfg_exp.dir}/log/train.{iter_no}.JOB.log",
@@ -331,9 +334,11 @@ def train():
                         "--num-iter", str(num_iters),
                         "--new-model", cfg_exp.dir / f"{iter_no}.{job_id}.pt",
                         cfg_exp.dir / f"{iter_no}.pt"
-                    ])
+                    ]
+                    p = executor.submit(run_job, job_args)
                     num_archives_processed += 1
                     job_pool.append(p)
+                    job_pool_args.append(job_args)
 
                      # max_concurrent_jobs wait for all task in the pool to complete
                     if len(job_pool) == cfg_exp.max_concurrent_jobs:
@@ -348,9 +353,14 @@ def train():
                         concurrent.futures.thread._threads_queues.clear()
                         quit(j.result())
 
-                for p in as_completed(job_pool):
+                for i, p in enumerate(as_completed(job_pool)):
                     if p.result() != 0:
-                        quit(p.result())
+                        logging.warning(f"Re-runing job {iter_no}.{i+1}")
+                        new_job_pool = [executor.submit(run_job, job_pool_args[i])]
+                        for p in as_completed(new_job_pool):
+                            if p.result() != 0:
+                                logging.critical(f"Job {iter_no}.{i+1} failed twice, exiting")
+                                quit(p.result())
 
             if num_jobs > 1:
                 model_list = [

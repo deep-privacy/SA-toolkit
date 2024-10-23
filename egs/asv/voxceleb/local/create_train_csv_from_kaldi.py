@@ -10,7 +10,6 @@ import io
 import csv
 
 import torchaudio
-import soundfile
 
 from tqdm import tqdm
 from argparse import ArgumentParser

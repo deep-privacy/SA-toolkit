@@ -97,13 +97,13 @@ if [ $stage -le 0 ]; then
   fi
 fi
 
-if [[ $stage -le 1 &&  ! -f "data/local/lm_less_phones/lm_tglarge.arpa.gz" ]]; then
+if [[ $stage -le 1 &&  ! -f "data/lang_lp_test_fglarge/G.carpa" ]]; then
   echo "-- Stage 1 --"
   mkdir -p data/local/lm_less_phones
-  ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz
-  ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz
-  ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz
-  ln -rs data/local/lm/4-gram.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz
+  ln -rs data/local/lm/3-gram.arpa.gz data/local/lm_less_phones/lm_tglarge.arpa.gz || true
+  ln -rs data/local/lm/3-gram.pruned.1e-7.arpa.gz data/local/lm_less_phones/lm_tgmed.arpa.gz || true
+  ln -rs data/local/lm/3-gram.pruned.3e-7.arpa.gz data/local/lm_less_phones/lm_tgsmall.arpa.gz || true
+  ln -rs data/local/lm/4-gram.arpa.gz data/local/lm_less_phones/lm_fglarge.arpa.gz || true
   echo "$0: Preparing lexicon"
   cp data/local/lm/librispeech-vocab.txt data/local/lm_less_phones/
   cat data/local/lm/librispeech-lexicon.txt | sed -e 's/[0,1,2]//g' > \

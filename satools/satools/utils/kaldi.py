@@ -1,9 +1,7 @@
 """Wrappers to call kaldi's utils/ scripts"""
-import configparser
 import io
 import os
 import subprocess
-import sys
 
 import torch
 import torchaudio
@@ -137,13 +135,13 @@ def load_wav_from_scp(wav, frame_offset: int = 0,  num_frames: int = -1):
             wav_read_process = subprocess.Popen(
                 wav.strip()[:-1], stdout=subprocess.PIPE, shell=True, stderr=devnull
             )
-            sample, sr = torchaudio.backend.soundfile_backend.load(
+            sample, sr = torchaudio.load(
                 io.BytesIO(wav_read_process.communicate()[0]),
                 frame_offset=frame_offset, num_frames=num_frames
             )
         except Exception as e:
             raise IOError("Error processing wav file: {}\n{}".format(wav, e))
     else:
-        sample, sr = torchaudio.backend.soundfile_backend.load(wav, frame_offset=frame_offset, num_frames=num_frames)
+        sample, sr = torchaudio.load(wav, frame_offset=frame_offset, num_frames=num_frames)
 
     return sample, sr

@@ -7,7 +7,6 @@ import subprocess
 import time
 from collections import defaultdict
 
-import soundfile
 import torch
 import torchaudio
 

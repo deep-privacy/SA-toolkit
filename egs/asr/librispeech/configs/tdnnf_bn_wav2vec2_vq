@@ -5,14 +5,16 @@ cuda_cmd = ./utils/run.pl
 # Can be modified through venv: e.g.: vq=128 local/chain/train.py ...
 [var]
 vq = 48
+# dset = train_clean_100
+dset = train_600
 
 [exp]
-train_set = data/train_clean_100_sp
-tree_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree
-egs_dir = exp/chain/e2e_train_clean_100/fst_egs
+train_set = data/${:dset}_sp
+tree_dir = exp/chain/e2e_${:dset}/e2e_biphone_tree
+egs_dir = exp/chain/e2e_${:dset}/fst_egs
 
 # train params
-num_epochs = 2
+num_epochs = 1
 num_jobs_initial = 2
 num_jobs_final = 5
 lr_initial = 0.0001
@@ -30,15 +32,15 @@ final_combination_n_model = 1
 
 
 model_file = local/chain/tuning/tdnnf_wav2vec2_vq.py
-dirname = bn_tdnnf_wav2vec2_vq_${:vq}
+dirname = bn_tdnnf_wav2vec2_${:dset}_vq_${:vq}
 model_args = ["--freeze-encoder", "True", "--codebook-size", "${:vq}"]
-init_weight_model = "./exp/chain/bn_tdnnf_wav2vec2_100h_aug/final.pt"
+init_weight_model = "./exp/chain/bn_tdnnf_wav2vec2_${:dset}_aug/final.pt"
 
 # a=bn_tdnnf_wav2vec2_vq_; tail $a_*/decode_test_clean*final_fg/scoringDetails/best_wer | grep "WER" | awk '{print $1 "\t"$2 "\t" $14}' | cut -d/ -f1,3 | sort -k4,4 -n -t"_"
 
 
 [test]
-graph_dir = exp/chain/e2e_train_clean_100/e2e_biphone_tree/graph_tgsmall
+graph_dir = exp/chain/e2e_${:dset}/e2e_biphone_tree/graph_tgsmall
 
 # test_set = data/test_clean
 test_set = data/test_clean,data/test_other
