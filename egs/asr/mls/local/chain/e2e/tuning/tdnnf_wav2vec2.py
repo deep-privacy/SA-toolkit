@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("hydra").setLevel(logging.WARNING)
 import sys
 import os
-import configargparse
+import argparse
 import fairseq
 
 
@@ -260,7 +260,7 @@ def build(args):
 
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
+    parser = argparse.ArgumentParser(description="Model config args")
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
     if os.environ.get("TESTING", "0") == "1":

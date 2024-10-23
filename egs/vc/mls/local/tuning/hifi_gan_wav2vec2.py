@@ -7,7 +7,7 @@ import random
 import sys
 from types import SimpleNamespace
 
-import configargparse
+import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -253,7 +253,7 @@ def build(args, spkids):
 
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
+    parser = argparse.ArgumentParser(description="Model config args")
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument("--lr", default=0.0002, type=float)
     parser.add_argument("--checkpoint_path", default="exp/hifigan_w2w2", type=str)

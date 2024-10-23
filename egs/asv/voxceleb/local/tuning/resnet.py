@@ -3,7 +3,7 @@
 import json
 import sys
 import logging
-import configargparse
+import argparse
 from typing import Optional
 from collections import OrderedDict
 
@@ -112,7 +112,7 @@ def build(args):
     return Net
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
+    parser = argparse.ArgumentParser(description="Model config args")
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     sidekit.SidekitModel(build(args), cmd_line=True)

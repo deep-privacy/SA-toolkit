@@ -5,7 +5,7 @@ import http.client
 import json
 
 # List of dependencies required by the package
-dependencies = ['torch', 'torchaudio', 'soundfile', 'numpy', 'configargparse']
+dependencies = ['torch', 'torchaudio', 'numpy']
 
 hub_repo_name = "deep-privacy_SA-toolkit"
 

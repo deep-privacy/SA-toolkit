@@ -12,7 +12,7 @@ import satools.nn as sann
 from satools.chain import ChainE2EModel
 
 import sys
-import configargparse
+import argparse
 
 
 
@@ -207,7 +207,7 @@ def build(args):
 
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
+    parser = argparse.ArgumentParser(description="Model config args")
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
 

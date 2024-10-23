@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 
-import configargparse
+import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -135,9 +135,9 @@ def build(args):
     return Net
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
-    parser.add("--asrbn-model", default="", type=str)
-    parser.add("--f0-transformation", default="", type=str)
+    parser = argparse.ArgumentParser(description="Model config args")
+    parser.add_argument("--asrbn-model", default="", type=str)
+    parser.add_argument("--f0-transformation", default="", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
     hifigan.HifiGanModel(build(args), cmd_line=True)

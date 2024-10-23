@@ -20,7 +20,7 @@ from satools.nn import (
 )
 
 import sys
-import configargparse
+import argparse
 
 import torchaudio
 
@@ -395,10 +395,10 @@ def build(args):
 
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
-    parser.add("--freeze-encoder", default="False", type=str)
-    parser.add("--adversarial-training", default="False", type=str)
-    parser.add("--spk2id", default="./data/spk2id", type=str)
+    parser = argparse.ArgumentParser(description="Model config args")
+    parser.add_argument("--freeze-encoder", default="False", type=str)
+    parser.add_argument("--adversarial-training", default="False", type=str)
+    parser.add_argument("--spk2id", default="./data/spk2id", type=str)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv
 

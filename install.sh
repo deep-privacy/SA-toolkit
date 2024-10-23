@@ -60,7 +60,8 @@ if [ ! -f $mark ]; then
 
   info "Micromamba version: $($mamba_bin --version)"
 
-  "$mamba_bin" config set always_softlink true
+  "$mamba_bin" config set always_softlink false
+  "$mamba_bin" config set allow_softlinks false
   "$mamba_bin" create -y --prefix "$venv_dir"
 
   info "Installing conda dependencies"

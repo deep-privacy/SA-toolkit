@@ -12,7 +12,7 @@ import satools.nn as sann
 from satools.chain import ChainE2EModel
 
 import sys
-import configargparse
+import argparse
 
 
 
@@ -287,9 +287,9 @@ def build(args):
 
 
 if __name__ == "__main__":
-    parser = configargparse.ArgumentParser(description="Model config args")
-    parser.add("--freeze-encoder", default="False", type=str)
-    parser.add("--codebook-size", default=255, type=int)
+    parser = argparse.ArgumentParser(description="Model config args")
+    parser.add_argument("--freeze-encoder", default="False", type=str)
+    parser.add_argument("--codebook-size", default=255, type=int)
     args, remaining_argv = parser.parse_known_args()
     sys.argv = sys.argv[:1] + remaining_argv + ["--base-model-args", json.dumps(vars(args))]
 
