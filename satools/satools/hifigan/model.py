@@ -57,6 +57,7 @@ class ModelOpts(DataloadingOpts):
     new_model: str = ""
     max_len_missmatch: int = 200 # allow some missmatch between original an converted speech
     logging_interval: int = 20
+    safe_gpu: str = "false"
 
     torch_compile: str = "false"
 
@@ -120,6 +121,8 @@ class HifiGanModel():
         elif self.opts.mode == "jit_save":
             self.jit_save()
         elif self.opts.mode in ["train", "training"]:
+            if self.opts.safe_gpu.lower() == "lower":
+                utils.safe_gpu()
             self.train()
         else:
             logging.critical(f"Mode '{self.opts.mode}' not defined")
@@ -169,7 +172,7 @@ class HifiGanModel():
     def init(self):
         model = self.Net(utt2spk=self.utt2spk)
         logging.info(str(model))
-        if self.opts.init_weight_model != "":
+        if self.opts.init_weight_model != "" and os.path.exists(self.opts.init_weight_model):
             init_weight_provided = self.load_state_model(self.opts.init_weight_model)
 
             init_weight_provided_matched, unmatch = utils.torch.match_state_dict(

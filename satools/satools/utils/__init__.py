@@ -15,6 +15,7 @@ from .feature_extractor_decorator import (
 from .general import (
     StdFilterOut,
     fix_json,
+    safe_gpu,
     SimpleNamespace,
 )
 from .tensorboard_log import LogHandlerSummaryWriter

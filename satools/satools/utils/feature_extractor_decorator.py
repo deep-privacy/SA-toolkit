@@ -86,7 +86,7 @@ def extract_features_from_decorator(instance:torch.nn.Module, egs, ask_compute="
             if not fdef.sequence_feat:
                 fname = fname+"_no_sample"
             ret[fname] = feat
-            
+
     return ret
 
 

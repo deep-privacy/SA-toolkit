@@ -83,6 +83,7 @@ echo "alias conda=micromamba" >> $venv_name
 echo "export MAMBA_ROOT_PREFIX=$MAMBA_ROOT_PREFIX" >> $venv_name
 echo "export PIP_CACHE_DIR=$MAMBA_ROOT_PREFIX/pip_cache" >> $venv_name
 echo "export MAMBA_CUSTOM_PY_DEPS=$MAMBA_ROOT_PREFIX/shared-site-packages_torch${TORCH_VERSION}_cu${CUDA_VERSION}" >> env.sh
+echo "nvtop() { LD_LIBRARY_PATH=$venv_dir/lib/stubs/libnvidia-ml.so $venv_dir/bin/nvtop; }" >> $venv_name
 echo "export PYTHONPATH=$PYTHONPATH:$MAMBA_ROOT_PREFIX/shared-site-packages_torch${TORCH_VERSION}_cu${CUDA_VERSION}/lib/python$PYTHON_VERSION/site-packages" >> env.sh
 echo "export PIP_REQUIRE_VIRTUALENV=false" >> $venv_name
 echo "alias mminstall=\"'$mamba_bin' install -y --prefix '$venv_dir' -c conda-forge\"" >> $venv_name
@@ -144,6 +145,7 @@ if [ ! -f $mark ]; then
   echo 'scipy>=1.8' >> requirements.txt
   echo 'ffmpeg>=1.4' >> requirements.txt
   echo 'tqdm' >> requirements.txt
+  echo 'safe-gpu' >> requirements.txt
 
   # sidekit additional req
   echo 'git+https://github.com/deep-privacy/feerci@dev' >> requirements.txt

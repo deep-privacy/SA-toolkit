@@ -16,6 +16,13 @@ from satools import hifigan
 import satools
 import satools.infer_helper
 
+
+"""
+No target speaker, using single target during training
+
+Many to One VC (m2o)
+"""
+
 def build(args):
     class Net(nn.Module):
         def init(self):
@@ -36,15 +43,11 @@ def build(args):
             }
             self.f0_norm = satools.cmvn.UttCMVN(var_norm=True, keep_zeros=True)
 
-            self.utt2spk = utt2spk
-            self.spk = sorted(set([v for v in utt2spk.values()]))
-            self.target = ""
-
             self.f0: Optional[torch.Tensor] = None # hack to compute the F0 on CPU
 
 
             self.hifigan = (hifigan.archi.CoreHifiGan(
-                imput_dim=256+1+len(self.spk),  # BN asr = 256 dim + F0 dim + One hot spk....
+                imput_dim=256+1,  # BN asr = 256 dim + F0 dim
                 upsample_rates=[5,4,4,2,2],
                 upsample_kernel_sizes=[11,8,8,4,4],
             ))
@@ -57,18 +60,16 @@ def build(args):
             self.bn_extractor.eval()
 
         @torch.jit.export
-        def extract_features(self, x, target:str="6081"):
+        def extract_features(self, x):
             x = satools.utils.WavInfo(wav=x, name="default_utts", filename="default_utt_filenames")
             f0 = self.get_f0(x).unsqueeze(0)
             bn = self.get_bn(x)
-            self.target = target
-            spk_id = self.get_spk_id(x)
-            return (f0, bn, spk_id)
+            return (f0, bn)
 
         @torch.jit.export
-        def convert(self, x, target:str="6081"):
-            (f0, bn, spk_id) = self.extract_features(x, target)
-            return self._forward(f0, bn, spk_id).squeeze(0)
+        def convert(self, x):
+            (f0, bn) = self.extract_features(x)
+            return self._forward(f0, bn).squeeze(0)
 
         @torch.jit.unused
         def f0_transformation(self, f0):
@@ -80,19 +81,14 @@ def build(args):
                 f0 = hifigan.nn.mean_reverv_f0(f0, alpha=args.f0_transformation)
             return f0
 
-        def _forward(self, f0, bn, spk_id):
+        def _forward(self, f0, bn):
             f0 = self.f0_norm(f0)
             if f0.dim() == 2:
                 f0 = f0.unsqueeze(0)
             f0 = f0.permute(1, 0, 2)
-            spk_id = spk_id.unsqueeze(2).to(torch.float32)
             f0 = self.f0_transformation(f0)
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
-
-            spk_id_inter = F.interpolate(spk_id, x.shape[-1]).to(x.device)
-            assert x.shape[0] == spk_id_inter.shape[0], "len(target) != len(input_wav), check if the waveform batch size == target=len(['6081','4214'])"
-            x = torch.cat([x, spk_id_inter], dim=1)
 
             with torch.amp.autocast('cuda', enabled=True):
                 x, _ = self.hifigan(x)
@@ -102,8 +98,7 @@ def build(args):
 
         def forward(self, egs_with_feat: hifigan.dataset.Egs):
             return self._forward(egs_with_feat["get_f0"],
-                                 egs_with_feat["get_bn"],
-                                 egs_with_feat["get_spk_id"])
+                                 egs_with_feat["get_bn"])
 
         @satools.utils.register_feature_extractor(compute_device="cuda", scp_cache=True)
         def get_bn(self, wavinfo: Union[satools.utils.WavInfo, torch.Tensor]):
@@ -120,24 +115,6 @@ def build(args):
                 return f0
             wav = satools.utils.parse_wavinfo_wav(wavinfo)
             return hifigan.yaapt.yaapt(wav, self.f0_yaapt_opts)
-
-        @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
-        def get_spk_id(self, wavinfo: satools.utils.WavInfo):
-            if isinstance(self.target, list):
-                indexs = []
-                for t in self.target:
-                    indexs.append(self.spk.index(t))
-                return F.one_hot(torch.tensor(indexs), num_classes=len(self.spk))
-
-            if self.target == "":
-                if not self.training: # testing model in dev
-                    target = "6081"
-                else:
-                    target = self.utt2spk[wavinfo.name]
-            else:
-                target = self.target
-            index_spk = [self.spk.index(target)]
-            return F.one_hot(torch.tensor(index_spk), num_classes=len(self.spk))
 
 
     return Net

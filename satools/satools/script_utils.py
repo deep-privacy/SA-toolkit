@@ -13,10 +13,10 @@ import math
 import re
 import os
 import requests
-from urllib.parse import quote
 import subprocess
+from urllib.parse import quote
+from dataclasses import dataclass
 import sys
-
 
 # copied from kaldi. Copyright and license apply to the original authors
 def get_current_num_jobs(it, num_it, start, step, end):
@@ -271,7 +271,7 @@ def vartoml(item):
             sys.exit(1)
         return var[x.groups()[1]]
 
-    
+
     inline_comment_re = re.compile(r"\s+#")
     def rm_inline_comment(value):
         match = inline_comment_re.search(value)
@@ -304,8 +304,10 @@ def get_github_repo():
     ''' Retrieve the repo part of the git URL '''
     cmd = ['git', 'remote', 'get-url', 'origin']
     repo = subprocess.check_output(cmd).decode('utf-8').strip()
-    repo = re.search(r'github.com.(.+?)\.git$', repo).group(1)
-    return repo
+    repo = re.search(r'github.com.(.+?)\.git$', repo)
+    if repo:
+        return repo.group(1)
+    return "deep-privacy/sa-toolkit"
 
 def get_github_token():
     try:
@@ -402,3 +404,122 @@ def push_github_model(tag_name, up_assets, up_as_name={}, force=True):
         else:
             sys.stderr.write("Github UPLOADING: {}\n".format(asset))
             upload_asset(upload_url, asset)
+
+
+def can_be_cast_to_list(value, to_type=str):
+    try:
+        return True, [to_type(char) for char in value if char.isdigit()]
+    except:
+        return False, None
+
+
+def can_be_cast_to_int(value):
+    try:
+        return True, int(value)
+    except:
+        return False, None
+
+
+class ngpu:
+    pass
+
+
+def str2bool(v):
+    return v.lower() in ("yes", "true", "t", "1")
+
+
+def find_conv_bool(value):
+    if isinstance(value, str):
+        if value.lower() == 'true':
+            return True
+        elif value.lower() == 'false':
+            return False
+    return value
+
+
+@dataclass
+class ConfigParser:
+    __was_parserd__: bool = True
+
+    def get_forcmd(self, key):
+        if getattr(self, key) == "":
+            return []
+        return [f"--{key.replace('_', '-')}", str(getattr(self, key)).replace("\n", "")]
+
+    def load_from_config(self, cfg):
+        for key, value in cfg.items():
+            if hasattr(self, key):
+                type_of_value = self.__annotations__[key]
+                if type_of_value == bool:
+                    setattr(self, key, str2bool(value))
+                    continue
+                if type_of_value == ngpu:
+                    from safe_gpu import safe_gpu
+                    if isinstance(value, str):
+                        free_gpus = safe_gpu.get_free_gpus()
+                        if value.lower() == 'all' and len(free_gpus) != 0:
+                            setattr(self, key, free_gpus)
+                            continue
+                        if value.lower() == 'all-force':
+                            gpus = {uuid.strip(): idx.strip() for idx, uuid in (line.split(',') for line in subprocess.check_output(
+                                ["nvidia-smi", "--format=csv,noheader", "--query-gpu=index,gpu_bus_id"]).decode().strip().split('\n'))}
+                            setattr(self, key, list(gpus.values()))
+                            continue
+                    castable, newvalue = can_be_cast_to_int(value)
+                    if castable:
+                        nfreeg = safe_gpu.get_free_gpus()
+                        if newvalue > len(nfreeg):
+                            raise Exception(f"Not enough free gpu")
+                        if newvalue == 0:
+                            raise Exception(f"0 not a valide value")
+                        setattr(self, key, nfreeg[:newvalue])
+                        continue
+                    castable, newvalue = can_be_cast_to_list(value)
+                    if castable:
+                        nfreeg = safe_gpu.get_free_gpus()
+                        if len(newvalue) > len(nfreeg):
+                            raise Exception(
+                                f"Not enough free gpu (free:{nfreeg}), you may try 'all-force' to use all gpus even if they are already in use.")
+                        for g in newvalue:
+                            if g not in nfreeg:
+                                raise Exception(f"GPU id {g} not available")
+                        if len(newvalue) != 0:
+                            setattr(self, key, newvalue)
+                            continue
+                    raise Exception(f"Not a valid option of ngpu: {value}, you may try 'all-force' to use all gpus even if they are already in use.")
+
+                # Normal processing
+                setattr(self, key, type_of_value(value))
+        return self
+
+
+def split_array(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
+
+def split_dict(a, n):
+    keys = list(a.keys())
+    k, m = divmod(len(keys), n)
+    return [
+        {key: a[key] for key in keys[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]}
+        for i in range(n)
+    ]
+
+
+def read_wav_scp(wav_scp):
+    """Reads wav.scp file and returns a dictionary
+
+    Args:
+        wav_scp: a string, contains the path to wav.scp
+
+    Returns:
+        utt2wav: a dictionary, keys are the first column of wav.scp
+            and values are the second column
+    """
+    utt2wav = {}
+    with open(wav_scp) as ipf:
+        for line in ipf:
+            lns = line.strip().split()
+            uttname = lns[0]
+            utt2wav[uttname] = " ".join(lns[1:])
+    return utt2wav

@@ -11,6 +11,10 @@ import warnings
 warnings.filterwarnings(
     "ignore", message=r'.*ComplexHalf support is experimental and many operators.*'
 )
+warnings.filterwarnings(
+    "ignore",
+    message="torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.",
+)
 
 
 

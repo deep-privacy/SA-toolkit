@@ -6,7 +6,6 @@ import librosa
 import numpy as np
 import torch
 import logging
-import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 from typing import List, Union, Dict, Optional, Callable, TypeVar, Any
 

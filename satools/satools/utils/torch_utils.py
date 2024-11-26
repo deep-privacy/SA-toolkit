@@ -5,7 +5,6 @@ third party functions that complements pytorch
 import copy
 
 import torch
-from torch.nn.utils.weight_norm import WeightNorm
 
 def seed_worker(seed_val):
     """
@@ -55,6 +54,8 @@ def fix_weight_norm_deepcopy(model):
     # Fix bug where deepcopy doesn't work with weightnorm.
     # Taken from https://github.com/pytorch/pytorch/issues/28594#issuecomment-679534348
     orig_deepcopy = getattr(model, "__deepcopy__", None)
+
+    from torch.nn.utils.weight_norm import WeightNorm
 
     def __deepcopy__(model, memo):
         # save and delete all weightnorm weights on self

@@ -2,13 +2,16 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
-# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_100h_aug local/train.py --conf configs/hifigan
+# hifigan trained on already converted speech (train->train-anon)
+
+# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_100h_aug local/train.py --conf configs/inception_hifigan
 [var]
 asrbn_path = ../../asr/librispeech/exp/chain/
 asrbn_model = bn_tdnnf_100h_aug
 
 [exp]
-train_set = data/train_clean_100
+# converted speech
+train_set = ./data/train_clean_100_vc_to_6081
 # result reported on dev are with converted speech, hence Mel-Spec. Error is supposed to be high
 dev_set = data/dev_clean_reduced
 
@@ -24,12 +27,12 @@ checkpoint_interval = 1000
 # train_iter = 18000
 train_iter = last
 
-model_file = local/tuning/hifigan.py
-dirname = hifigan_${:asrbn_model}
+model_file = local/tuning/hifigan_m2o.py
+dirname = hifigan_m2o_${:asrbn_model}
 model_args = ["--asrbn-model", "${:asrbn_path}${:asrbn_model}/final.pt"]
 
-init_weight_model = "exp/hifigan_bn_tdnnf_wav2vec2_train_600_aug/g_best.pt" # Init from previous hifigan model (non asr-bnVQ to train a asr-bnVQ one for example)
-cache_path = ./exp/hifigan_${:asrbn_model}/cache/
+init_weight_model = "exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_aug/g_best.pt" # Init from previous hifigan model (non asr-bnVQ to train a asr-bnVQ one for example)
+cache_path = ./exp/hifigan_${:asrbn_model}/cache/ # Needed to get the cache which is the original F0 and asrbn
  # default / [] -> On  ||  ["none"] -> Off  ||  ["get_f0"] -> only get_f0
 # cache_functions = ["none"]
 

@@ -14,22 +14,23 @@ tree_dir = exp/chain/e2e_${:dset}/e2e_biphone_tree
 egs_dir = exp/chain/e2e_${:dset}/fst_egs
 
 # train params
-num_epochs = 1
+num_epochs = 4
 num_jobs_initial = 2
 num_jobs_final = 5
 lr_initial = 0.0001
-lr_final =   0.00001
-diagnostics_interval = 10
-checkpoint_interval = 20
+lr_final =   0.000001
+diagnostics_interval = 20
+checkpoint_interval = 5
 minibatch_size = 16
-# grad_acc_steps = 48
-# train_stage = 30
+# grad_acc_steps = 16
+train_stage = last
 
 xent_regularize = 0.02
 weight_decay_l2_regularize_factor = 0.01
 
 final_combination_n_model = 1
 
+max_concurrent_jobs = 2
 
 model_file = local/chain/tuning/tdnnf_wav2vec2_vq.py
 dirname = bn_tdnnf_wav2vec2_${:dset}_vq_${:vq}
@@ -49,7 +50,7 @@ test_set = data/test_clean,data/test_other
 # test_set = data/dev_clean
 
 # decode on gpus
-num_jobs = 4
+num_jobs = 9
 gpu = True
 
 # vim:set et sw=2 ts=2 ft=toml:

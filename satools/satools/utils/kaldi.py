@@ -6,7 +6,7 @@ import subprocess
 import torch
 import torchaudio
 
-from ..script_utils import run
+from ..script_utils import run, read_wav_scp
 
 
 def split_data(data_folder, num_jobs):
@@ -80,24 +80,6 @@ def read_utt2len_file(utt2len_file):
             utt2len[lns[0]] = float(lns[1])
     return utt2len
 
-
-def read_wav_scp(wav_scp):
-    """Reads wav.scp file and returns a dictionary
-
-    Args:
-        wav_scp: a string, contains the path to wav.scp
-
-    Returns:
-        utt2wav: a dictionary, keys are the first column of wav.scp
-            and values are the second column
-    """
-    utt2wav = {}
-    with open(wav_scp) as ipf:
-        for line in ipf:
-            lns = line.strip().split()
-            uttname = lns[0]
-            utt2wav[uttname] = " ".join(lns[1:])
-    return utt2wav
 
 
 def load_wav_from_scp(wav, frame_offset: int = 0,  num_frames: int = -1):

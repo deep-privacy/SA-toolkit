@@ -87,6 +87,9 @@ if PKWRAP_CPP_EXT == "no":
         version=VERSION,
         license=LICENSE,
         packages=find_packages(),
+        scripts = [
+            './satools/bin/anonymize',
+            ],
     )
 else:
     setup(
@@ -94,6 +97,9 @@ else:
         version=VERSION,
         license=LICENSE,
         packages=find_packages(),
+        scripts = [
+            './satools/bin/anonymize',
+            ],
         ext_modules=[
             cpp_extension.CppExtension(
                 EXTENSION_NAME,

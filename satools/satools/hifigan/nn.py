@@ -1,3 +1,4 @@
+from typing import Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,12 +17,20 @@ def init_weights(m, mean=0.0, std=0.01):
 def get_padding(kernel_size, dilation=1):
     return int((kernel_size * dilation - dilation) / 2)
 
+def is_digit(s:str):
+    if s == "":
+        return False
+    for char in s:
+        if not ('0' <= char <= '9'):
+            return False
+    return True
 
-def quantize_f0(x, num_bins=16):
+@torch.jit.unused
+def quantize_f0(x, num_bins:Union[int,str]=16):
     if isinstance(num_bins, str):
         index = num_bins.index("quant")
         num_bins = num_bins[index:].split("_")[1]
-        num_bins = int(''.join(filter(str.isdigit, num_bins)))
+        num_bins = int(''.join(filter(is_digit, num_bins)))
     B = x.size(0)
     A = x.size(1)
     x = x.view(-1).clone()
@@ -30,11 +39,12 @@ def quantize_f0(x, num_bins=16):
     x[uv] = 0
     return x.view(B, A, -1)
 
-def awgn_f0(pitch, target_noise_db=10):
+@torch.jit.unused
+def awgn_f0(pitch, target_noise_db:Union[int,str]=10):
     if isinstance(target_noise_db, str):
         index = target_noise_db.index("awgn")
         target_noise_db = target_noise_db[index:].split("_")[1]
-        target_noise_db = int(''.join(filter(str.isdigit, target_noise_db)))
+        target_noise_db = int(''.join(filter(is_digit, target_noise_db)))
     # Set a target channel noise power to something very noisy
     # Convert to linear Watt units
     target_noise_watts = 10 ** (target_noise_db / 10)
@@ -51,7 +61,8 @@ def awgn_f0(pitch, target_noise_db=10):
     pitch[ii] = 0
     return pitch
 
-def moving_average_f0(f0, n=32):
+@torch.jit.unused
+def moving_average_f0(f0, n:Union[int,str]=32):
     """Calculate the moving average of the F0 over n frames using PyTorch."""
     # f0 shape: (batch_size, num_frames)
     padding = n // 2
@@ -72,8 +83,8 @@ def mean_reverv_f0(f0, alpha=0.5, n=32):
     if isinstance(alpha, str):
         index = alpha.index("mean-reverv")
         alpha_str = alpha[index:].split("_")[1]
-        alpha = float(''.join(filter(lambda x: str.isdigit(x) or x == ".", alpha_str.split(":")[0])))
-        n = int(''.join(filter(str.isdigit, alpha_str.split(":")[1])))
+        alpha = float(''.join(filter(lambda x: is_digit(x) or x == ".", alpha_str.split(":")[0])))
+        n = int(''.join(filter(is_digit, alpha_str.split(":")[1])))
     f0_avg = moving_average_f0(f0, n)
     f0_transformed = (1 - alpha) * f0 + alpha * f0_avg
     return f0_transformed

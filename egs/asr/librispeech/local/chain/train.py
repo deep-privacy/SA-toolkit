@@ -29,6 +29,8 @@ logging.basicConfig(level=logging.INFO, format="satools %(levelname)s: %(message
 logging.getLogger("geocoder").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+# Define the maximum number of retries per step on fail
+MAX_RETRIES = 10
 
 @dataclass
 class Opts:
@@ -123,6 +125,20 @@ def run_job(cmd):
     #  print(cmd, flush=True) # DEBUG
     process_out = subprocess.run(cmd)
     return process_out.returncode
+
+
+def run_job_with_retry(job_args, retries=1, max_retries=MAX_RETRIES):
+    """ Run a job and retry if it fails, up to max_retries times """
+    result = run_job(job_args)
+
+    if result == 0:
+        return 0  # Success
+    elif retries < max_retries:
+        logging.warning(f"Job {job_args[1]} failed with exit code {result}. Retry {retries + 1}/{max_retries}.")
+        return run_job_with_retry(job_args, retries=retries + 1)
+    else:
+        logging.critical(f"Job {job_args[1]} failed after {max_retries} retries.")
+        return result
 
 
 def submit_diagnostic_jobs(cfg_cmd, cfg_exp, iter_no, args):
@@ -344,6 +360,7 @@ def train():
                     if len(job_pool) == cfg_exp.max_concurrent_jobs:
                         for p in as_completed(job_pool):
                             if p.result() != 0:
+                                logging.critical(f"Job failed with exit code {p.result()}")
                                 quit(p.result())
 
                 for j in job_pool: # to debug most failed jobs
@@ -351,16 +368,18 @@ def train():
                         print(job_pool, flush=True)
                         executor._threads.clear()
                         concurrent.futures.thread._threads_queues.clear()
+                        logging.error(f"Job {job_pool_args[j]} is not running, exiting. (DEBUG)")
                         quit(j.result())
 
+                # Process completed jobs and handle retries
                 for i, p in enumerate(as_completed(job_pool)):
                     if p.result() != 0:
-                        logging.warning(f"Re-runing job {iter_no}.{i+1}")
-                        new_job_pool = [executor.submit(run_job, job_pool_args[i])]
-                        for p in as_completed(new_job_pool):
-                            if p.result() != 0:
-                                logging.critical(f"Job {iter_no}.{i+1} failed twice, exiting")
-                                quit(p.result())
+                        logging.warning(f"Re-running job {iter_no}.{i+1}")
+                        new_job_pool = [executor.submit(run_job_with_retry, job_pool_args[i])]
+                        for np in as_completed(new_job_pool):
+                            if np.result() != 0:
+                                logging.critical(f"Exiting.")
+                                quit(np.result())
 
             if num_jobs > 1:
                 model_list = [
@@ -470,29 +489,29 @@ def train():
             satools.script_utils.run([ "cat", "{}/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}/best_wer".format(out_dir) ], shell=True)
             logging.info(" " + satools.script_utils.read_single_param_file("{}/best_wer".format(out_dir), typename=str))
 
-            logging.info(f"Rescore with a N gram LM...")
-            satools.script_utils.run([
-                    "steps/lmrescore_const_arpa.sh",
-                    "--cmd", cfg_cmd.cpu_cmd,
-                    cfg_decode.lang_lp_tgsmall,
-                    cfg_decode.lang_lp_fg_large,
-                    test_set,
-                    out_dir,
-                    f"{out_dir}_fg",
-            ])
-            logging.info(f"Printing best WER with rescoring {out_dir}_fg...")
-            satools.script_utils.run([ "cat", "{}_fg/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir)], shell=True)
-            logging.info(" " + satools.script_utils.read_single_param_file( f"{out_dir}_fg/best_wer", typename=str))
+            # logging.info(f"Rescore with a N gram LM...")
+            # satools.script_utils.run([
+            #         "steps/lmrescore_const_arpa.sh",
+            #         "--cmd", cfg_cmd.cpu_cmd,
+            #         cfg_decode.lang_lp_tgsmall,
+            #         cfg_decode.lang_lp_fg_large,
+            #         test_set,
+            #         out_dir,
+            #         f"{out_dir}_fg",
+            # ])
+            # logging.info(f"Printing best WER with rescoring {out_dir}_fg...")
+            # satools.script_utils.run([ "cat", "{}_fg/wer*".format(out_dir), "|", "utils/best_wer.sh", ">", "{}_fg/best_wer".format(out_dir)], shell=True)
+            # logging.info(" " + satools.script_utils.read_single_param_file( f"{out_dir}_fg/best_wer", typename=str))
 
-            logging.info(f"Computing WER details for {out_dir}_fg...")
-            satools.script_utils.run([
-                    "./shutil/decode/wer_detail.sh",
-                    "--cmd", cfg_cmd.cpu_cmd,
-                    "--dataDir", test_set,
-                    "--decodeDir", f"{out_dir}_fg",
-                    "--langDir", cfg_decode.lang_lp_fg_large,
-                ], shell=True,
-            )
+            # logging.info(f"Computing WER details for {out_dir}_fg...")
+            # satools.script_utils.run([
+            #         "./shutil/decode/wer_detail.sh",
+            #         "--cmd", cfg_cmd.cpu_cmd,
+            #         "--dataDir", test_set,
+            #         "--decodeDir", f"{out_dir}_fg",
+            #         "--langDir", cfg_decode.lang_lp_fg_large,
+            #     ], shell=True,
+            # )
 
     if stage <= 10:
         logging.info(f"Creating JIT model")
@@ -518,8 +537,12 @@ def train():
             score = []
             up_as = []
             for test_set in str(cfg_decode.test_set).split(","):
-                score.append(cfg_exp.dir / f"decode_{os.path.basename(test_set)}{decode_suff}_fg/best_wer")
-                up_as.append(f"decode_{os.path.basename(test_set)}{decode_suff}_fg_best_wer.txt")
+                if (cfg_exp.dir / f"decode_{os.path.basename(test_set)}{decode_suff}_fg/best_wer").exists():
+                    score.append(cfg_exp.dir / f"decode_{os.path.basename(test_set)}{decode_suff}_fg/best_wer")
+                    up_as.append(f"decode_{os.path.basename(test_set)}{decode_suff}_fg_best_wer.txt")
+                if (cfg_exp.dir / f"decode_{os.path.basename(test_set)}{decode_suff}/best_wer").exists():
+                    score.append(cfg_exp.dir / f"decode_{os.path.basename(test_set)}{decode_suff}/best_wer")
+                    up_as.append(f"decode_{os.path.basename(test_set)}{decode_suff}_best_wer.txt")
             up_as = {k:v for k, v in zip(score, up_as)}
             up_as[args.config] = "default_cfg."+args.config
 

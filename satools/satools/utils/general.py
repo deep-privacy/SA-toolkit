@@ -1,6 +1,11 @@
 import sys
 import json
 
+def safe_gpu(n=1):
+    from safe_gpu import safe_gpu
+    safe_gpu.claim_gpus(n)
+
+
 class SimpleNamespace:
     def __init__(self, /, **kwargs):
         self.__dict__.update(kwargs)
@@ -59,25 +64,20 @@ class StdFilterOut:
         pass
 
 def fix_json(json_str):
-    
+
     # remove new lines and extra spaces
     json_str = json_str.replace("\n", "")
     json_str = json_str.strip()
     # remove trailing commas
     json_str = json_str.replace(",}", "}")
     json_str = json_str.replace(",]", "]")
-    
+
     # replace single quotes with double quotes
     json_str = json_str.replace("'", "\"")
-    
+
     # replace equals with colons
     json_str = json_str.replace("=", ":")
-    
+
     # load the fixed JSON object
     return json.loads(json_str)
-
-def split_array(a, n):
-    k, m = divmod(len(a), n)
-    return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
-
 

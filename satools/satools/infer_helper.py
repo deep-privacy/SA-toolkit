@@ -48,4 +48,3 @@ def load_model(file, load_weight=True, version="v1", from_file=None, option_args
     if load_weight:
         net.load_state_dict(model_state["base_model_state_dict"])
     return net
-

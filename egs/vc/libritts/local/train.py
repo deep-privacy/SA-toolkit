@@ -49,6 +49,7 @@ class Opts:
     init_weight_model: Path = ""
     train_iter: str = "0"
     final_model: str = ""
+    safe_gpu: str = "false"
 
     checkpoint_interval: int = 1000 # in step
     training_epochs: int = 1000
@@ -176,7 +177,8 @@ def train():
         python_cmd = ["python3"]
         if cfg_exp.n_gpu != 1:
             #  TODO add support for other cfg_cmd.cuda_cmd than run.pl (ssh.pl with multi nnodes)
-            python_cmd = ["OMP_NUM_THREADS=1", "torchrun", "--standalone", "--nnodes=1", "--nproc_per_node", f"{cfg_exp.n_gpu}"]
+            torchrun = torch.__path__[0]+'/distributed/run.py'
+            python_cmd = ["OMP_NUM_THREADS=1", "python3", torchrun, "--standalone", "--nnodes=1", "--nproc_per_node", f"{cfg_exp.n_gpu}"]
 
         a = open(f"{cfg_exp.dir}/log/train.log", "w");a.seek(0);a.truncate()
         tail = subprocess.Popen(f"exec tail -F {cfg_exp.dir}/log/train.log", stderr=subprocess.PIPE, shell=True)
@@ -198,6 +200,7 @@ def train():
                 *cfg_exp.get_forcmd("lr_decay"),
                 *cfg_exp.get_forcmd("training_epochs"),
                 *cfg_exp.get_forcmd("checkpoint_interval"),
+                *cfg_exp.get_forcmd("safe_gpu"),
                 *cfg_exp.get_forcmd("cache_path"),
                 *cfg_exp.get_forcmd("cache_functions", add_quote=True),
                 cfg_exp.dir / f"g_{cfg_exp.train_iter}.pt",
@@ -217,19 +220,19 @@ def train():
 
         logging.info(f"Creating JIT model from '{cfg_exp.final_model}'")
         shutil.copy(cfg_exp.dir / f"{cfg_exp.final_model}", cfg_exp.dir / "final.pt")
-        satools.script_utils.run([
-                cfg_cmd.cpu_cmd,
-                cfg_exp.dir / "log" / "jit.log",
-                "SA_JIT_TWEAK=True",
-                 cfg_exp.model_file,
-                 *cfg_exp.get_model_args,
-                "--mode", "jit_save",
-                *cfg_exp.get_forcmd("train_set", append="_reduced"),
-                 *cfg_exp.get_forcmd("dir"),
-                "--new-model", cfg_exp.dir / f"final.jit",
-                cfg_exp.dir / f"final.pt",
-            ]
-        )
+        # satools.script_utils.run([
+        #         cfg_cmd.cpu_cmd,
+        #         cfg_exp.dir / "log" / "jit.log",
+        #         "SA_JIT_TWEAK=True",
+        #          cfg_exp.model_file,
+        #          *cfg_exp.get_model_args,
+        #         "--mode", "jit_save",
+        #         *cfg_exp.get_forcmd("train_set", append="_reduced"),
+        #          *cfg_exp.get_forcmd("dir"),
+        #         "--new-model", cfg_exp.dir / f"final.jit",
+        #         cfg_exp.dir / f"final.pt",
+        #     ]
+        # )
         if args.upload != "no":
             logging.info(f"Upload model to a github release")
             parsed_cfg_file = cfg_exp.dir / f"parsed_cfg.configs.{os.path.basename(args.config).replace('.', '')}"
@@ -243,7 +246,7 @@ def train():
                 up_assets=[
                     cfg_exp.dir / f"conf.pt",
                     cfg_exp.dir / f"final.pt",
-                    cfg_exp.dir / f"final.jit",
+                    # cfg_exp.dir / f"final.jit",
                     parsed_cfg_file,
                     args.config,
                 ], up_as_name=up_as, force=False
