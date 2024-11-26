@@ -50,6 +50,11 @@ wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
 asr_bn = model.get_bn(torch.rand((1, 77040))) # (ASR-BN extraction for disentangled linguistic features (best with hifigan_bn_tdnnf_wav2vec2_vq_48_v1))
 ```
 
+## Anonymize bin
+Once the install.sh script is run, (`INSTALL_KALDI=false` can be set for faster installation), you will
+have access to the [`./satools/satools/bin/anonymize`](./satools/satools/bin/anonymize) bin in your path that you can use together
+with a config (example: [here](./egs/vc/libritts/configs/anon_any_to_one_for_train)) to anonymize a kaldi like directory.
+
 ## Quick JIT anonymization example
 
 This version does not rely on any dependencies using [TorchScript](https://pytorch.org/docs/stable/jit.html).

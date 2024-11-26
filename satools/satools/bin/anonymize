@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+
+description = """
+  This script anonymize a kaldi/wav.scp formated dataset
+  It takes a config file and a directory
+"""
+
+import os
+os.environ["SA_JIT_TWEAK"] = "true"
+import sys
+import time
+from dataclasses import dataclass
+import configparser
+import argparse
+import logging
+
+from multiprocessing import Process, Value
+from tqdm import tqdm
+
+import satools.script_utils as script_utils
+
+@dataclass
+class Pipeline(script_utils.ConfigParser):
+    model: str = "large"
+    f0_modification: str = ""
+    target_selection_algorithm: str = "?"
+    target_constant_spkid: str = "?"
+    results_dir: int = "wav" # output of anonymize wavs ./data/XXXX/wav
+    batch_size: int = 8
+    data_loader_nj: int = 5
+    new_datadir_suffix: str = "_anon"
+
+@dataclass
+class Cmd(script_utils.ConfigParser):
+    device: str = "cuda"
+    ngpu: script_utils.ngpu = 1
+    jobs_per_compute_device: int = 1 # number of jobs per gpus/cpus
+
+
+def update_progress_bar(progress, total):
+    with tqdm(total=total) as pbar:
+        while progress.value < total:
+            pbar.n = progress.value
+            pbar.refresh()
+            time.sleep(0.5)  # Adjust the sleep time as needed
+        pbar.n = total
+        pbar.refresh()
+
+def compute_pipeline(cfg_cmd, cfg_pipeline, directory, wavscp, progress):
+    import satools.bin.pipeline
+    satools.bin.pipeline.process_data(directory, cfg_pipeline.target_selection_algorithm, wavscp, cfg_pipeline, progress)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("--config", default="configs/default", required=True)
+    parser.add_argument("--directory", default="data/default", required=True)
+    args = parser.parse_args()
+
+    logging.info("Reading config")
+    cfg_parse = configparser.ConfigParser()
+    cfg_parse.read(args.config)
+    cfg_parse = script_utils.vartoml(cfg_parse)
+
+    cfg_cmd = Cmd().load_from_config(cfg_parse["cmd"])
+    cfg_pipeline = Pipeline().load_from_config(cfg_parse["pipeline"])
+    cfg_pipeline.device = cfg_cmd.device
+
+    wavscp = script_utils.read_wav_scp(os.path.join(args.directory, "wav.scp"))
+
+    wavscp_for_jobs = list(script_utils.split_dict(wavscp, len(cfg_cmd.ngpu) * cfg_cmd.jobs_per_compute_device))
+    progress = Value('i', 0)
+
+    processes = []
+    index = 0
+    for gpu_id in cfg_cmd.ngpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+        for job_id in range(cfg_cmd.jobs_per_compute_device):
+            p = Process(target=compute_pipeline, args=(cfg_cmd, cfg_pipeline, args.directory, wavscp_for_jobs[index], progress))
+            index += 1
+            processes.append(p)
+            p.start()
+
+    # Start a thread to update the progress bar
+    progress_thread = Process(target=update_progress_bar, args=(progress, len(wavscp)))
+    progress_thread.start()
+
+    for p in processes:
+        p.join()
+        if p.exitcode != 0:
+            print(f"Process {p.pid} exited with code {p.exitcode}. Terminating.")
+            for proc in processes:
+                if proc.is_alive():
+                    proc.terminate()
+            progress_thread.terminate()
+            sys.exit(1)
+
+    progress_thread.terminate()
+    logging.info('Done')
