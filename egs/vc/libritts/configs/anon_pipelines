@@ -1,8 +1,46 @@
 [cmd]
 device = cuda
 jobs_per_compute_device = 2
-ngpu = all
+ngpu = all-force
 pipeline = pipeline_no_target_f0_mod
+
+##
+# Models:
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_vq_48_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_100h_aug_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_aug_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_64_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_256_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_aug_v1/final.pt
+
+##
+# Target_selection_algorithm:
+# constant
+# random_per_utt
+# bad_for_evaluation
+# random_per_spk_uniq (spk-level like vpc2020) (also bad for eval, see thesis)
+
+##
+# F0_modification
+# quant_XXX
+# awgn_XXX
+
+## Target_constant_spkid
+# One of libritts
+
+[pipeline_no_target_f0_mod]
+## From PATH:
+# model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
+## From URL:
+model = https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1/final.pt
+f0_modification = quant_16_awgn_2
+# No target_selection_algorithm trained to be similar to 6081 (train any-many VC -> generate train data 6081 -> train any-one VC)
+target_selection_algorithm = none
+new_datadir_suffix = _vc_any_to_one_f0_quant_16_awgn_2
+batch_size = 8
+
 
 [pipeline]
 model = exp/hifigan_bn_tdnnf_wav2vec2_train_600_aug/final.pt
@@ -12,18 +50,12 @@ target_constant_spkid = 6081
 new_datadir_suffix = _vc_to_6081
 batch_size = 8
 
+
 [pipeline_no_target]
 model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
 f0_modification = none
 target_selection_algorithm = none
 new_datadir_suffix = _vc_any_to_one
-batch_size = 8
-
-[pipeline_no_target_f0_mod]
-model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
-f0_modification = quant_16_awgn_2
-target_selection_algorithm = none
-new_datadir_suffix = _vc_any_to_one_f0_quant_16_awgn_2
 batch_size = 8
 
 # vim:set et sw=2 ts=2 ft=toml:
