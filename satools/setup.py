@@ -10,7 +10,7 @@ import torch
 from setuptools import setup, find_packages
 from torch.utils import cpp_extension
 
-PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT")
+PKWRAP_CPP_EXT = os.getenv("PKWRAP_CPP_EXT", "no")
 
 KALDI_ROOT = os.getenv("KALDI_ROOT")
 if not KALDI_ROOT and PKWRAP_CPP_EXT != "no":
