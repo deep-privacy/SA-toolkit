@@ -21,9 +21,9 @@ import satools.script_utils as script_utils
 
 @dataclass
 class Pipeline(script_utils.ConfigParser):
-    model: str = "large"
-    f0_modification: str = ""
-    target_selection_algorithm: str = "?"
+    model: str = "https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt"
+    f0_modification: str = "quant_16_awgn_2"
+    target_selection_algorithm: str = "random_per_utt"
     target_constant_spkid: str = "?"
     results_dir: int = "wav" # output of anonymize wavs ./data/XXXX/wav
     batch_size: int = 8
@@ -54,19 +54,22 @@ def compute_pipeline(cfg_cmd, cfg_pipeline, directory, wavscp, progress):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--config", default="configs/default", required=True)
+    parser.add_argument("--config", default="configs/default", required=False)
     parser.add_argument("--directory", default="data/default", required=True)
     args = parser.parse_args()
 
-    logging.info("Reading config")
-    cfg_parse = configparser.ConfigParser()
-    cfg_parse.read(args.config)
-    cfg_parse = script_utils.vartoml(cfg_parse)
+    cmd = Cmd()
+    pipeline = Pipeline()
 
-    cfg_cmd = Cmd().load_from_config(cfg_parse["cmd"])
-    cfg_pipeline = Pipeline().load_from_config(cfg_parse[cfg_cmd.pipeline])
+    if args.config:
+        logging.info("Reading config")
+        cfg_parse = configparser.ConfigParser()
+        cfg_parse.read(args.config)
+        cfg_parse = script_utils.vartoml(cfg_parse)
+        cfg_cmd = cmd.load_from_config(cfg_parse["cmd"])
+        cfg_pipeline = pipeline.load_from_config(cfg_parse[cfg_cmd.pipeline])
+
     cfg_pipeline.device = cfg_cmd.device
-
     wavscp = script_utils.read_wav_scp(os.path.join(args.directory, "wav.scp"))
 
     wavscp_for_jobs = list(script_utils.split_dict(wavscp, len(cfg_cmd.ngpu) * cfg_cmd.jobs_per_compute_device))
