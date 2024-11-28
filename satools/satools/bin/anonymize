@@ -54,7 +54,7 @@ def compute_pipeline(cfg_cmd, cfg_pipeline, directory, wavscp, progress):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--config", default="configs/default", required=False)
+    parser.add_argument("--config", required=False)
     parser.add_argument("--directory", default="data/default", required=True)
     args = parser.parse_args()
 
