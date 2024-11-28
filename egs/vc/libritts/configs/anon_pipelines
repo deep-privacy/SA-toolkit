@@ -1,0 +1,29 @@
+[cmd]
+device = cuda
+jobs_per_compute_device = 2
+ngpu = all
+pipeline = pipeline_no_target_f0_mod
+
+[pipeline]
+model = exp/hifigan_bn_tdnnf_wav2vec2_train_600_aug/final.pt
+f0_modification = none
+target_selection_algorithm = constant
+target_constant_spkid = 6081
+new_datadir_suffix = _vc_to_6081
+batch_size = 8
+
+[pipeline_no_target]
+model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
+f0_modification = none
+target_selection_algorithm = none
+new_datadir_suffix = _vc_any_to_one
+batch_size = 8
+
+[pipeline_no_target_f0_mod]
+model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
+f0_modification = quant_16_awgn_2
+target_selection_algorithm = none
+new_datadir_suffix = _vc_any_to_one_f0_quant_16_awgn_2
+batch_size = 8
+
+# vim:set et sw=2 ts=2 ft=toml:

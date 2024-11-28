@@ -53,7 +53,69 @@ asr_bn = model.get_bn(torch.rand((1, 77040))) # (ASR-BN extraction for disentang
 ## Anonymize bin
 Once the install.sh script is run, (`INSTALL_KALDI=false` can be set for faster installation), you will
 have access to the [`./satools/satools/bin/anonymize`](./satools/satools/bin/anonymize) bin in your path that you can use together
-with a config (example: [here](./egs/vc/libritts/configs/anon_any_to_one_for_train)) to anonymize a kaldi like directory.
+with a config (example: [here](./egs/vc/libritts/configs/anon_pipelines)) to anonymize a kaldi like directory.
+
+```sh
+anonymize --config ./configs/anon_pipelines --directory ./data/XXX
+```
+
+## VPC 2024 performances
+
+### hifigan_bn_tdnnf_600h_vq_48_v1 (VPC-B5)
+```lua
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  21.146
+   libri  test      m       anon  anon  21.137
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  9.693
+   libri  test      anon  9.092
+```
+
+### hifigan_bn_tdnnf_wav2vec2_vq_48_v1 (VPC-B6)
+```lua
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  33.946
+   libri  test      m       anon  anon  34.729
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  4.731
+   libri  test      anon  4.369
+```
+
+### hifigan_bn_tdnnf_wav2vec2_vq_48_v1+f0-transformation=quant_16_awgn_2 (Add F0 transformations)
+```lua
+---- ASR results ----
+ dataset split       asr    WER
+   libri  test  original  1.844
+   libri  test      anon  4.814
+
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  42.151
+   libri  test      m       anon  anon  40.755
+```
+
+### hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1+f0-transformation=quant_16_awgn_2 (hifigan train to match a single speaker + F0 transformations)
+```lua
+---- ASR results ----
+ dataset split       asr    WER
+   libri  test  original  1.844
+   libri  test      anon  4.209
+
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  35.765
+   libri  test      m       anon  anon  35.195
+```
+
+> Note: The model was trained with a custom implementation of yaapt, yielding
+> lower speech naturalness than the original. (Maybe for the benefit of better
+> privacy)
 
 ## Quick JIT anonymization example
 

@@ -35,6 +35,7 @@ class Cmd(script_utils.ConfigParser):
     device: str = "cuda"
     ngpu: script_utils.ngpu = 1
     jobs_per_compute_device: int = 1 # number of jobs per gpus/cpus
+    pipeline: str = "pipeline"
 
 
 def update_progress_bar(progress, total):
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     cfg_parse = script_utils.vartoml(cfg_parse)
 
     cfg_cmd = Cmd().load_from_config(cfg_parse["cmd"])
-    cfg_pipeline = Pipeline().load_from_config(cfg_parse["pipeline"])
+    cfg_pipeline = Pipeline().load_from_config(cfg_parse[cfg_cmd.pipeline])
     cfg_pipeline.device = cfg_cmd.device
 
     wavscp = script_utils.read_wav_scp(os.path.join(args.directory, "wav.scp"))

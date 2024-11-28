@@ -84,10 +84,17 @@ def process_data(dataset_path: str, target_selection_algorithm: str, wavscp: dic
     utt2spk = dataset_path / 'utt2spk'
     wav_scp_out = output_path / 'wav.scp'
 
-    model = load_model(settings.model)
+    option_args = {}
+    if settings.f0_modification != "":
+        option_args["f0_transformation"] = settings.f0_modification
+    model = load_model(settings.model, option_args=option_args)
     model.to(device)
     model.eval()
-    possible_targets = model.spk.copy() # For spk and utt target_selection_algorithm random choice
+    possible_targets = None
+    if hasattr(model, "spk"):
+        possible_targets = model.spk.copy() # For spk and utt target_selection_algorithm random choice
+    else:
+        logging.info("Model without explicit target")
 
     source_utt2spk = script_utils.read_wav_scp(utt2spk)
     out_spk2target = {} # For spk target_selection_algorithm
@@ -106,6 +113,8 @@ def process_data(dataset_path: str, target_selection_algorithm: str, wavscp: dic
         if target_selection_algorithm == "constant": # The best way/most secure to evaluate privacy when applied to all dataset (train included)
             target_constant_spkid = settings.target_constant_spkid # For constant target_selection_algorithm
             target_spks = [target_constant_spkid]*audio.shape[0]
+        elif target_selection_algorithm == "none":
+            pass
         elif target_selection_algorithm == "bad_for_evaluation":
             # This target selection algorithm is bad for evaluation as it does
             # not generate suitable training data for the ASV eval training
@@ -135,8 +144,11 @@ def process_data(dataset_path: str, target_selection_algorithm: str, wavscp: dic
                 target_spks.append(out_spk2target[source_spk])
         else:
             raise ValueError(f"{target_selection_algorithm} not implemented")
+        targets_arg = {}
+        if len(target_spks) != 0:
+            targets_arg = {"target":target_spks}
         #  Batch conversion
-        wav_conv = model.convert(audio, target=target_spks)
+        wav_conv = model.convert(audio, **targets_arg)
         wav_conv = wav_conv.cpu()
 
         def parallel_write():
