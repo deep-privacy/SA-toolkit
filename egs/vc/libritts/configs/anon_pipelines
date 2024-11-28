@@ -7,9 +7,9 @@ pipeline = pipeline_no_target_f0_mod
 ##
 # Models:
 # https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_vq_48_v1/final.pt
 # https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
 # https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_100h_aug_v1/final.pt
+# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_vq_48_v1/final.pt
 # https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_aug_v1/final.pt
 # https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_64_v1/final.pt
 # https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_256_v1/final.pt
