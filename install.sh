@@ -241,9 +241,9 @@ mark=.${venv_dir_name}_done-satools
 if [ ! -f $mark ]; then
   explain " == Building satools src =="
   cd satools
-  if [ ! $INSTALL_KALDI = true ]; then
-    explain " == Not installing the kaldi binding for LF-MMI ASR (ASR-BN) training =="
-    export PKWRAP_CPP_EXT=no
+  if [ $INSTALL_KALDI = true ]; then
+    explain " == Installing the kaldi binding for LF-MMI ASR (ASR-BN) training =="
+    export PKWRAP_CPP_EXT=yes
   fi
   make cleanly
   cd $home
