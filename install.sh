@@ -135,12 +135,10 @@ if [ ! -f $mark ]; then
   echo 'matplotlib' >> requirements.txt
   echo 'python-dateutil' >> requirements.txt
   echo 'graftr' >> requirements.txt # an interactive shell to view and edit PyTorch checkpoints
-  echo 'h5py' >> requirements.txt
 
   # asr additional req
   echo 'kaldiio>=2.15.1' >> requirements.txt
   echo 'resampy>=0.2.2' >> requirements.txt
-  echo 'ConfigArgParse>=1.5.1' >> requirements.txt
   echo 'librosa' >> requirements.txt
   echo 'scipy>=1.8' >> requirements.txt
   echo 'ffmpeg>=1.4' >> requirements.txt
