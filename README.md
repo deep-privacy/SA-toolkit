@@ -38,7 +38,7 @@ git clone https://github.com/deep-privacy/SA-toolkit
 
 Another way of installing SA-toolkit is with pip3, this will setup everything for inference/testing.  
 ```sh
-pip3 install 'git+https://github.com/deep-privacy/SA-oolkit.git@master#egg=satools&subdirectory=satools'
+pip3 install 'git+https://github.com/deep-privacy/SA-toolkit.git@master#egg=satools&subdirectory=satools'
 ```
 
 ## Anonymize bin
