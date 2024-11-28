@@ -33,7 +33,7 @@ class Pipeline(script_utils.ConfigParser):
 @dataclass
 class Cmd(script_utils.ConfigParser):
     device: str = "cuda"
-    ngpu: script_utils.ngpu = 1
+    ngpu: script_utils.ngpu = [0]
     jobs_per_compute_device: int = 1 # number of jobs per gpus/cpus
     pipeline: str = "pipeline"
 
