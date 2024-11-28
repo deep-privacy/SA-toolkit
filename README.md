@@ -28,13 +28,28 @@ _Kaldi is necessary for training the ASR models and the handy `run.pl`/`ssh.pl`/
 
 ## Installation
 
-The best way to install the toolkit is with the `install.sh` script, which setup a miniconda environment, and kaldi.
+The best way to install the SA-toolkit is with the `install.sh` script, which setup a miniconda environment, and kaldi.
 Take a look at the script and adapt it to your cluster configuration, or leave it do it's magic.
 
 ```sh
 git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
 ```
+
+Another way of installing SA-toolkit is with pip3, this will setup everything for inference/testing.  
+```sh
+pip3 install 'git+https://github.com/deep-privacy/SA-oolkit.git@master#egg=satools&subdirectory=satools'
+```
+
+## Anonymize bin
+Once installed (with any of the above ways), you will
+have access to the [`anonymize`](./satools/satools/bin/anonymize) bin in your PATH that you can use together
+with a config (example: [here](./egs/vc/libritts/configs/anon_pipelines)) to anonymize a kaldi like directory.
+
+```sh
+anonymize --config ./configs/anon_pipelines --directory ./data/XXX
+```
+
 
 ## Quick Torch HUB anonymization example
 
@@ -48,15 +63,6 @@ import torch
 model = torch.hub.load("deep-privacy/SA-toolkit", "anonymization", tag_version="hifigan_bn_tdnnf_wav2vec2_vq_48_v1", trust_repo=True)
 wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
 asr_bn = model.get_bn(torch.rand((1, 77040))) # (ASR-BN extraction for disentangled linguistic features (best with hifigan_bn_tdnnf_wav2vec2_vq_48_v1))
-```
-
-## Anonymize bin
-Once the install.sh script is run, (`INSTALL_KALDI=false` can be set for faster installation), you will
-have access to the [`./satools/satools/bin/anonymize`](./satools/satools/bin/anonymize) bin in your path that you can use together
-with a config (example: [here](./egs/vc/libritts/configs/anon_pipelines)) to anonymize a kaldi like directory.
-
-```sh
-anonymize --config ./configs/anon_pipelines --directory ./data/XXX
 ```
 
 ## VPC 2024 performances
