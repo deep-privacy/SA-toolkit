@@ -87,7 +87,8 @@ def process_data(dataset_path: str, target_selection_algorithm: str, wavscp: dic
     option_args = {}
     if settings.f0_modification != "":
         option_args["f0_transformation"] = settings.f0_modification
-    model = load_model(settings.model, option_args=option_args)
+    with progress.get_lock():
+        model = load_model(settings.model, option_args=option_args)
     model.to(device)
     model.eval()
     possible_targets = None
