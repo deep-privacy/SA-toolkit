@@ -43,7 +43,7 @@ pip3 install 'git+https://github.com/deep-privacy/SA-oolkit.git@master#egg=satoo
 
 ## Anonymize bin
 Once installed (with any of the above ways), you will
-have access to the [`./satools/satools/bin/anonymize`](./satools/satools/bin/anonymize) bin in your PATH that you can use together
+have access to the [`anonymize`](./satools/satools/bin/anonymize) bin in your PATH that you can use together
 with a config (example: [here](./egs/vc/libritts/configs/anon_pipelines)) to anonymize a kaldi like directory.
 
 ```sh
