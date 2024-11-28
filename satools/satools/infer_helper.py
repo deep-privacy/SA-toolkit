@@ -36,7 +36,12 @@ def load_model(file, load_weight=True, version="v1", from_file=None, option_args
     config_path = install_path + "/" + model_state["task_path"] + "/" + model_state["base_model_path"]
     logging.info(f"Loading {config_path}")
     if not os.path.exists(config_path):
-        raise FileNotFoundError("No file found at location {}".format(config_path))
+        logging.info(f"Downloading https://raw.githubusercontent.com/deep-privacy/SA-toolkit/refs/heads/master"+model_state["task_path"] + "/" + model_state["base_model_path"])
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        torch.hub.download_url_to_file(
+             "https://raw.githubusercontent.com/deep-privacy/SA-toolkit/refs/heads/master"+ model_state["task_path"] + "/" + model_state["base_model_path"],
+             config_path
+        )
     spec = importlib.util.spec_from_file_location("config", config_path)
     model_file = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(model_file)
