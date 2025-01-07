@@ -125,9 +125,13 @@ def train():
             logging.info(f"Last training iter found: {cfg_exp.train_iter}")
 
     if torch.cuda.is_available():
-        carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
+        carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=1)
+        carbonTracker.logger.logger_err.setLevel(logging.ERROR)
+        carbonTracker.logger.logger.setLevel(logging.ERROR)
     else:
-        carbonTracker = CarbonTracker(epochs=1, components="cpu", verbose=0)
+        carbonTracker = CarbonTracker(epochs=1, components="cpu", verbose=1)
+        carbonTracker.logger.logger_err.setLevel(logging.ERROR)
+        carbonTracker.logger.logger.setLevel(logging.ERROR)
     carbonTracker.epoch_start()
 
     #   start the training
@@ -142,6 +146,8 @@ def train():
                 *cfg_exp.get_forcmd("train_set"), # spk2id
                 *cfg_exp.get_forcmd("dir"),
                 *cfg_exp.get_forcmd("init_weight_model"),
+                *cfg_exp.get_forcmd("cache_path"),
+                *cfg_exp.get_forcmd("cache_functions", add_quote=True),
                 cfg_exp.dir / "g_0.pt",
         ])
         if process_out.returncode != 0:
@@ -218,8 +224,9 @@ def train():
             satools.script_utils.run(["rm", cfg_exp.dir / f"g_best.pt"], quit_on_error=False)
             satools.script_utils.run(["ln", "-s", os.path.basename(args.final_model), cfg_exp.dir / f"g_best.pt"], quit_on_error=True)
 
-        logging.info(f"Creating JIT model from '{cfg_exp.final_model}'")
         shutil.copy(cfg_exp.dir / f"{cfg_exp.final_model}", cfg_exp.dir / "final.pt")
+
+        logging.info(f"Creating JIT model from '{cfg_exp.final_model}'")
         # satools.script_utils.run([
         #         cfg_cmd.cpu_cmd,
         #         cfg_exp.dir / "log" / "jit.log",
@@ -249,7 +256,7 @@ def train():
                     # cfg_exp.dir / f"final.jit",
                     parsed_cfg_file,
                     args.config,
-                ], up_as_name=up_as, force=False
+                ], up_as_name=up_as, force=True
             )
 
 

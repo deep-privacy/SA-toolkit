@@ -7,6 +7,7 @@ import time
 import datetime
 from dataclasses import dataclass, fields
 from pathlib import Path
+from tqdm import tqdm
 
 import torch
 import torch.nn.functional as F
@@ -194,6 +195,22 @@ class HifiGanModel():
                 logging.warning("'init_weight_model' in config and model.init() in pytorch model may cancel eachother")
             model.init()
 
+        trainset = utils.WavScpDataset.from_wav_scpfile(self.opts.train_set + "/wav.scp")
+        if hasattr(model, "fake_epoch"):
+            logging.info("Running a fake first epoch")
+            device = torch.device("cuda")
+            model.to(device)
+            self.opts.cache_worker_name = "train_set"
+            for j in tqdm(range(len(trainset))):
+                batch = dataset.model_collate(model, self.opts, auto_sample=False)([trainset[j]])
+                batch.compute_cuda_extract_feat(model, self.opts, "train_set", device)
+                batch.to(device)
+                run_after = model.fake_epoch(batch)
+            utils.feature_extractor_decorator.merge_cache(model, self.opts.cache_path)
+            if hasattr(model, "fake_end_after"):
+                model.fake_end_after()
+
+        model.to("cpu")
         self.save_model(model, self.opts.base_model)
 
         mpd = nn.MultiPeriodDiscriminator()
@@ -202,8 +219,11 @@ class HifiGanModel():
             discriminators = os.path.realpath(self.opts.init_weight_model).replace("g_", "d_")
             if os.path.exists(discriminators):
                 logging.info("Init discriminators from previous model")
-                mpd.load_state_dict(torch.load(discriminators, weights_only=False)["mpd"])
-                msd.load_state_dict(torch.load(discriminators, weights_only=False)["msd"])
+                try:
+                    mpd.load_state_dict(torch.load(discriminators, weights_only=False)["mpd"])
+                    msd.load_state_dict(torch.load(discriminators, weights_only=False)["msd"])
+                except:
+                    logging.warning(f"Failed to load discriminators from path: {discriminators}")
 
         file = self.opts.base_model.replace("g_", "d_")
         torch.save({ "mpd":  mpd.state_dict(), "msd": msd.state_dict() }, file)
@@ -308,6 +328,7 @@ class HifiGanModel():
 
         if self.opts.rank == 0:
             dataset_test = utils.WavScpDataset.from_wav_scpfile(self.opts.dev_set + "/wav.scp")
+            dataset_test.wavs_idx = trainset.wavs_idx[:len(dataset_test.wavs_idx)] # Convert to speaker in the trainset for dev the set
             self.opts.cache_worker_name = "dev_set"
             dataloader_test = torch.utils.data.DataLoader(
                 dataset_test,
@@ -348,18 +369,22 @@ class HifiGanModel():
             for i, batch in enumerate(dataloader):
                 start_b = time.time()
 
-                batch.compute_cuda_extract_feat(generator, self.opts, "train_set", device)
-                batch.to(device)
-                batch.sample(self.opts.segment_size)
-                y_gen = generator(batch)
+                try:
+                    batch.compute_cuda_extract_feat(generator, self.opts, "train_set", device)
+                    batch.to(device)
+                    batch.sample(self.opts.segment_size)
+                    y_gen = generator(batch)
 
-                ys, y_gen = self.truncate(batch.yss, y_gen)
+                    ys, y_gen = self.truncate(batch.yss, y_gen)
 
-                y_g_gen_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
+                    y_g_gen_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
 
-                y_mel = dataset.mel_spectrogram(y=ys.squeeze(1), **self.opts.dataset_conf())
+                    y_mel = dataset.mel_spectrogram(y=ys.squeeze(1), **self.opts.dataset_conf())
 
-                optim_d.zero_grad()
+                    optim_d.zero_grad()
+                except Exception as e:
+                    logging.warning("Error with: "+ str(batch))
+                    raise e
 
                 def loss_discriminators(ys, y_gen):
 
@@ -433,37 +458,42 @@ class HifiGanModel():
                             torch.cuda.empty_cache()
                             for j, batch_test in enumerate(dataloader_test):
 
-                                batch_test.compute_cuda_extract_feat(generator, self.opts, "dev_set", device)
-                                batch_test.to(device)
-                                y_gen = generator(batch_test)
+                                try:
+                                    batch_test.compute_cuda_extract_feat(generator, self.opts, "dev_set", device)
+                                    batch_test.to(device)
+                                    y_gen = generator(batch_test)
 
-                                ys, y_gen = self.truncate(batch_test.yss, y_gen, mult=batch_test.yss.shape[-1]//self.opts.segment_size) # truncate high because of batch padding on full audio
+                                    ys, y_gen = self.truncate(batch_test.yss, y_gen, mult=batch_test.yss.shape[-1]//self.opts.segment_size) # truncate high because of batch padding on full audio
 
-                                y_g_gen_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
-                                y_mel = dataset.mel_spectrogram(y=ys.squeeze(1), **self.opts.dataset_conf())
+                                    y_g_gen_mel = dataset.mel_spectrogram(y=y_gen.squeeze(1), **self.opts.dataset_conf())
+                                    y_mel = dataset.mel_spectrogram(y=ys.squeeze(1), **self.opts.dataset_conf())
 
-                                val_err_tot += F.l1_loss(y_mel, y_g_gen_mel).item()
-                                gen_loss_tot += (
-                                    loss_discriminators(ys, y_gen).sum().item()
-                                ) + val_err_tot
+                                    val_err_tot += F.l1_loss(y_mel, y_g_gen_mel).item()
+                                    gen_loss_tot += (
+                                        loss_discriminators(ys, y_gen).sum().item()
+                                    ) + val_err_tot
 
-                                if j <= 4:
-                                    batch_example = dataset.model_collate(generator, self.opts, auto_sample=False)([dataset_test[j]])
-                                    batch_example.compute_cuda_extract_feat(generator, self.opts, "tensorboard", device)
-                                    batch_example.to(device)
-                                    y_gen = generator(batch_example)
+                                    if j <= 4:
+                                        batch_test = dataset.model_collate(generator, self.opts, auto_sample=False)([dataset_test[j]])
+                                        batch_test.compute_cuda_extract_feat(generator, self.opts, "dev_set", device)
+                                        batch_test.to(device)
+                                        y_gen = generator(batch_test)
 
-                                    if steps == 0:
-                                        logging.info("Len generated audio: " + str(y_gen.shape) + " - Len ground truth audio: " + str(batch_example.yss.shape))
-                                        sw.add_audio("gt/y_{}".format(j), batch_example.yss, steps, self.opts.sampling_rate)
-                                        sw.add_figure(
-                                            "gt/y_spec_{}".format(j),
-                                            dataset.plot_spectrogram(batch_example.yss.squeeze(1)),
-                                            steps,
-                                        )
+                                        if steps == 0:
+                                            logging.info("Len generated audio: " + str(y_gen.shape) + " - Len ground truth audio: " + str(batch_test.yss.shape))
+                                            sw.add_audio("gt/y_{}".format(j), batch_test.yss, steps, self.opts.sampling_rate)
+                                            sw.add_figure(
+                                                "gt/y_spec_{}".format(j),
+                                                dataset.plot_spectrogram(batch_test.yss.squeeze(1)),
+                                                steps,
+                                            )
 
-                                    sw.add_audio("generated/y_gen_{}".format(j), y_gen[0], steps, self.opts.sampling_rate)
-                                    sw.add_figure("generated/y_gen_spec_{}".format(j), dataset.plot_spectrogram(y_gen.squeeze(1)), steps)
+                                        sw.add_audio("generated/y_gen_{}".format(j), y_gen[0], steps, self.opts.sampling_rate)
+                                        sw.add_figure("generated/y_gen_spec_{}".format(j), dataset.plot_spectrogram(y_gen.squeeze(1)), steps)
+
+                                except Exception as e:
+                                    logging.warning("Error with: "+ str(batch_test))
+                                    logging.warning(f"{type(e).__name__} at line {e.__traceback__.tb_lineno} of {__file__}: {e}")
 
                             val_err = val_err_tot / (j + 1)
                             gen_err = gen_loss_tot / (j + 1)
@@ -506,5 +536,4 @@ class HifiGanModel():
                 scheduler_d.step()
             if self.opts.rank == 0:
                 utils.feature_extractor_decorator.merge_cache(generator, self.opts.cache_path)
-
         logging.info("Finished training")

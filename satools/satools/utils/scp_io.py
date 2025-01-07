@@ -18,18 +18,6 @@ def seekable(f):
     if hasattr(f, "seekable"):
         return f.seekable()
 
-    # For Py2
-    else:
-        if hasattr(f, "tell"):
-            try:
-                f.tell()
-            except (IOError, OSError):
-                return False
-            else:
-                return True
-        else:
-            return False
-
 def File(file, mode='r'):
     specifier = parse_wspecifier(file)
     if mode == 'a':

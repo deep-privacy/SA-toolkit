@@ -34,7 +34,7 @@ def build(args):
                 "nccf_thresh1": 0.25,
                 "tda_frame_length": 25.0,
             }
-            self.f0_norm = satools.cmvn.UttCMVN(var_norm=True, keep_zeros=True)
+            self.f0_norm = satools.cmvn.SpeakerCMVN()
 
             self.utt2spk = utt2spk
             self.spk = sorted(set([v for v in utt2spk.values()]))
@@ -80,11 +80,27 @@ def build(args):
                 f0 = hifigan.nn.mean_reverv_f0(f0, alpha=args.f0_transformation)
             return f0
 
+        @torch.jit.unused
+        def fake_end_after(self):
+            for speaker_id in self.f0_norm.speaker_stats.keys():
+                self.f0_norm.compute_global_stats(speaker_id)
+                mean = self.f0_norm.speaker_stats[speaker_id]["mean"]
+                std = self.f0_norm.speaker_stats[speaker_id]["std"]
+                logging.info(f"Speaker {speaker_id}: Mean={round(mean.item(), 2)}, Std={round(std.item(), 2)}")
+
+        @torch.jit.unused
+        def fake_epoch(self, egs_with_feat: hifigan.dataset.Egs):
+            spk_id, f0 = egs_with_feat["get_spk_id"], egs_with_feat["get_f0"]
+            self.f0_norm.pass_though_if_not_computed = True
+            [self.f0_norm(f0[i], satools.utils.torch.get_one_hot_str_from_tensor(spk_id[i])) for i in range(f0.size(0))]
+
         def _forward(self, f0, bn, spk_id):
-            f0 = self.f0_norm(f0)
 
             if f0.dim() == 2:
                 f0 = f0.unsqueeze(0)
+
+            # F0 norm
+            f0 = torch.stack([self.f0_norm(f0[i], satools.utils.torch.get_one_hot_str_from_tensor(spk_id[i])) for i in range(f0.size(0))], dim=0)
             f0 = f0.permute(1, 0, 2)
 
             f0 = self.f0_transformation(f0)
@@ -107,7 +123,7 @@ def build(args):
                                  egs_with_feat["get_bn"],
                                  egs_with_feat["get_spk_id"])
 
-        @satools.utils.register_feature_extractor(compute_device="cuda", scp_cache=True)
+        @satools.utils.register_feature_extractor(compute_device="cuda", scp_cache=False)
         def get_bn(self, wavinfo: Union[satools.utils.WavInfo, torch.Tensor]):
             wav = satools.utils.parse_wavinfo_wav(wavinfo)
             return self.bn_extractor.extract_bn(wav).permute(0, 2, 1)
@@ -118,7 +134,7 @@ def build(args):
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: Union[satools.utils.WavInfo, torch.Tensor]):
             wav = satools.utils.parse_wavinfo_wav(wavinfo)
-            f0 = hifigan.yaapt.yaapt(wav, self.f0_yaapt_opts)
+            f0 = hifigan.pyaapt.yaapt(wav, self.f0_yaapt_opts)
             return f0
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)

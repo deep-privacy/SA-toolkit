@@ -1,5 +1,5 @@
 """
- wrap scripts in kaldi utils directory
+ SCPCache for functions
 """
 
 import uuid
@@ -15,7 +15,7 @@ import torch
 from tqdm import tqdm
 
 from . import scp_io
-#  import satools.utils.scp_io as scp_io
+# import satools.utils.scp_io as scp_io
 
 
 def split_data(dirname, num_jobs=0):
@@ -185,6 +185,7 @@ if __name__ == "__main__":
                    specifier_formatter={"param":10})
     @scp_cache.decorate()
     def extract_stuff(a):
+        print("Compute", a.key, flush=True)
         return torch.tensor([1,2,3,4])
 
     print(extract_stuff(item("testing")))

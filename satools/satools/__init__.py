@@ -14,11 +14,11 @@ generalimport.generalimport("feerci",
               "scipy",
               "tqdm")._scope=None
 
+from . import hifigan
 from . import infer_helper
 from . import script_utils
 from . import nn
 from . import chain
-from . import hifigan
 from . import sidekit
 from . import lr_scheduler
 from . import utils

@@ -1,36 +1,80 @@
 [cmd]
 device = cuda
 jobs_per_compute_device = 2
+# *all-force* or *all* (detect avaiable gpu) or number *1* for number of gpu or list *[0]* for gpuid 0 *[0,1]* for gpuid 0 and 1
 ngpu = all-force
+# Can be overwrited by --pipeline
 pipeline = B6
 
 ##
-# Models:
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_100h_aug_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_vq_48_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_aug_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_64_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_256_v1/final.pt
-# https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_aug_v1/final.pt
+# models:
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_100h_aug_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_vq_48_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_aug_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_64_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_vq_256_v1/final.pt
+#  - https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_100h_aug_v1/final.pt
 
 ##
-# Target_selection_algorithm:
-# constant
-# random_per_utt
-# bad_for_evaluation
-# random_per_spk_uniq (spk-level like vpc2020) (also bad for eval, see thesis)
+# target_selection_algorithm:
+#  - constant
+#  - random_per_utt
+#  - bad_for_evaluation
+#  - random_per_spk_uniq (spk-level like vpc2020) (also bad for eval, see thesis)
 
 ##
-# F0_modification
-# quant_XXX
-# awgn_XXX
+# f0_modification
+#  - quant_XXX
+#  - awgn_XXX
 
-## Target_constant_spkid
+## target_constant_spkid
 # One of libritts
 
-[pipeline_no_target_f0_mod]
+
+# VPC 2024 Baseline B6
+[B6]
+model = https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_600h_vq_48_v1/final.pt
+f0_modification = none
+target_selection_algorithm = random_per_utt
+# target_selection_algorithm = constant
+target_constant_spkid = 6081
+new_datadir_suffix = _anon_B6
+batch_size = 8
+
+
+# VPC 2024 Baseline B5
+[B5]
+model = https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
+f0_modification = none
+target_selection_algorithm = random_per_utt
+# target_selection_algorithm = constant
+target_constant_spkid = 6081
+new_datadir_suffix = _anon_B5
+batch_size = 8
+
+# VPC 2024 Baseline B5 + F0 transformations
+[B5_f0t]
+model = https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
+f0_modification = quant_16_awgn_2
+target_selection_algorithm = constant
+target_constant_spkid = 6081
+new_datadir_suffix = _anon_B5_f0t
+batch_size = 8
+
+[B5_clean_speech_f0t]
+model = ./exp/clean_hifigan_bn_tdnnf_wav2vec2_train_600_vq_48/g_00149000.pt
+f0_modification = quant_16_awgn_2
+target_selection_algorithm = constant
+target_constant_spkid = 6081
+new_datadir_suffix = _anon_B5_clean
+batch_size = 8
+
+
+
+
+[hifigan_inception]
 ## From PATH:
 # model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
 ## From URL:
@@ -38,19 +82,11 @@ model = https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_inc
 f0_modification = quant_16_awgn_2
 # No target_selection_algorithm trained to be similar to 6081 (train any-many VC -> generate train data 6081 -> train any-one VC)
 target_selection_algorithm = none
-new_datadir_suffix = _vc_any_to_one_f0_quant_16_awgn_2
+new_datadir_suffix = _inception_anon_any_to_one_f0_quant_16_awgn_2
 batch_size = 8
 
 
-[pipeline_no_target]
-model = exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_vq_48/final.pt
-f0_modification = none
-target_selection_algorithm = none
-new_datadir_suffix = _vc_any_to_one
-batch_size = 8
-
-
-[B5]
+[for_training_hifigan_inception]
 model = exp/hifigan_bn_tdnnf_wav2vec2_train_600_aug/final.pt
 f0_modification = none
 target_selection_algorithm = constant
@@ -58,13 +94,5 @@ target_constant_spkid = 6081
 new_datadir_suffix = _vc_to_6081
 batch_size = 8
 
-
-[B6]
-model = https://github.com/deep-privacy/SA-toolkit/releases/download/hifigan_bn_tdnnf_wav2vec2_vq_48_v1/final.pt
-f0_modification = none
-target_selection_algorithm = constant
-target_constant_spkid = 6081
-new_datadir_suffix = _anon
-batch_size = 8
 
 # vim:set et sw=2 ts=2 ft=toml:

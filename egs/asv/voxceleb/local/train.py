@@ -131,7 +131,9 @@ def train():
             "--out-csv", cfg_exp.dir / "train.csv"
         ])
 
-    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=2)
+    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=1)
+    carbonTracker.logger.logger_err.setLevel(logging.ERROR)
+    carbonTracker.logger.logger.setLevel(logging.ERROR)
     carbonTracker.epoch_start()
 
     if stage <= 5 and cfg_exp.train_epoch == "0":

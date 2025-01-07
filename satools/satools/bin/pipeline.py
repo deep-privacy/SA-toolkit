@@ -23,10 +23,6 @@ def copy_data_dir(dataset_path, output_path):
         if os.path.isfile(p):
             shutil.copy(p, output_path)
 
-class Wav(): # for f0 extraction
-    def __init__(self, w):
-        self.wav = w
-
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, id_wavs, get_f0_func):
         self.all_wavs = list(id_wavs.values())
@@ -38,7 +34,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         audio, freq = load_wav_from_scp(str(self.all_wavs[index]))
-        f0 = self.get_f0_func(Wav(audio))
+        f0 = self.get_f0_func(audio)
         return {"utid": self.all_keys[index],
                 "audio": audio,
                 "f0": f0,

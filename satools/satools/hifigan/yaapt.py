@@ -952,9 +952,9 @@ def yaapt(_in:torch.Tensor, kwargs:Dict[str, float]):
 
 if __name__ == "__main__":
     import torchaudio
-    import librosa
-    wav, _ = torchaudio.load("https://datasets-server.huggingface.co/assets/librispeech_asr/--/all/train.other.500/1/audio/audio.mp3")
-    audio = wav.squeeze()
+    wav, _ = torchaudio.load("/home/pchampio/lab/sa-toolkit/egs/vc/libritts/data/train_clean_100/wavs_16khz/6367_74004_000020_000000.wav")
+    audio = wav
+    audio = torch.stack([audio, audio], dim=0)
 
     _yaapt_opts = {
         "frame_length": 35.0,
@@ -967,33 +967,4 @@ if __name__ == "__main__":
         audio,
         _yaapt_opts,
     )
-    print(pitch.samp_values)
-
-    def eval():
-        pitch = yaapt(
-            audio,
-            _yaapt_opts,
-        )
-
-    def timed(fn):
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
-        result = fn()
-        end.record()
-        torch.cuda.synchronize()
-        return result, start.elapsed_time(end) / 1000
-
-
-    N_ITERS = 100
-    eager_times = []
-    compile_times = []
-    for i in range(N_ITERS):
-        _, eager_time = timed(lambda: eval())
-        eager_times.append(eager_time)
-        print(f"eval time {i}: {eager_time}")
-
-    import numpy as np
-    eager_med = np.median(eager_times)
-    print("~" * 10)
-    print("Time per opts", eager_med)
+    print(pitch)

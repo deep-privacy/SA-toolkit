@@ -43,7 +43,7 @@ def build(args):
             }
             self.f0_norm = satools.cmvn.UttCMVN(var_norm=True, keep_zeros=True)
 
-            self.f0: Optional[torch.Tensor] = None # hack to compute the F0 on CPU
+            self.f0: Optional[torch.Tensor] = None # Compute the F0 on CPU (for batch processing at inference)
 
 
             self.hifigan = (hifigan.archi.CoreHifiGan(
@@ -61,7 +61,6 @@ def build(args):
 
         @torch.jit.export
         def extract_features(self, x):
-            x = satools.utils.WavInfo(wav=x, name="default_utts", filename="default_utt_filenames")
             f0 = self.get_f0(x).unsqueeze(0)
             bn = self.get_bn(x)
             return (f0, bn)
@@ -86,14 +85,15 @@ def build(args):
             if f0.dim() == 2:
                 f0 = f0.unsqueeze(0)
             f0 = f0.permute(1, 0, 2)
+
             f0 = self.f0_transformation(f0)
             f0_inter = F.interpolate(f0, bn.shape[-1])
             x = torch.cat([bn, f0_inter], dim=1)
 
             with torch.amp.autocast('cuda', enabled=True):
                 x, _ = self.hifigan(x)
-            x = x.to(torch.float32)
-            return x
+
+            return x.to(torch.float32)
 
 
         def forward(self, egs_with_feat: hifigan.dataset.Egs):
@@ -110,11 +110,9 @@ def build(args):
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: Union[satools.utils.WavInfo, torch.Tensor]):
-            if self.f0 != None:
-                f0, self.f0 = self.f0, None
-                return f0
             wav = satools.utils.parse_wavinfo_wav(wavinfo)
-            return hifigan.yaapt.yaapt(wav, self.f0_yaapt_opts)
+            f0 = hifigan.yaapt.yaapt(wav, self.f0_yaapt_opts)
+            return f0
 
 
     return Net

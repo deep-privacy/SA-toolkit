@@ -244,8 +244,9 @@ def train():
         num_archives * (num_epochs - 1) * cfg_exp.num_archives_multiplier_factor * 2
     ) // (cfg_exp.num_jobs_initial + cfg_exp.num_jobs_final)
 
-    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=0)
+    carbonTracker = CarbonTracker(epochs=1, components="gpu", verbose=1)
     carbonTracker.logger.logger_err.setLevel(logging.ERROR)
+    carbonTracker.logger.logger.setLevel(logging.ERROR)
     carbonTracker.epoch_start()
 
     #   start the training

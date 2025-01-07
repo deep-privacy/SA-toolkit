@@ -3,6 +3,7 @@ import io
 import kaldiio
 import numpy as np
 import torch
+import pickle
 
 
 class CMVN(object):
@@ -172,7 +173,7 @@ class UttCMVN(torch.nn.Module):
 
 class AdaptivePCMN(torch.nn.Module):
     """ Using adaptive parametric Cepstral Mean Normalization to replace traditional CMN.
-        It is implemented according to [Ozlem Kalinli, etc. "Parametric Cepstral Mean Normalization 
+        It is implemented according to [Ozlem Kalinli, etc. "Parametric Cepstral Mean Normalization
         for Robust Automatic Speech Recognition", icassp, 2019.]
     """
     def __init__(self, input_dim, left_context=-10, right_context=10, pad=True):
@@ -187,7 +188,7 @@ class AdaptivePCMN(torch.nn.Module):
         kernel_size = (self.tot_context,)
 
         self.input_dim = input_dim
-        # Just pad head and end rather than zeros using replicate pad mode 
+        # Just pad head and end rather than zeros using replicate pad mode
         # or set pad false with enough context egs.
         self.pad = pad
         self.pad_mode = "replicate"
@@ -235,3 +236,224 @@ class AdaptivePCMN(torch.nn.Module):
         outputs = inputs.permute(0, 2, 1)
 
         return outputs
+
+
+import torch
+
+class SpeakerCMVN(torch.nn.Module):
+    def __init__(self):
+        super(SpeakerCMVN, self).__init__()
+        self.speaker_stats = {}  # Store statistics per speaker
+        self.stats_computed = {}  # Track whether stats are computed per speaker
+        self.computed = False
+        self.pass_though_if_not_computed = False
+        self.keep_zeros = True
+        # Register a buffer to store the byte-serialized state of the model.
+        self.register_buffer('model_state_buffer', torch.zeros((900000), dtype=torch.uint8))
+
+    def serialize_state(self):
+        """Serialize only custom attributes to a byte buffer."""
+        # Serialize the relevant model components (e.g., stats and flags)
+        state_dict = {
+            'speaker_stats': self.speaker_stats,
+            'stats_computed': self.stats_computed,
+            'computed': self.computed,
+            'keep_zeros': self.keep_zeros
+        }
+        # Serialize the state to a byte array
+        serialized_state = pickle.dumps(state_dict)
+        # Store the serialized state as a tensor buffer
+        serialized_tensor = torch.tensor(bytearray(serialized_state), dtype=torch.uint8)
+        # Pad the tensor to fit into the pre-allocated buffer if needed
+        current_size = serialized_tensor.size(0)
+        buffer_size = self.model_state_buffer.size(0)
+
+        if current_size < buffer_size:
+            # If the serialized tensor is smaller than the buffer size, copy it to the buffer
+            self.model_state_buffer[:current_size] = serialized_tensor
+            # Fill the remaining part of the buffer with zeros (no padding necessary)
+            self.model_state_buffer[current_size:] = 0
+        else:
+            raise RuntimeError(f"Not enough place {buffer_size} < {current_size} to store bytearray of SpeakerCMVN")
+
+    def deserialize_state(self):
+        """Deserialize the byte buffer back to model components."""
+        # Deserialize the model state from the buffer
+        serialized_state = self.model_state_buffer.cpu().numpy().tobytes()
+        state_dict = pickle.loads(serialized_state)
+        # Set the deserialized values back into the model's attributes
+        self.speaker_stats = state_dict['speaker_stats']
+        self.stats_computed = state_dict['stats_computed']
+        self.computed = state_dict['computed']
+        self.keep_zeros = state_dict['keep_zeros']
+
+    def state_dict(self, *args, **kwargs):
+        self.serialize_state()
+        """Override the state_dict to include the custom buffer."""
+        state_dict = super().state_dict(*args, **kwargs)
+        return state_dict
+
+    def accumulate_stats(self, features, speaker_id):
+        """
+        Accumulate mean and variance statistics for a specific speaker.
+        Args:
+            features: Tensor of shape (T, D), where T is the number of frames and D is the feature dimensionality.
+            speaker_id: Identifier for the speaker (string).
+        """
+        with torch.no_grad():
+            if speaker_id not in self.speaker_stats:
+                # Initialize accumulators for the speaker (as scalars)
+                self.speaker_stats[speaker_id] = {
+                    "sum": 0.0,           # Total sum of all feature values
+                    "sum_sq": 0.0,        # Total sum of squares of feature values
+                    "total_frames": 0     # Total number of frames accumulated
+                }
+                self.stats_computed[speaker_id] = False
+
+
+            if self.keep_zeros:
+                vv = features != 0
+                features = features[vv]
+
+            # Update stats for the speaker (sum and sum_sq as scalars)
+            self.speaker_stats[speaker_id]["sum"] += features.sum().item()  # Sum of all values in features
+            self.speaker_stats[speaker_id]["sum_sq"] += (features ** 2).sum().item()  # Sum of squared values
+            self.speaker_stats[speaker_id]["total_frames"] += features.size(0)  # Number of frames processed
+
+    def compute_global_stats(self, speaker_id):
+        """
+        Compute global mean and variance for a specific speaker.
+        Args:
+            speaker_id: Identifier for the speaker (string).
+        """
+        # if self.stats_computed.get(speaker_id, False):
+        #     raise RuntimeError(f"Global statistics for speaker {speaker_id} have already been computed.")
+
+        stats = self.speaker_stats[speaker_id]
+
+        if stats["total_frames"] == 0:
+            raise ValueError(f"No data accumulated for speaker {speaker_id}.")
+
+        total_frames = stats["total_frames"]
+        mean = stats["sum"] / total_frames
+        var = (stats["sum_sq"] / total_frames) - (mean ** 2)
+        std = torch.sqrt(torch.tensor(var + 1e-6))  # Avoid division by zero
+
+        # Store computed stats
+        stats["mean"] = torch.tensor(mean)
+        stats["std"] = std
+        self.stats_computed[speaker_id] = True
+        self.computed = True
+
+    def normalize(self, features, speaker_id):
+        """
+        Normalize features using computed mean and standard deviation for a specific speaker.
+        Args:
+            features: Tensor of shape (T, D).
+            speaker_id: Identifier for the speaker (string).
+        Returns:
+            Normalized features: Tensor of shape (T, D).
+        """
+        if not self.stats_computed.get(speaker_id, False):
+            if self.pass_though_if_not_computed:
+                return features
+            raise RuntimeError(f"Global statistics for speaker {speaker_id} must be computed before normalization.")
+
+        mean = self.speaker_stats[speaker_id]["mean"].to(features.device)
+        std = self.speaker_stats[speaker_id]["std"].to(features.device)
+        if self.keep_zeros:
+            vv = features != 0
+            features[vv] = (features[vv] - mean) / std
+            return features
+
+        return (features - mean) / std
+
+    def forward(self, features, speaker_id):
+        """
+        Forward method for normalization. Assumes statistics are precomputed.
+        Args:
+            features: Tensor of shape (T, D).
+            speaker_id: Identifier for the speaker (string).
+        Returns:
+            Normalized features: Tensor of shape (T, D).
+        """
+        if self.model_state_buffer[0].item() != 0:
+            self.deserialize_state()
+            self.model_state_buffer[0] = 0
+        if not self.computed:
+            self.accumulate_stats(features, speaker_id)
+
+        return self.normalize(features, speaker_id)
+
+
+if __name__ == "__main__":
+    class MyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer = torch.nn.Linear(2, 2)
+            self.speaker_cmvn = SpeakerCMVN()  # Register as a submodule
+
+
+    a = MyModel()
+    f0_norm = a.speaker_cmvn
+    f0_norm.pass_though_if_not_computed = True
+    for i in range(250):
+        f0_norm(torch.tensor([148.1481, 158.4158, 168.4211, 173.9130, 183.9081, 186.0465, 186.0465,
+            186.0465, 186.0465, 179.7753,   0.0000,   0.0000,   0.0000,   0.0000,
+              0.0000,   0.0000,   0.0000, 155.3398, 150.9434, 150.9434, 150.9434,
+            149.5327, 148.1481, 148.1481, 146.7890, 146.7890, 146.7890, 146.7890,
+            146.7890, 146.7890, 146.7890, 146.7890, 148.1481, 148.1481, 152.3810,
+              0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+              0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+              0.0000,   0.0000]), f"marie{i}")
+    f0_norm(torch.tensor([148.1481, 158.4158, 168.4211, 173.9130, 183.9081, 186.0465, 186.0465,
+        186.0465, 186.0465, 179.7753,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000, 155.3398, 150.9434, 150.9434, 150.9434,
+        149.5327, 148.1481, 148.1481, 146.7890, 146.7890, 146.7890, 146.7890,
+        146.7890, 146.7890, 146.7890, 146.7890, 148.1481, 148.1481, 152.3810,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000])*2, "pierre")
+    for speaker_id in f0_norm.speaker_stats.keys():
+        f0_norm.compute_global_stats(speaker_id)
+        mean = f0_norm.speaker_stats[speaker_id]["mean"]
+        std = f0_norm.speaker_stats[speaker_id]["std"]
+        print(f"Speaker {speaker_id}: Mean={mean}, Std={std}")
+
+    print(
+    f0_norm(torch.tensor([158.4158, 168.4211, 173.9130, 183.9081, 186.0465, 186.0465,
+        186.0465, 186.0465, 179.7753,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000, 155.3398, 150.9434, 150.9434, 150.9434,
+        149.5327, 148.1481, 148.1481, 146.7890, 146.7890, 146.7890, 146.7890,
+        146.7890, 146.7890, 146.7890, 146.7890, 148.1481, 148.1481, 152.3810,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000]), "pierre")
+    )
+    print(a.state_dict())
+    torch.save(a.state_dict(), "/tmp/a.pkl")
+
+    f0_norm = MyModel()
+    f0_norm.load_state_dict(torch.load("/tmp/a.pkl"))
+    f0_norm = f0_norm.speaker_cmvn
+    print(
+    f0_norm(torch.tensor([158.4158, 168.4211, 173.9130, 183.9081, 186.0465, 186.0465,
+        186.0465, 186.0465, 179.7753,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000, 155.3398, 150.9434, 150.9434, 150.9434,
+        149.5327, 148.1481, 148.1481, 146.7890, 146.7890, 146.7890, 146.7890,
+        146.7890, 146.7890, 146.7890, 146.7890, 148.1481, 148.1481, 152.3810,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000]), "pierre")
+    )
+    print(
+    f0_norm(torch.tensor([158.4158, 168.4211, 173.9130, 183.9081, 186.0465, 186.0465,
+        186.0465, 186.0465, 179.7753,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000, 155.3398, 150.9434, 150.9434, 150.9434,
+        149.5327, 148.1481, 148.1481, 146.7890, 146.7890, 146.7890, 146.7890,
+        146.7890, 146.7890, 146.7890, 146.7890, 148.1481, 148.1481, 152.3810,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,   0.0000,
+          0.0000,   0.0000]), "pierre")
+    )
+    print(f0_norm.state_dict())

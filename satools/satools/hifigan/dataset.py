@@ -64,7 +64,24 @@ class Egs(object):
         self.wavs = torch.stack(wavs)
         self.yss = torch.stack(yss)
         for i, k in enumerate(extractor_feat_to_sample.keys()):
-            self.extractor[k] = torch.stack(extractor_feat[k])
+            # Find the maximum length along the dimension to be padded
+            max_length = max(tensor.size(0) for tensor in extractor_feat[k])
+
+            # Get the shape of the remaining dimensions (assuming tensors are 2D or higher)
+            remaining_shape = extractor_feat[k][0].size()[1:]
+
+            # Initialize a zero tensor for padding
+            padded_tensors = torch.zeros(
+                (len(extractor_feat[k]), max_length, *remaining_shape), dtype=extractor_feat[k][0].dtype, device=extractor_feat[k][0].device
+            )
+
+            # Fill the padded tensor
+            for idx, tensor in enumerate(extractor_feat[k]):
+                padded_tensors[idx, :tensor.size(0)] = tensor
+
+            # Store the padded tensor in the extractor
+            self.extractor[k] = padded_tensors
+
 
         return self
 
@@ -164,7 +181,7 @@ def extract_features(model, egs, cache_functions, specifier_format, ask_compute=
     for b in egs:
         f = utils.extract_features_from_decorator(model, b, ask_compute=ask_compute,
                                                   specifier_format=specifier_format,
-                                                  cache_funcs=cache_functions, key=lambda wavinfo:wavinfo.name)
+                                                  cache_funcs=cache_functions, key=lambda wavinfo:os.path.basename(wavinfo.filename))
         if f == None: # already loaded from cache if cuda
             return {}
         extractor.append(f)

@@ -2,16 +2,13 @@
 cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
-# hifigan trained on already converted speech (train->train-anon)
-
-# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_100h_aug local/train.py --conf configs/inception_hifigan
+# Can be modified through venv: e.g.: asrbn_model=bn_tdnnf_100h_aug local/train.py --conf configs/hifigan
 [var]
 asrbn_path = ../../asr/librispeech/exp/chain/
 asrbn_model = bn_tdnnf_100h_aug
 
 [exp]
-# converted speech
-train_set = ./data/train_clean_100_vc_to_6081
+train_set = data/train_clean_100
 # result reported on dev are with converted speech, hence Mel-Spec. Error is supposed to be high
 dev_set = data/dev_clean_reduced
 
@@ -24,25 +21,23 @@ segment_size = 16320
 training_epochs = 300
 checkpoint_interval = 1000
 # resume training from:
-# train_iter = 18000
-train_iter = last
+train_iter = 142000
+# train_iter = last
 
-model_file = local/tuning/hifigan_m2o.py
-dirname = hifigan_m2o_${:asrbn_model}
+model_file = local/tuning/hifigan_clean.py
+dirname = clean_hifigan_${:asrbn_model}
 model_args = ["--asrbn-model", "${:asrbn_path}${:asrbn_model}/final.pt"]
 
-init_weight_model = "exp/hifigan_m2o_bn_tdnnf_wav2vec2_train_600_aug/g_best.pt" # Init from previous hifigan model (non asr-bnVQ to train a asr-bnVQ one for example)
-# IMPORTANT!!!
-## Needed to get the cache which is the original F0 and asrbn
-cache_path = ./exp/hifigan_${:asrbn_model}/cache/
+init_weight_model = ./exp/clean_hifigan_bn_tdnnf_wav2vec2_train_600_vq_48/g_best.pt
+cache_path = ./exp/clean_hifigan_${:asrbn_model}/cache/
  # default / [] -> On  ||  ["none"] -> Off  ||  ["get_f0"] -> only get_f0
 # cache_functions = ["none"]
 
 # for jit
-final_model = g_best.pt
+# final_model = g_best.pt
 safe_gpu = True # Set to one job per GPU during training
 # g_best.pt is not necessary the best, with the GAN loss it is complicated to automatically choose know which is the best
-# final_model = g_00029000.pt
+final_model = g_00147000.pt
 
 
 # vim:set et sw=2 ts=2 ft=toml:

@@ -49,6 +49,11 @@ def match_state_dict(state_dict_a, state_dict_b):
     return matched_state_dict, unmatched_state_dict
 
 
+def get_one_hot_str_from_tensor(tensor):
+    index = torch.where(tensor == 1)
+    index_str = str(index[0].item()) if index[0].numel() > 0 else "Value not found"
+    return index_str
+
 
 def fix_weight_norm_deepcopy(model):
     # Fix bug where deepcopy doesn't work with weightnorm.

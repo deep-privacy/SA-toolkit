@@ -64,8 +64,8 @@ else:
     def register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=True):
         def decorator(func):
             @functools.wraps(func)
-            def wrapped_func(hisself, egs):
-                result = func(hisself, egs)
+            def wrapped_func(hisself, *args, **kwargs):
+                result = func(hisself, *args, **kwargs)
                 return result
             return wrapped_func
         return decorator

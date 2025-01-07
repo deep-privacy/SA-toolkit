@@ -8,11 +8,12 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/deep-privacy/SA-toolkit/blob/master/SA-colab.ipynb)
 [![Gradio demo](https://img.shields.io/website-up-down-yellow-red/https/hf.space/gradioiframe/Champion/SA-toolkit/+.svg?label=🤗%20Hugging%20Face-Spaces%20demo)](https://huggingface.co/spaces/Champion/SA-toolkit)
 
-SA-toolkit is a [pytorch](https://pytorch.org/)-based library providing pipelines and basic building blocs for evaluating and designing speaker anonymization techniques.
+SA-toolkit is a [pytorch](https://pytorch.org/)-based library providing pipelines and basic building blocs designing speaker anonymization techniques.  
+This library is the result of the work of Pierre Champion's [thesis](https://arxiv.org/abs/2308.04455).  
 
 Features include:
 
-- ASR training with a pytorch [kaldi](https://github.com/kaldi-asr/kaldi) [LF-MMI wrapper](https://github.com/idiap/pkwrap) (evaluation, and VC linguistic feature)
+- ASR training with a pytorch [kaldi](https://github.com/kaldi-asr/kaldi) [LF-MMI wrapper](https://github.com/idiap/pkwrap) (evaluation, and VC linguistic feature extraction)
 - VC HiFi-GAN training with on-the-fly feature caching (anonymization)
 - ASV training (evaluation)
 - WER Utility and EER/Linkability/Cllr Privacy evaluations
@@ -20,7 +21,7 @@ Features include:
 - Unified trainer/configs
 - TorchScript YAAPT & TorchScript kaldi.fbank (with batch processing!)
 - On the fly _only_ feature extraction
-- 100% TorchScript JIT-compatible network models
+- TorchScript JIT-compatible network models
 
 _All `data` are formatted with kaldi-like wav.scp, spk2utt, text, etc._  
 _Kaldi is necessary for training the ASR models and the handy `run.pl`/`ssh.pl`/`data_split`.. scripts, but most of the actual logic is performed in python; you won't have to deal kaldi ;)_
@@ -28,14 +29,17 @@ _Kaldi is necessary for training the ASR models and the handy `run.pl`/`ssh.pl`/
 
 ## Installation
 
-The best way to install the SA-toolkit is with the `install.sh` script, which setup a miniconda environment, and kaldi.
-Take a look at the script and adapt it to your cluster configuration, or leave it do it's magic.
+### conda
+The best way to install the SA-toolkit is with the `install.sh` script, which setup a micromamba environment, and kaldi.  
+Take a look at the script and adapt it to your cluster configuration, or leave it do it's magic.  
+This install is recommended for training ASR models.
 
 ```sh
 git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
 ```
 
+### pip
 Another way of installing SA-toolkit is with pip3, this will setup everything for inference/testing.  
 ```sh
 pip3 install 'git+https://github.com/deep-privacy/SA-toolkit.git@master#egg=satools&subdirectory=satools'
@@ -51,9 +55,10 @@ anonymize --config ./configs/anon_pipelines --directory ./data/XXX
 ```
 
 
-## Quick Torch HUB anonymization example
+## PyTorch API
+### Torch HUB anonymization example
 
-This locally installs satools (the required pip dependencies are: `torch` and `torchaudio`).  
+This locally installs satools with Torch HUB (the required pip dependencies are: `torch` and `torchaudio`).  
 This version gives access to the python/torch model for inference/testing, but for training use `install.sh`.
 You can modify `tag_version` accordingly to the available model tag [here](https://github.com/deep-privacy/SA-toolkit/releases).
 
@@ -65,65 +70,8 @@ wav_conv = model.convert(torch.rand((1, 77040)), target="1069")
 asr_bn = model.get_bn(torch.rand((1, 77040))) # (ASR-BN extraction for disentangled linguistic features (best with hifigan_bn_tdnnf_wav2vec2_vq_48_v1))
 ```
 
-## VPC 2024 performances
-
-### hifigan_bn_tdnnf_600h_vq_48_v1 (VPC-B5)
-```lua
----- ASV_eval^anon results ----
- dataset split gender enrollment trial     EER
-   libri  test      f       anon  anon  21.146
-   libri  test      m       anon  anon  21.137
-
----- ASR results ----
- dataset split       asr    WER
-   libri   dev      anon  9.693
-   libri  test      anon  9.092
-```
-
-### hifigan_bn_tdnnf_wav2vec2_vq_48_v1 (VPC-B6)
-```lua
----- ASV_eval^anon results ----
- dataset split gender enrollment trial     EER
-   libri  test      f       anon  anon  33.946
-   libri  test      m       anon  anon  34.729
-
----- ASR results ----
- dataset split       asr    WER
-   libri   dev      anon  4.731
-   libri  test      anon  4.369
-```
-
-### hifigan_bn_tdnnf_wav2vec2_vq_48_v1+f0-transformation=quant_16_awgn_2 (Add F0 transformations)
-```lua
----- ASR results ----
- dataset split       asr    WER
-   libri  test  original  1.844
-   libri  test      anon  4.814
-
----- ASV_eval^anon results ----
- dataset split gender enrollment trial     EER
-   libri  test      f       anon  anon  42.151
-   libri  test      m       anon  anon  40.755
-```
-
-### hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1+f0-transformation=quant_16_awgn_2 (hifigan train to match a single speaker + F0 transformations)
-```lua
----- ASR results ----
- dataset split       asr    WER
-   libri  test  original  1.844
-   libri  test      anon  4.209
-
----- ASV_eval^anon results ----
- dataset split gender enrollment trial     EER
-   libri  test      f       anon  anon  35.765
-   libri  test      m       anon  anon  35.195
-```
-
-> Note: The model was trained with a custom implementation of yaapt, yielding
-> lower speech naturalness than the original. (Maybe for the benefit of better
-> privacy)
-
-## Quick JIT anonymization example
+<details>
+<summary><h3>Torch JIT anonymization example</h3></summary>
 
 This version does not rely on any dependencies using [TorchScript](https://pytorch.org/docs/stable/jit.html).
 
@@ -140,17 +88,116 @@ torchaudio.save(f"/tmp/anon_{speaker}-{chapter}-{str(utterance)}.wav", wav_conv,
 Ensure you have the model [downloaded](https://github.com/deep-privacy/SA-toolkit/releases).
 Check the [egs/vc](egs/vc) directory for more detail.
 
-## Quick evaluation example
+
+</details>
+
+## VPC 2024 performances
+
+### tag_version=`hifigan_bn_tdnnf_600h_vq_48_v1`
+
+**VPC-B6**  
+
+```lua
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  21.146
+   libri  test      m       anon  anon  21.137
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  9.693
+   libri  test      anon  9.092
+```
+
+### tag_version=`hifigan_bn_tdnnf_wav2vec2_vq_48_v1`
+
+**VPC-B5**  
+
+```lua
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  33.946
+   libri  test      m       anon  anon  34.729
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  4.731
+   libri  test      anon  4.369
+```
+
+### tag_version=`hifigan_bn_tdnnf_wav2vec2_vq_48_v1+f0-transformation=quant_16_awgn_2`
+
+**Add F0 transformations to B5**  
+
+*With a stronger attacker (a better ASV model), the F0 transformation does not
+necessarily help to get a higher EER, (the VPC 2024 attack model is sensible to
+F0 modification).*
+
+```lua
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  5.306
+   libri  test      anon  4.814
+
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  42.151
+   libri  test      m       anon  anon  40.755
+```
+
+### tag_version=`hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1+f0-transformation=quant_16_awgn_2`
+
+*Experiment where libritts speech data is converted to a single speaker (using
+an anonymization system), then used as training data for another anonymization
+system.*  
+ASR bottleneck extractor fine-tuned on librispeech 600 (rather than 100 like the
+above).
+
+
+```lua
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  4.693
+   libri  test      anon  4.209
+
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  35.765
+   libri  test      m       anon  anon  35.195
+```
+
+### tag_version=`hifigan_clean_bn_tdnnf_wav2vec2_train_600_vq_48_v1+f0-transformation=quant_16_awgn_2`
+
+*Model most similar to the one of the thesis with F0 normalization, resulting in
+slightly better speech quality*  
+ASR bottleneck extractor fine-tuned on librispeech 600.
+
+
+```lua
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  4.693
+   libri  test      anon  4.209
+
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  35.765
+   libri  test      m       anon  anon  35.195
+```
+
+## Model training
+
+Checkout the READMEs of _[egs/asr/librispeech](egs/asr/librispeech)_ / _[egs/vc/libritts](egs/vc/libritts)_ / _[egs/asv/voxceleb](./egs/asv/voxceleb)_ .
+
+## Evaluation
+
+### It is prefered to use the Voice-Privacy-Challenge-2024 evaluation tool as this SA-toolkit library was used for two baselines (B5 and B6)*
 
 ```sh
 cd egs/anon/vctk
 ./local/eval.py --config configs/eval_clear  # eval privacy/utility of the signals
 ```
 Ensure you have the corresponding evaluation model trained or [downloaded](https://github.com/deep-privacy/SA-toolkit/releases).
-
-## Model training
-
-Checkout the READMEs of _[egs/asr/librispeech](egs/asr/librispeech)_ / _[egs/asv/voxceleb](./egs/asv/voxceleb)_ / _[egs/vc/libritts](egs/vc/libritts)_.
 
 ## Citation
 
@@ -177,7 +224,3 @@ If you found this library useful in academic research, please cite:
 
 ## License
 Most of the software is distributed under Apache 2.0 License (http://www.apache.org/licenses/LICENSE-2.0); the parts distributed under other licenses are indicated by a `LICENSE` file in related directories.
-
-## Evaluation choices
-_As outlined in the thesis, selecting the appropriate target identities for voice conversion is crucial for privacy evaluation. We strongly encourage the use of any-to-one voice conversion as it provides the greatest level of guarantee regarding unlinkable speech generation and facilitates proper training of a white-box ASV evaluation model. Additionally, this approach is easy to comprehend (everyone should sounds like a single identity) and enables using one-hot encoding for target identity representation, which is simpler than x-vectors while still highly effective for utility preservation.  
-Furthermore, the thesis identifies a limitation in the current utility evaluation process. We believe that the best solution for proper assessment of utility is through subjective listening, which allows for accurate evaluation of any mispronunciations produced by the VC system._
