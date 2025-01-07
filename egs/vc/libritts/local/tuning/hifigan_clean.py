@@ -141,7 +141,7 @@ def build(args):
         def get_spk_id(self, wavinfo: satools.utils.WavInfo, target=None):
             if not target: # in trainer (using WavInfo)
                 target = [self.utt2spk[wavinfo.name]]
-            return F.one_hot(torch.tensor([self.spk.index(t) for t in ([target] if isinstance(target, str) else traget)]), num_classes=len(self.spk))
+            return F.one_hot(torch.tensor([self.spk.index(t) for t in ([target] if isinstance(target, str) else target)]), num_classes=len(self.spk))
 
 
     return Net
