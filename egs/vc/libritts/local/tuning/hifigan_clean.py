@@ -134,7 +134,8 @@ def build(args):
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=True)
         def get_f0(self, wavinfo: Union[satools.utils.WavInfo, torch.Tensor]):
             wav = satools.utils.parse_wavinfo_wav(wavinfo)
-            f0 = hifigan.pyaapt.yaapt(wav, self.f0_yaapt_opts)
+            # f0 = hifigan.pyaapt.yaapt(wav, self.f0_yaapt_opts)
+            f0 = hifigan.yaapt.yaapt(wav, self.f0_yaapt_opts)
             return f0
 
         @satools.utils.register_feature_extractor(compute_device="cpu", scp_cache=False, sequence_feat=False)
