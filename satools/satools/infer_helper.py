@@ -10,7 +10,7 @@ import satools
 def load_model(file, load_weight=True, version="v1", from_file=None, option_args=None):
     if file.startswith("http"):
         model_dir = os.path.join(torch.hub.get_dir(), 'checkpoints', os.path.basename(os.path.dirname(file)))
-        model_state = torch.hub.load_state_dict_from_url(file, model_dir=model_dir)
+        model_state = torch.hub.load_state_dict_from_url(file, model_dir=model_dir, map_location=torch.device('cpu'))
     else:
         if not load_weight:
                 file = os.path.join(os.path.dirname(file), "conf.pt")
