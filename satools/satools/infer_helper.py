@@ -8,9 +8,13 @@ import importlib.util
 import satools
 
 def load_model(file, load_weight=True, version="v1", from_file=None, option_args=None):
+    cpu_cuda_load_opts = {}
+    if not torch.cuda.is_available():
+        cpu_cuda_load_opts["map_location"] = torch.device('cpu')
+
     if file.startswith("http"):
         model_dir = os.path.join(torch.hub.get_dir(), 'checkpoints', os.path.basename(os.path.dirname(file)))
-        model_state = torch.hub.load_state_dict_from_url(file, model_dir=model_dir, map_location=torch.device('cpu'))
+        model_state = torch.hub.load_state_dict_from_url(file, model_dir=model_dir, **cpu_cuda_load_opts)
     else:
         if not load_weight:
                 file = os.path.join(os.path.dirname(file), "conf.pt")
@@ -25,7 +29,7 @@ def load_model(file, load_weight=True, version="v1", from_file=None, option_args
             os.makedirs(os.path.dirname(file), exist_ok=True)
             logging.warning(f"File {file} does not exsist, attempting to downloading it from github releases..")
             torch.hub.download_url_to_file(url, file, hash_prefix="")
-        model_state = torch.load(file, weights_only=False)
+        model_state = torch.load(file, weights_only=False, **cpu_cuda_load_opts)
 
     install_path = model_state["install_path"]
     install_path_sa = os.path.dirname(os.path.dirname(satools.__path__[0])) # dir to git clone
