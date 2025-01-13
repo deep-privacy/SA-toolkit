@@ -166,25 +166,6 @@ above).
    libri  test      m       anon  anon  35.195
 ```
 
-### tag_version=`hifigan_clean_bn_tdnnf_wav2vec2_train_600_vq_48_v1+f0-transformation=quant_16_awgn_2`
-
-*Model most similar to the one of the thesis with F0 normalization, resulting in
-slightly better speech quality*  
-ASR bottleneck extractor fine-tuned on librispeech 600.
-
-
-```lua
----- ASR results ----
- dataset split       asr    WER
-   libri   dev      anon  4.693
-   libri  test      anon  4.209
-
----- ASV_eval^anon results ----
- dataset split gender enrollment trial     EER
-   libri  test      f       anon  anon  35.765
-   libri  test      m       anon  anon  35.195
-```
-
 ## Model training
 
 Checkout the READMEs of _[egs/asr/librispeech](egs/asr/librispeech)_ / _[egs/vc/libritts](egs/vc/libritts)_ / _[egs/asv/voxceleb](./egs/asv/voxceleb)_ .
