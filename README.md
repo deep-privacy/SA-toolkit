@@ -13,7 +13,7 @@ This library is the result of the work of Pierre Champion's [thesis](https://arx
 
 Features include:
 
-- :zap: Fast anonymization with a simple [`anonymize`](?tab=readme-ov-file#anonymize-bin) script
+- :zap: Fast anonymization with a simple [`anonymize`](https://github.com/deep-privacy/SA-toolkit/tree/master?tab=readme-ov-file#zap-anonymize-bin) script
 - ASR training with a pytorch [kaldi](https://github.com/kaldi-asr/kaldi) [LF-MMI wrapper](https://github.com/idiap/pkwrap) (evaluation, and VC linguistic feature extraction)
 - VC HiFi-GAN training with on-the-fly feature caching (anonymization)
 - ASV training (evaluation)
