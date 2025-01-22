@@ -13,6 +13,7 @@ This library is the result of the work of Pierre Champion's [thesis](https://arx
 
 Features include:
 
+- :zap: Fast anonymization with a simple [`anonymize`](?tab=readme-ov-file#anonymize-bin) script
 - ASR training with a pytorch [kaldi](https://github.com/kaldi-asr/kaldi) [LF-MMI wrapper](https://github.com/idiap/pkwrap) (evaluation, and VC linguistic feature extraction)
 - VC HiFi-GAN training with on-the-fly feature caching (anonymization)
 - ASV training (evaluation)
@@ -29,7 +30,7 @@ _Kaldi is necessary for training the ASR models and the handy `run.pl`/`ssh.pl`/
 
 ## Installation
 
-### conda
+### :snake: conda
 The best way to install the SA-toolkit is with the `install.sh` script, which setup a micromamba environment, and kaldi.  
 Take a look at the script and adapt it to your cluster configuration, or leave it do it's magic.  
 This install is recommended for training ASR models.
@@ -39,16 +40,17 @@ git clone https://github.com/deep-privacy/SA-toolkit
 ./install.sh
 ```
 
-### pip
+### :package: pip
 Another way of installing SA-toolkit is with pip3, this will setup everything for inference/testing.  
 ```sh
 pip3 install 'git+https://github.com/deep-privacy/SA-toolkit.git@master#egg=satools&subdirectory=satools'
 ```
 
-## Anonymize bin
+## :zap: Anonymize bin
 Once installed (with any of the above ways), you will
 have access to the [`anonymize`](./satools/satools/bin/anonymize) bin in your PATH that you can use together
 with a config (example: [here](./egs/vc/libritts/configs/anon_pipelines)) to anonymize a kaldi like directory.
+This script can make use of multiple GPUs, for faster anonymization.
 
 ```sh
 anonymize --config ./configs/anon_pipelines --directory ./data/XXX
@@ -129,20 +131,20 @@ Check the [egs/vc](egs/vc) directory for more detail.
 
 **Add F0 transformations to B5**  
 
-*With a stronger attacker (a better ASV model), the F0 transformation does not
-necessarily help to get a higher EER, (the VPC 2024 attack model is sensible to
+*With a stronger attacker than the VPC one (a better ASV model), the F0 transformation does not
+get a higher EER than B5. (the VPC 2024 attack model is sensible to
 F0 modification).*
 
 ```lua
----- ASR results ----
- dataset split       asr    WER
-   libri   dev      anon  5.306
-   libri  test      anon  4.814
-
 ---- ASV_eval^anon results ----
  dataset split gender enrollment trial     EER
    libri  test      f       anon  anon  42.151
    libri  test      m       anon  anon  40.755
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  5.306
+   libri  test      anon  4.814
 ```
 
 ### tag_version=`hifigan_inception_bn_tdnnf_wav2vec2_train_600_vq_48_v1+f0-transformation=quant_16_awgn_2`
@@ -155,15 +157,15 @@ above).
 
 
 ```lua
----- ASR results ----
- dataset split       asr    WER
-   libri   dev      anon  4.693
-   libri  test      anon  4.209
-
 ---- ASV_eval^anon results ----
  dataset split gender enrollment trial     EER
    libri  test      f       anon  anon  35.765
    libri  test      m       anon  anon  35.195
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  4.693
+   libri  test      anon  4.209
 ```
 
 ## Model training
@@ -172,13 +174,7 @@ Checkout the READMEs of _[egs/asr/librispeech](egs/asr/librispeech)_ / _[egs/vc/
 
 ## Evaluation
 
-### It is prefered to use the Voice-Privacy-Challenge-2024 evaluation tool as this SA-toolkit library was used for two baselines (B5 and B6)*
-
-```sh
-cd egs/anon/vctk
-./local/eval.py --config configs/eval_clear  # eval privacy/utility of the signals
-```
-Ensure you have the corresponding evaluation model trained or [downloaded](https://github.com/deep-privacy/SA-toolkit/releases).
+It is prefered to use the Voice-Privacy-Challenge-2024 evaluation tool as this SA-toolkit library was used for two baselines (B5 and B6)
 
 ## Citation
 
