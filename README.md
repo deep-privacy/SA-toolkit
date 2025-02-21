@@ -95,22 +95,6 @@ Check the [egs/vc](egs/vc) directory for more detail.
 
 ## VPC 2024 performances
 
-### tag_version=`hifigan_bn_tdnnf_600h_vq_48_v1`
-
-**VPC-B6**  
-
-```lua
----- ASV_eval^anon results ----
- dataset split gender enrollment trial     EER
-   libri  test      f       anon  anon  21.146
-   libri  test      m       anon  anon  21.137
-
----- ASR results ----
- dataset split       asr    WER
-   libri   dev      anon  9.693
-   libri  test      anon  9.092
-```
-
 ### tag_version=`hifigan_bn_tdnnf_wav2vec2_vq_48_v1`
 
 **VPC-B5**  
@@ -125,6 +109,22 @@ Check the [egs/vc](egs/vc) directory for more detail.
  dataset split       asr    WER
    libri   dev      anon  4.731
    libri  test      anon  4.369
+```
+
+### tag_version=`hifigan_bn_tdnnf_600h_vq_48_v1`
+
+**VPC-B6**  
+
+```lua
+---- ASV_eval^anon results ----
+ dataset split gender enrollment trial     EER
+   libri  test      f       anon  anon  21.146
+   libri  test      m       anon  anon  21.137
+
+---- ASR results ----
+ dataset split       asr    WER
+   libri   dev      anon  9.693
+   libri  test      anon  9.092
 ```
 
 ### tag_version=`hifigan_bn_tdnnf_wav2vec2_vq_48_v1+f0-transformation=quant_16_awgn_2`
