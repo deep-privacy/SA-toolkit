@@ -17,19 +17,21 @@ def _removeprefix(s, prefix):
 
 def _load(input_file):
     if input_file.startswith("http"):
-        data = torch.hub.load_state_dict_from_url(input_file)
+        data = torch.hub.load_state_dict_from_url(input_file, weights_only=True)
     else:
-        data = torch.load(input_file, weights_only=False)
+        data = torch.load(input_file, weights_only=True)
 
     #  print(data["cfg"])
-    cfg = data["cfg"]
-    for key in list(cfg.keys()):
-        if key != "model":
-            del cfg[key]
-            if "w2v_args" in cfg["model"]:
-                del cfg["model"]["w2v_args"][key]
-    state_dict = {_removeprefix(k, "w2v_encoder."): v for k, v in data["model"].items()}
-    return cfg, state_dict
+
+    if "model_cfg" in data: # Fairseq s3prl-converted case
+        cfg = data["model_cfg"]
+        state_dict = {_removeprefix(k, "w2v_encoder."): v for k, v in data["model_weight"].items()}
+        return cfg, state_dict
+
+    if "cfg" in data: # Fairseq case
+        cfg = data["cfg"]["model"]
+        state_dict = {_removeprefix(k, "w2v_encoder."): v for k, v in data["model"].items()}
+        return cfg, state_dict
 
 
 def _parse_model_param(cfg, state_dict):
@@ -57,9 +59,9 @@ def _parse_model_param(cfg, state_dict):
         "encoder_layerdrop": "encoder_layer_drop",
     }
     params = {}
-    src_dicts = [cfg["model"]]
-    if "w2v_args" in cfg["model"]:
-        src_dicts.append(cfg["model"]["w2v_args"]["model"])
+    src_dicts = [cfg]
+    if "w2v_args" in cfg:
+        src_dicts.append(cfg["w2v_args"]["model"])
 
     for src, tgt in key_mapping.items():
         for model_cfg in src_dicts:

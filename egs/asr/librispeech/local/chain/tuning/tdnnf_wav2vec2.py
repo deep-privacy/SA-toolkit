@@ -26,6 +26,11 @@ def build(args):
             logging.info("Init epoch 0: Preprocesor initialization.")
             model = "wav2vec2_large_west_germanic_v2.pt"
             url = "https://dl.fbaipublicfiles.com/voxpopuli/models/"
+
+            ## Alternative source:
+            # model = "w2v_large_lv_fsh_swbd_cv.pt"
+            # url = "https://huggingface.co/s3prl/converted_ckpts/resolve/main/"
+
             self.preprocessor.load_convert_checkpoint(f"{url}{model}")
 
         def __init__(

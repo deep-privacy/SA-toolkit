@@ -3,15 +3,16 @@ cpu_cmd = ./utils/run.pl
 cuda_cmd = ./utils/run.pl
 
 [var]
-# dset = train_clean_100
-dset = train_600
+dset = train_clean_100
+## Training on train_600 does not yield significant improvement for VPC libri-clean test
+# dset = train_600
 
 [exp]
 train_set = data/${:dset}_sp
 tree_dir = exp/chain/e2e_${:dset}/e2e_biphone_tree
 egs_dir = exp/chain/e2e_${:dset}/fst_egs
 
-# train params (single GPU for SSL model)
+## train params (single GPU for SSL model)
 num_epochs = 2
 num_jobs_initial = 1
 num_jobs_final = 1
@@ -19,10 +20,9 @@ lr_initial = 3e-04
 lr_final =   1e-05
 diagnostics_interval = 20
 checkpoint_interval =  5
-# fits on ~35 GB VRAM
+## fits on ~35 GB VRAM
 minibatch_size = 8
 grad_acc_steps = 16
-# train_stage = 57
 train_stage = last
 
 xent_regularize = 0.01
@@ -33,7 +33,7 @@ final_combination_n_model = 1
 model_file = local/chain/tuning/tdnnf_wav2vec2.py
 dirname = bn_tdnnf_wav2vec2_${:dset}_aug
 
-# see ../../../share/dataprep_aug.py
+## see ../../../share/dataprep_aug.py
 augmentation = {
   "pipeline": ["add_reverb", "add_noise", "phone_filtering"],
   "aug_number": 1,
@@ -59,7 +59,7 @@ test_set = data/test_clean,data/test_other
 # test_set = data/dev_other
 # test_set = data/dev_clean
 
-# decode on gpus
+## decode on gpus
 num_jobs = 9
 gpu = True
 
