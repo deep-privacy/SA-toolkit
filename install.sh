@@ -193,8 +193,8 @@ if [ ! -f $mark ]; then
     cd $home
     touch .${venv_dir_name}_done-kaldi-tools .${venv_dir_name}_done-kaldi-src
   else
-    mkdir -p kaldi/tools/python
-    touch kaldi/tools/python/.use_default_python
+    mkdir -p tools/python
+    touch tools/python/.use_default_python
     cd tools
     extras/check_dependencies.sh || exit 1
     make -j $nj || exit 1
