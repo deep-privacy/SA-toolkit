@@ -132,7 +132,7 @@ Check the [egs/vc](egs/vc) directory for more detail.
 **Add F0 transformations to B5**  
 
 *With a stronger attacker than the VPC one (a better ASV model), the F0 transformation does not
-get a higher EER than B5. (the VPC 2024 attack model is sensible to
+get a such higher EER than B5, only plus ~4 more EER is the goal (the VPC 2024 attack model is sensible to
 F0 modification).*
 
 ```lua
